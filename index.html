@@ -1,67 +1,44 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Abra Zylo — AI SEO Portal designed by Sagar</title>
+<title>Abra Zylo — AI SEO Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<!-- Firebase -->
-<script>
-// ══════════════════════════════════════════════════════════
-// LOCAL-FIRST MODE — works from file:// without any server
-// Firebase is optional. To enable: replace config below and
-// uncomment the Firebase loader at the bottom of this block.
-// ══════════════════════════════════════════════════════════
 
-// OPTIONAL Firebase Config — leave as-is for local mode
-// Replace values from console.firebase.google.com when ready
-window._FIREBASE_CONFIG = {
-  // apiKey: "",
-  // authDomain: "",
-  // projectId: "",
-  // storageBucket: "",
-  // messagingSenderId: "",
-  // appId: ""
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, deleteDoc, updateDoc, addDoc, serverTimestamp, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
   apiKey: "AIzaSyDTDGJTzXFTGSZyu_O-SSdS3Mis1u0_e0g",
   authDomain: "abra-zylo-seo.firebaseapp.com",
   projectId: "abra-zylo-seo",
   storageBucket: "abra-zylo-seo.firebasestorage.app",
   messagingSenderId: "1079467827029",
-  appId: "1:1079467827029:web:8bd2ff1eb0c7d66ae059dc",
-  measurementId: "G-BX3DFXCL5F"
+  appId: "1:1079467827029:web:8bd2ff1eb0c7d66ae059dc"
 };
 
-// Always start in local mode — Firebase loads only if config is filled
-// window._fbReady = true;
-// window._fbMode = 'local'; // 'local' or 'firebase'
-window._fbReady = false;
-window._fbMode = 'firebase';
-document.dispatchEvent(new Event('fbReady'));
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
 
-// ── OPTIONAL: Uncomment below when Firebase config is filled ──
-(function loadFirebase() {
-  const s = document.createElement('script'); s.type='module';
-  s.textContent = `
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
-      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, deleteDoc, updateDoc, addDoc, serverTimestamp }
-      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    const app = initializeApp(${JSON.stringify(window._FIREBASE_CONFIG)});
-    window._fb = { auth: getAuth(app), db: getFirestore(app), createUserWithEmailAndPassword, signInWithEmailAndPassword,
-      signOut, onAuthStateChanged, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy,
-      deleteDoc, updateDoc, addDoc, serverTimestamp };
-    window._fbMode = 'firebase';
-  `;
-  document.head.appendChild(s);
-})();
+window._fb = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+  onAuthStateChanged, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy,
+  deleteDoc, updateDoc, addDoc, serverTimestamp, limit, updateProfile };
+window._fbReady = true;
+document.dispatchEvent(new CustomEvent('fbReady'));
 </script>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --brand:#0a1628;--brand2:#0f2347;--brand3:#162d56;
-  --accent:#f59e0b;--accent2:#fbbf24;--accent-dim:#78350f;
+  --brand:#0a1628;--brand2:#0f2347;
+  --accent:#f59e0b;--accent2:#fbbf24;
   --green:#10b981;--green-bg:#ecfdf5;
   --red:#ef4444;--red-bg:#fef2f2;
   --blue:#3b82f6;--blue-bg:#eff6ff;
@@ -77,13 +54,11 @@ document.dispatchEvent(new Event('fbReady'));
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
 .page{display:none;min-height:100vh}
 .page.active{display:flex;flex-direction:column}
-
-/* ═══ SCROLLBAR ═══ */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
 
-/* ═══ AUTH ═══ */
+/* AUTH */
 .auth-shell{min-height:100vh;display:grid;grid-template-columns:420px 1fr}
 .auth-left{background:var(--brand);padding:3rem;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
 .auth-left::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:rgba(245,158,11,.06)}
@@ -105,13 +80,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .auth-box .sub{color:var(--text2);font-size:.875rem;margin-bottom:2rem}
 .form-row{margin-bottom:.875rem}
 .form-row label{display:block;font-size:.75rem;font-weight:600;color:var(--text2);margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase}
-.form-row input,.form-row select,.form-row textarea{
-  width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
-  font-family:'Outfit',sans-serif;font-size:.9rem;color:var(--text);background:var(--surface);
-  transition:border-color .2s,box-shadow .2s;outline:none;
-}
-.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(245,158,11,.12)}
-.form-row textarea{resize:vertical;min-height:80px}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:.9rem;color:var(--text);background:var(--surface);transition:border-color .2s,box-shadow .2s;outline:none}
+.form-row input:focus,.form-row select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(245,158,11,.12)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 20px;border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:all .18s;white-space:nowrap}
 .btn-primary{background:var(--brand);color:#fff}
 .btn-primary:hover{background:var(--brand2);transform:translateY(-1px);box-shadow:var(--shadow-md)}
@@ -120,7 +90,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border)}
 .btn-outline:hover{border-color:var(--border2);background:var(--surface2)}
 .btn-danger{background:var(--red-bg);color:var(--red);border:1.5px solid #fecaca}
-.btn-danger:hover{background:#fef2f2}
 .btn-ghost{background:transparent;color:var(--text2);border:none}
 .btn-ghost:hover{background:var(--surface2);color:var(--text)}
 .btn-sm{padding:6px 12px;font-size:.78rem}
@@ -129,9 +98,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none !important;box-shadow:none !important}
 .auth-switch{margin-top:1.25rem;text-align:center;font-size:.85rem;color:var(--text2)}
 .auth-switch a{color:var(--brand2);font-weight:600;cursor:pointer;text-decoration:none}
-.auth-switch a:hover{text-decoration:underline}
 
-/* ═══ APP SHELL ═══ */
+/* APP SHELL */
 .app-shell{display:flex;min-height:100vh;width:100%}
 .sidebar{background:var(--brand);width:var(--sidebar);min-width:var(--sidebar);flex-shrink:0;height:100vh;display:flex;flex-direction:column;z-index:20;overflow-y:auto;position:sticky;top:0}
 .sidebar-top{padding:1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -142,11 +110,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .sidebar-logo-text span{font-size:.65rem;font-weight:400;color:rgba(255,255,255,.35);display:block}
 .sidebar-nav{flex:1;padding:.75rem .625rem;display:flex;flex-direction:column;gap:1px}
 .nav-section-label{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);padding:.875rem .625rem .3rem}
-.nav-link{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;color:rgba(255,255,255,.55);font-size:.85rem;font-weight:500;cursor:pointer;transition:all .15s;position:relative}
+.nav-link{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;color:rgba(255,255,255,.55);font-size:.85rem;font-weight:500;cursor:pointer;transition:all .15s}
 .nav-link:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.85)}
 .nav-link.active{background:rgba(255,255,255,.1);color:#fff}
 .nav-link svg{width:17px;height:17px;flex-shrink:0}
-.nav-link .nav-badge{margin-left:auto;background:var(--accent);color:var(--brand);font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:99px;min-width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--accent);color:var(--brand);font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:99px;min-width:18px;text-align:center}
 .sidebar-free-tag{margin:.5rem .625rem;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:7px 10px;font-size:.72rem;color:rgba(255,255,255,.5);line-height:1.6}
 .sidebar-free-tag strong{color:#34d399;display:block}
 .sidebar-bottom{padding:.875rem .625rem;border-top:1px solid rgba(255,255,255,.06)}
@@ -156,7 +124,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .user-name{color:#fff;font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .user-email{color:rgba(255,255,255,.3);font-size:.65rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .logout-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.3);padding:4px;border-radius:6px;transition:color .15s}
-.logout-btn:hover{color:rgba(255,255,255,.8);background:rgba(255,255,255,.07)}
+.logout-btn:hover{color:rgba(255,255,255,.8)}
 .main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;padding:0 1.75rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
 .topbar-title{font-weight:700;font-size:.95rem}
@@ -167,22 +135,22 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .page-body{padding:1.75rem;flex:1;width:100%;box-sizing:border-box}
 #tab-dashboard,#tab-generate,#tab-history,#tab-settings{display:none}
 
-/* ═══ CARDS / PANELS ═══ */
+/* CARDS */
 .card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow)}
 .card-header{padding:.875rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .card-header h3{font-size:.875rem;font-weight:700}
 .card-body{padding:1.25rem}
 
-/* ═══ STATS ═══ */
+/* STATS */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
 .stat-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.1rem 1.25rem;box-shadow:var(--shadow)}
 .stat-label{font-size:.72rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
-.stat-val{font-size:1.85rem;font-weight:800;color:var(--brand);line-height:1;font-family:'Outfit',sans-serif}
+.stat-val{font-size:1.85rem;font-weight:800;color:var(--brand);line-height:1}
 .stat-sub{font-size:.72rem;color:var(--text3);margin-top:4px}
 
-/* ═══ GENERATE PAGE ═══ */
+/* GENERATE */
 .gen-grid{display:grid;grid-template-columns:360px 1fr;gap:1.25rem;align-items:start}
-.upload-box{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--surface2)}
+.upload-box{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
 .upload-box:hover{border-color:var(--accent);background:rgba(245,158,11,.04)}
 .upload-box input[type=file]{display:none}
 .upload-box img{max-height:150px;border-radius:8px;max-width:100%;margin:0 auto 8px;display:none}
@@ -202,7 +170,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .tab-pane{display:none;padding:1.25rem}
 .tab-pane.active{display:block}
 
-/* ═══ SEO FIELDS ═══ */
+/* SEO FIELDS */
 .seo-field{margin-bottom:1.1rem}
 .seo-field-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
 .seo-field-label{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2)}
@@ -217,21 +185,19 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .kw-tag{background:var(--blue-bg);color:var(--blue);padding:3px 10px;border-radius:99px;font-size:.75rem;font-weight:600}
 .prod-tag{background:var(--surface2);color:var(--text2);padding:3px 10px;border-radius:99px;font-size:.75rem;border:1px solid var(--border)}
 
-/* ═══ URL VALIDATOR ═══ */
+/* URL VALIDATOR */
 .url-validator{margin-top:.625rem;background:var(--surface2);border-radius:var(--radius-sm);padding:.875rem;border:1px solid var(--border)}
 .url-validator-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:.625rem}
-.url-checks{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.url-check{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text2)}
-.url-check svg{width:13px;height:13px;flex-shrink:0}
-.url-check.pass{color:var(--green)}
-.url-check.fail{color:var(--red)}
+.checklist{display:flex;flex-direction:column;gap:4px;margin-top:.5rem}
+.check-item{display:flex;align-items:center;gap:7px;font-size:.78rem;padding:4px 0;color:var(--text2)}
+.check-item svg{width:14px;height:14px;flex-shrink:0}
+.check-item.pass{color:var(--green)}
+.check-item.fail{color:var(--red)}
 
-/* ═══ OPENCART BOX ═══ */
+/* OPENCART BOX */
 .oc-box{background:var(--brand);border-radius:var(--radius-sm);padding:1rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:1.9;color:rgba(255,255,255,.8);white-space:pre-wrap;overflow-x:auto;max-height:380px;overflow-y:auto}
-.oc-box .oc-section{color:var(--accent);font-weight:700}
-.oc-box .oc-val{color:#a5f3fc}
 
-/* ═══ HISTORY ═══ */
+/* HISTORY */
 .history-filters{display:flex;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap}
 .history-filters input{flex:1;min-width:180px}
 .history-list{display:flex;flex-direction:column;gap:8px}
@@ -245,55 +211,52 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .history-date{font-size:.7rem;color:var(--text3);white-space:nowrap}
 .lang-badge{display:inline-block;margin-top:3px;background:var(--blue-bg);color:var(--blue);padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700}
 .versions-badge{display:inline-block;margin-top:3px;margin-left:4px;background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700}
+.firebase-badge{display:inline-block;margin-top:3px;margin-left:4px;background:#fff7ed;color:#ea580c;padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700}
 
-/* ═══ MODAL ═══ */
+/* MODAL */
 .overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:100;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px)}
 .overlay.open{display:flex}
 .modal{background:var(--surface);border-radius:var(--radius);max-width:720px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
 .modal-head{padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:2}
 .modal-head h3{font-size:.95rem;font-weight:700}
 .modal-close{background:none;border:none;cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all .15s}
-.modal-close:hover{background:var(--surface2);color:var(--text)}
+.modal-close:hover{background:var(--surface2)}
 .modal-body{padding:1.5rem}
-
-/* ═══ VERSIONS ═══ */
 .version-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:.875rem;margin-bottom:.625rem;cursor:pointer;transition:all .15s}
-.version-item:hover{border-color:var(--accent);background:rgba(245,158,11,.02)}
-.version-item.active-ver{border-color:var(--green);background:var(--green-bg)}
+.version-item:hover{border-color:var(--accent)}
 .version-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .version-num{font-size:.75rem;font-weight:700;color:var(--text2)}
 .version-date{font-size:.7rem;color:var(--text3)}
 .version-title{font-size:.85rem;font-weight:600}
 
-/* ═══ ALERTS ═══ */
+/* ALERTS */
 .alert{padding:9px 13px;border-radius:var(--radius-xs);font-size:.83rem;margin-bottom:.875rem;display:none;line-height:1.5}
 .alert.show{display:flex;align-items:flex-start;gap:8px}
 .alert svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
 .alert-danger{background:var(--red-bg);color:var(--red);border:1px solid #fecaca}
 .alert-success{background:var(--green-bg);color:var(--green);border:1px solid #a7f3d0}
 .alert-warn{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
-.alert-info{background:var(--blue-bg);color:var(--blue);border:1px solid #bfdbfe}
 
-/* ═══ LOADING ═══ */
+/* LOADING */
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .loading-overlay.open{display:flex}
 .loading-card{background:var(--surface);border-radius:var(--radius);padding:2rem 2.5rem;text-align:center;min-width:260px;box-shadow:var(--shadow-lg)}
 .spinner{width:42px;height:42px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-card p{font-size:.875rem;color:var(--text2);margin-bottom:.5rem}
-.loading-card .model-chip{display:inline-block;background:var(--green-bg);color:var(--green);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:99px}
+.model-chip{display:inline-block;background:var(--green-bg);color:var(--green);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:99px}
 .loading-steps{margin-top:1rem;display:flex;flex-direction:column;gap:4px}
 .loading-step{font-size:.75rem;color:var(--text3);display:flex;align-items:center;gap:6px}
 .loading-step.done{color:var(--green)}
 .loading-step svg{width:13px;height:13px}
 
-/* ═══ DUPLICATE WARNING ═══ */
+/* DUP WARNING */
 .dup-warn{background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius-sm);padding:.875rem 1rem;margin-bottom:.875rem;display:none}
 .dup-warn.show{display:block}
 .dup-warn p{font-size:.82rem;color:#92400e;margin-bottom:.5rem}
-.dup-warn .slug-suggest{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:#fef3c7;padding:4px 8px;border-radius:4px;color:#78350f;display:inline-block;margin-bottom:.5rem}
+.slug-suggest{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:#fef3c7;padding:4px 8px;border-radius:4px;color:#78350f;display:inline-block;margin-bottom:.5rem}
 
-/* ═══ SETTINGS ═══ */
+/* SETTINGS */
 .settings-section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:1.25rem;overflow:hidden;box-shadow:var(--shadow)}
 .settings-section-head{padding:1rem 1.5rem;border-bottom:1px solid var(--border)}
 .settings-section-head h3{font-size:.9rem;font-weight:700}
@@ -301,269 +264,60 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .settings-section-body{padding:1.5rem}
 .api-row{display:flex;gap:8px;align-items:center}
 .api-row input{flex:1;font-family:'JetBrains Mono',monospace;font-size:.82rem}
-.free-steps{background:var(--green-bg);border-radius:var(--radius-xs);padding:.875rem 1rem;font-size:.8rem;color:#065f46;line-height:1.8;margin-bottom:1rem;border:1px solid #a7f3d0}
-.free-steps strong{display:block;margin-bottom:3px;font-size:.85rem}
+.info-box{border-radius:var(--radius-xs);padding:.875rem 1rem;font-size:.8rem;line-height:1.8;margin-bottom:1rem;border:1px solid}
+.info-box-green{background:var(--green-bg);color:#065f46;border-color:#a7f3d0}
+.info-box-blue{background:var(--blue-bg);color:#1e40af;border-color:#bfdbfe}
+.info-box-orange{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+.info-box strong{display:block;margin-bottom:3px;font-size:.85rem}
 
-/* ═══ TOAST ═══ */
+/* TOAST */
 #toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:9px 16px;border-radius:var(--radius-xs);font-size:.82rem;z-index:999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;max-width:300px;box-shadow:var(--shadow-lg)}
 #toast.show{opacity:1;transform:translateY(0)}
 
-/* ═══ EMPTY STATE ═══ */
+/* EMPTY STATE */
 .empty-state{text-align:center;padding:4rem 2rem}
 .empty-state svg{width:52px;height:52px;color:var(--border);margin:0 auto 1rem;display:block}
 .empty-state h3{font-size:.95rem;font-weight:700;margin-bottom:.375rem}
 .empty-state p{font-size:.83rem;color:var(--text2)}
 
-/* ═══ CHECKLIST ═══ */
-.checklist{display:flex;flex-direction:column;gap:4px;margin-top:.5rem}
-.check-item{display:flex;align-items:center;gap:7px;font-size:.78rem;padding:4px 0;color:var(--text2)}
-.check-item svg{width:14px;height:14px;flex-shrink:0}
-.check-item.pass{color:var(--green)}
-.check-item.fail{color:var(--red)}
+/* MOBILE */
+.mobile-menu-btn{display:none;background:none;border:none;cursor:pointer;padding:8px;font-size:1.2rem}
+.sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;display:none}
+.sidebar-backdrop.show{display:block}
 
-/* @media(max-width:900px){
+@media(max-width:1024px){.stats-row{grid-template-columns:repeat(2,1fr)}.gen-grid{grid-template-columns:1fr}.page-body{padding:1rem}}
+@media(max-width:768px){
   .auth-shell{grid-template-columns:1fr}.auth-left{display:none}
-  .sidebar{display:none}
-  .gen-grid{grid-template-columns:1fr}.stats-row{grid-template-columns:1fr 1fr}
-} */
- /* =========================
-   RESPONSIVE DESIGN FIXES
-========================= */
-
-/* Tablet */
-@media (max-width: 1024px) {
-
-  .stats-row{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-  .gen-grid{
-    grid-template-columns:1fr;
-  }
-
-  .page-body{
-    padding:1rem;
-  }
-
-  .result-actions{
-    width:100%;
-    justify-content:flex-start;
-  }
-
-  .history-item{
-    grid-template-columns:50px 1fr;
-  }
-
-  .history-meta{
-    grid-column:2;
-    text-align:left;
-  }
+  .mobile-menu-btn{display:flex;align-items:center;justify-content:center}
+  .sidebar{position:fixed;left:-260px;top:0;width:240px;height:100vh;z-index:999;transition:left .3s ease;box-shadow:0 0 25px rgba(0,0,0,.25)}
+  .sidebar.open{left:0}
+  .main{width:100%}
+  .topbar{padding:0 12px;height:auto;min-height:56px}
+  .page-body{padding:12px}
+  .stats-row{grid-template-columns:1fr;gap:12px}
 }
-
-/* Mobile */
-@media (max-width: 768px) {
-
-  .auth-shell{
-    grid-template-columns:1fr;
-  }
-
-  .auth-left{
-    display:none;
-  }
-
-  /* .sidebar{
-    display:none;
-  } */
-  /* Mobile Sidebar */
-.mobile-menu-btn{
-  display:none;
-  background:none;
-  border:none;
-  cursor:pointer;
-  padding:8px;
-}
-
-@media (max-width:768px){
-
-  .mobile-menu-btn{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-
-  .sidebar{
-    display:flex !important;
-    position:fixed;
-    left:-260px;
-    top:0;
-    width:240px;
-    height:100vh;
-    z-index:999;
-    transition:left .3s ease;
-    box-shadow:0 0 25px rgba(0,0,0,.25);
-  }
-
-  .sidebar.open{
-    left:0;
-  }
-
-  .main{
-    width:100%;
-  }
-
-  .sidebar-backdrop{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.45);
-    z-index:998;
-    display:none;
-  }
-
-  .sidebar-backdrop.show{
-    display:block;
-  }
-}
-  .main{
-    width:100%;
-  }
-
-  .topbar{
-    padding:0 12px;
-    height:auto;
-    min-height:56px;
-    flex-wrap:wrap;
-    gap:10px;
-  }
-
-  .page-body{
-    padding:12px;
-  }
-
-  .stats-row{
-    grid-template-columns:1fr;
-    gap:12px;
-  }
-
-  .gen-grid{
-    grid-template-columns:1fr;
-  }
-
-  .url-checks{
-    grid-template-columns:1fr;
-  }
-
-  .history-item{
-    grid-template-columns:1fr;
-    text-align:center;
-  }
-
-  .history-thumb{
-    margin:auto;
-  }
-
-  .history-meta{
-    text-align:center;
-  }
-
-  .result-header{
-    flex-direction:column;
-    align-items:flex-start;
-  }
-
-  .result-actions{
-    width:100%;
-  }
-
-  .result-actions .btn{
-    flex:1;
-  }
-
-  .card-body,
-  .modal-body{
-    padding:1rem;
-  }
-
-  .tabs{
-    overflow-x:auto;
-    white-space:nowrap;
-  }
-}
-
-/* Small Mobile */
-@media (max-width: 480px) {
-
-  body{
-    font-size:14px;
-  }
-
-  .auth-right{
-    padding:1rem;
-  }
-
-  .auth-box{
-    max-width:100%;
-  }
-
-  .stat-val{
-    font-size:1.6rem;
-  }
-
-  .topbar-title{
-    font-size:.85rem;
-  }
-
-  .btn{
-    width:100%;
-  }
-
-  .result-actions{
-    flex-direction:column;
-  }
-
-  .seo-field-head{
-    flex-direction:column;
-    align-items:flex-start;
-    gap:6px;
-  }
-
-  .history-filters{
-    flex-direction:column;
-  }
-
-  .history-filters input,
-  .history-filters select,
-  .history-filters button{
-    width:100%;
-    max-width:none;
-  }
-
-  .oc-box{
-    font-size:.7rem;
-  }
-}
+@media(max-width:480px){.auth-right{padding:1rem}.btn{width:100%}.result-actions{flex-direction:column}}
 </style>
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════
-     LOGIN PAGE
-════════════════════════════════════════════ -->
+<!-- ═══ LOGIN ═══ -->
 <div id="page-login" class="page active">
 <div class="auth-shell">
   <div class="auth-left">
     <div class="auth-logo">
       <div class="auth-logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-      <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal designed by <b> Sagar K</b></span></div>
+      <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal</span></div>
     </div>
     <h1>SEO that scores<br/><em>100 out of 100.</em></h1>
-    <p>AI-powered SEO generation for every product on your Abra Zylo store.</p>
+    <p>AI-powered SEO for every product on your OpenCart store — powered by Groq AI & Firebase.</p>
     <div class="auth-feats">
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Meta title, description & product copy</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>SEO URL validator — 11 point checklist</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Duplicate name & slug detection</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Product tags + image alt text</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Regenerate & version history</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Firebase cloud storage — access anywhere</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>🔥 Firebase cloud — sync across devices</span></div>
     </div>
   </div>
   <div class="auth-right">
@@ -574,38 +328,32 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span id="login-alert-msg"></span>
       </div>
-      <div class="form-row"><label>Username</label><input type="text" id="login-user" placeholder="sagark" value="sagark"/></div>
-      <div class="form-row"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" value="sagar0559"/></div>
-      <button class="btn btn-accent btn-full" onclick="doLogin()" style="margin-top:.25rem">Sign in →</button>
+      <div class="form-row"><label>Email</label><input type="email" id="login-email" placeholder="Email address"/></div>
+      <div class="form-row"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"/></div>
+      <button class="btn btn-accent btn-full" id="login-btn" onclick="doLogin()">Sign in →</button>
       <div class="auth-switch">No account? <a onclick="showPage('page-register')">Create one</a></div>
-      <div style="margin-top:1rem;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:.75rem;color:var(--text2);line-height:1.6;">
-        <strong style="color:var(--text);">Demo credentials pre-filled.</strong><br/>
-        Username: <strong>sagark</strong> · Password: <strong>sagar0559</strong>
-      </div>
-      <div style="margin-top:.5rem;text-align:center;">
-        <a onclick="hardReset()" style="font-size:.72rem;color:var(--text3);cursor:pointer;text-decoration:underline;">Having trouble? Click here to reset</a>
+      <div style="margin-top:.5rem;text-align:center">
+        <a onclick="hardReset()" style="font-size:.72rem;color:var(--text3);cursor:pointer;text-decoration:underline">Having trouble? Reset local data</a>
       </div>
     </div>
   </div>
 </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-     REGISTER PAGE
-════════════════════════════════════════════ -->
+<!-- ═══ REGISTER ═══ -->
 <div id="page-register" class="page">
 <div class="auth-shell">
   <div class="auth-left">
     <div class="auth-logo">
       <div class="auth-logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-      <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal designed by <b> Sagar K</b></span></div>
+      <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal</span></div>
     </div>
     <h1>Create your<br/><em>SEO workspace.</em></h1>
-    <!-- <p>Get started in 60 seconds. Bring your free Google Groq API key — no credit card needed.</p> -->
+    <p>Set up in 60 seconds. All data saved to Firebase cloud.</p>
     <div class="auth-feats">
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Free forever with Groq API</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>1,500 generations/day at no cost</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Firebase cloud — data safe & synced</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Free with Groq API — 14,400 req/day</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Firebase cloud storage — access anywhere</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>No credit card needed</span></div>
     </div>
   </div>
   <div class="auth-right">
@@ -616,57 +364,48 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span id="reg-alert-msg"></span>
       </div>
-      <div class="form-row"><label>Full Name</label><input type="text" id="reg-name" placeholder="Sagar"/></div>
-      <div class="form-row"><label>Username</label><input type="text" id="reg-username" placeholder="sagark"/></div>
-      <div class="form-row"><label>Email</label><input type="email" id="reg-email" placeholder="you@abrazylo.com"/></div>
-      <div class="form-row"><label>Password</label><input type="password" id="reg-pass" placeholder="Min 6 characters"/></div>
+      <div class="form-row"><label>Full Name <span style="color:var(--red)">*</span></label><input type="text" id="reg-name" placeholder="Your name"/></div>
+      <div class="form-row"><label>Email <span style="color:var(--red)">*</span></label><input type="email" id="reg-email" placeholder="you@example.com"/></div>
+      <div class="form-row"><label>Password <span style="color:var(--red)">*</span></label><input type="password" id="reg-pass" placeholder="Min 6 characters"/></div>
       <div class="form-row">
-        <label>Groq API Key <span style="background:var(--green-bg);color:var(--green);font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:4px;">FREE</span></label>
-        <input type="password" id="reg-apikey" placeholder="gsk_..."/>
+        <label>Groq API Key <span style="background:var(--green-bg);color:var(--green);font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:4px">OPTIONAL</span></label>
+        <input type="password" id="reg-apikey" placeholder="(Add later in settings)"/>
       </div>
-      <button class="btn btn-accent btn-full" onclick="doRegister()" style="margin-top:.25rem">Create account →</button>
+      <button class="btn btn-accent btn-full" id="reg-btn" onclick="doRegister()">Create account →</button>
       <div class="auth-switch">Already have an account? <a onclick="showPage('page-login')">Sign in</a></div>
     </div>
   </div>
 </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-     MAIN APP
-════════════════════════════════════════════ -->
+<!-- ═══ MAIN APP ═══ -->
 <div id="page-app" class="page">
 <div class="app-shell">
-
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-top">
       <div class="sidebar-logo">
         <div class="sidebar-logo-icon"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:var(--brand)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-        <div class="sidebar-logo-text">Abra Zylo<span>AI SEO Portal designed by <b> Sagar K</b></span></div>
+        <div class="sidebar-logo-text">Abra Zylo<span>AI SEO Portal</span></div>
       </div>
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section-label">Main</div>
       <a class="nav-link active" id="nav-dashboard" onclick="switchTab('dashboard')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Dashboard
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
       </a>
       <a class="nav-link" id="nav-generate" onclick="switchTab('generate')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Generate SEO
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generate SEO
       </a>
       <a class="nav-link" id="nav-history" onclick="switchTab('history')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        History
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>History
         <span class="nav-badge" id="history-badge">0</span>
       </a>
       <div class="nav-section-label" style="margin-top:.5rem">Account</div>
       <a class="nav-link" id="nav-settings" onclick="switchTab('settings')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>
-        Settings
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>Settings
       </a>
     </nav>
-    <div class="sidebar-free-tag"><strong>✅ Groq Llama 4 · Free</strong>14,400 requests/day · No credit card</div>
+    <div class="sidebar-free-tag"><strong>✅ Groq Llama 4 · Free</strong>14,400 req/day · 🔥 Firebase Synced</div>
     <div class="sidebar-bottom">
       <div class="sidebar-user">
         <div class="user-av" id="sidebar-av">S</div>
@@ -680,14 +419,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
     </div>
   </aside>
-  <div class="sidebar-backdrop"
-     id="sidebarBackdrop"
-     onclick="toggleSidebar()"></div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
 
-  <!-- MAIN CONTENT -->
   <main class="main">
     <header class="topbar">
-       <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+      <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <div class="topbar-right">
         <div class="lang-switcher">
@@ -699,23 +435,21 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     </header>
 
     <div class="page-body">
-
-      <!-- ── DASHBOARD ── -->
+      <!-- DASHBOARD -->
       <div id="tab-dashboard">
         <div class="stats-row">
-          <div class="stat-card"><div class="stat-label">Total Products</div><div class="stat-val" id="stat-total">0</div><div class="stat-sub">SEO sets generated</div></div>
+          <div class="stat-card"><div class="stat-label">Total Products</div><div class="stat-val" id="stat-total">0</div><div class="stat-sub">SEO sets in Firebase</div></div>
           <div class="stat-card"><div class="stat-label">This Week</div><div class="stat-val" id="stat-week">0</div><div class="stat-sub">Last 7 days</div></div>
-          <div class="stat-card"><div class="stat-label">Versions Created</div><div class="stat-val" id="stat-versions">0</div><div class="stat-sub">Regenerations</div></div>
+          <div class="stat-card"><div class="stat-label">Versions</div><div class="stat-val" id="stat-versions">0</div><div class="stat-sub">Regenerations</div></div>
           <div class="stat-card"><div class="stat-label">Languages</div><div class="stat-val" id="stat-langs">0</div><div class="stat-sub">EN / HI / TE</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
           <div class="card">
             <div class="card-header"><h3>Quick Start</h3></div>
             <div class="card-body">
-              <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">Upload a product image, enter name & category — get complete SEO content targeting 100/100 PageSpeed score.</p>
+              <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">Upload a product image, enter name & category — get complete SEO content saved to Firebase cloud.</p>
               <button class="btn btn-accent" onclick="switchTab('generate')">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                Generate SEO Content
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generate SEO Content
               </button>
             </div>
           </div>
@@ -726,10 +460,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </div>
       </div>
 
-      <!-- ── GENERATE ── -->
+      <!-- GENERATE -->
       <div id="tab-generate">
         <div class="gen-grid">
-          <!-- LEFT INPUT -->
           <div>
             <div class="card">
               <div class="card-header"><h3>Product Details</h3></div>
@@ -743,7 +476,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                     <span>JPG, PNG, WEBP · Max 5MB</span>
                   </div>
                 </div>
-
                 <div class="form-row" style="margin-top:1rem">
                   <label>Product Name *</label>
                   <input type="text" id="prod-name" placeholder="e.g. Crimson Slim Fit T-Shirt" oninput="clearDupWarning()"/>
@@ -756,16 +488,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                   <label>Category</label>
                   <select id="prod-cat">
                     <option value="">Select category</option>
-                    <option>Fashion & Clothing</option>
-                    <option>Electronics & Gadgets</option>
-                    <option>Home & Kitchen</option>
-                    <option>Beauty & Personal Care</option>
-                    <option>Sports & Fitness</option>
-                    <option>Books & Stationery</option>
-                    <option>Toys & Kids</option>
-                    <option>Jewellery & Accessories</option>
-                    <option>Food & Grocery</option>
-                    <option>Other</option>
+                    <option>Fashion & Clothing</option><option>Electronics & Gadgets</option>
+                    <option>Home & Kitchen</option><option>Beauty & Personal Care</option>
+                    <option>Sports & Fitness</option><option>Books & Stationery</option>
+                    <option>Toys & Kids</option><option>Jewellery & Accessories</option>
+                    <option>Food & Grocery</option><option>Other</option>
                   </select>
                 </div>
                 <div class="form-row">
@@ -781,14 +508,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                   <span id="gen-alert-msg"></span>
                 </div>
                 <button class="btn btn-accent btn-full" id="gen-btn" onclick="generateSEO()">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  Generate SEO Content
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generate SEO Content
                 </button>
               </div>
             </div>
           </div>
-
-          <!-- RIGHT RESULTS -->
           <div>
             <div class="result-panel">
               <div id="result-empty" class="result-empty">
@@ -799,9 +523,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                 <div class="result-header">
                   <span class="result-name" id="result-pname"></span>
                   <div class="result-actions">
-                    <button class="btn btn-ghost btn-sm" onclick="regenerateSEO()" id="regen-btn">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                      Regenerate
+                    <button class="btn btn-ghost btn-sm" onclick="regenerateSEO()">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Regenerate
                     </button>
                     <button class="btn btn-outline btn-sm" onclick="copyAll()">Copy All</button>
                     <button class="btn btn-accent btn-sm" onclick="saveToFirebase()" id="save-btn">
@@ -810,14 +533,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                     </button>
                   </div>
                 </div>
-
-                <!-- Slug duplicate warning -->
                 <div class="dup-warn" id="slug-dup-warn">
-                  <p>⚠️ This URL slug already exists! Suggested unique slug:</p>
+                  <p>⚠️ This URL slug already exists in Firebase! Suggested unique slug:</p>
                   <div class="slug-suggest" id="slug-suggest-val"></div><br/>
                   <button class="btn btn-sm" style="background:#fef3c7;color:#78350f;border:1px solid #fde68a" onclick="applySlugSuggestion()">Use Suggested Slug</button>
                 </div>
-
                 <div class="tabs">
                   <button class="tab active" onclick="switchRTab('seo')">SEO Tags</button>
                   <button class="tab" onclick="switchRTab('desc')">Description</button>
@@ -825,73 +545,26 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                   <button class="tab" onclick="switchRTab('tags')">Tags</button>
                   <button class="tab" onclick="switchRTab('opencart')">OpenCart</button>
                 </div>
-
-                <!-- SEO TAGS TAB -->
                 <div class="tab-pane active" id="rtab-seo">
-                  <div class="seo-field">
-                    <div class="seo-field-head">
-                      <span class="seo-field-label">Meta Title</span>
-                      <div class="seo-field-actions"><span class="char-pill" id="title-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-title')">Copy</button></div>
-                    </div>
-                    <div class="seo-val" id="r-title"></div>
-                  </div>
-                  <div class="seo-field">
-                    <div class="seo-field-head">
-                      <span class="seo-field-label">Meta Description</span>
-                      <div class="seo-field-actions"><span class="char-pill" id="desc-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-metadesc')">Copy</button></div>
-                    </div>
-                    <div class="seo-val" id="r-metadesc"></div>
-                  </div>
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">Focus Keywords</span><button class="btn btn-ghost btn-xs" onclick="copyKeywords()">Copy</button></div>
-                    <div class="kw-wrap" id="r-keywords"></div>
-                  </div>
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">Image Alt Text</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-alt')">Copy</button></div>
-                    <div class="seo-val" id="r-alt"></div>
-                  </div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Title</span><div class="seo-field-actions"><span class="char-pill" id="title-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-title')">Copy</button></div></div><div class="seo-val" id="r-title"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Description</span><div class="seo-field-actions"><span class="char-pill" id="desc-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-metadesc')">Copy</button></div></div><div class="seo-val" id="r-metadesc"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Focus Keywords</span><button class="btn btn-ghost btn-xs" onclick="copyKeywords()">Copy</button></div><div class="kw-wrap" id="r-keywords"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Image Alt Text</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-alt')">Copy</button></div><div class="seo-val" id="r-alt"></div></div>
                 </div>
-
-                <!-- DESCRIPTION TAB -->
                 <div class="tab-pane" id="rtab-desc">
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">Product Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-proddesc')">Copy</button></div>
-                    <div class="seo-val" id="r-proddesc" style="white-space:pre-wrap;min-height:120px"></div>
-                  </div>
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">Short Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-shortdesc')">Copy</button></div>
-                    <div class="seo-val" id="r-shortdesc"></div>
-                  </div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Product Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-proddesc')">Copy</button></div><div class="seo-val" id="r-proddesc" style="white-space:pre-wrap;min-height:120px"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Short Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-shortdesc')">Copy</button></div><div class="seo-val" id="r-shortdesc"></div></div>
                 </div>
-
-                <!-- URL VALIDATOR TAB -->
                 <div class="tab-pane" id="rtab-url">
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">SEO URL Slug</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-slug')">Copy</button></div>
-                    <div class="seo-val mono" id="r-slug"></div>
-                  </div>
-                  <div class="url-validator">
-                    <div class="url-validator-title">11-Point URL Checklist</div>
-                    <div class="checklist" id="url-checklist"></div>
-                  </div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">SEO URL Slug</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-slug')">Copy</button></div><div class="seo-val mono" id="r-slug"></div></div>
+                  <div class="url-validator"><div class="url-validator-title">11-Point URL Checklist</div><div class="checklist" id="url-checklist"></div></div>
                 </div>
-
-                <!-- TAGS TAB -->
                 <div class="tab-pane" id="rtab-tags">
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">Product Tags</span><button class="btn btn-ghost btn-xs" onclick="copyTags()">Copy</button></div>
-                    <div class="kw-wrap" id="r-tags" style="gap:6px"></div>
-                    <p style="font-size:.72rem;color:var(--text3);margin-top:.625rem">Paste comma-separated into OpenCart → Data → Tags field</p>
-                  </div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Product Tags</span><button class="btn btn-ghost btn-xs" onclick="copyTags()">Copy</button></div><div class="kw-wrap" id="r-tags" style="gap:6px"></div><p style="font-size:.72rem;color:var(--text3);margin-top:.625rem">Paste comma-separated into OpenCart → Data → Tags</p></div>
                 </div>
-
-                <!-- OPENCART TAB -->
                 <div class="tab-pane" id="rtab-opencart">
-                  <p style="font-size:.78rem;color:var(--text2);margin-bottom:.875rem;line-height:1.6">Copy-paste each section directly into the corresponding OpenCart product editor field.</p>
-                  <div class="seo-field">
-                    <div class="seo-field-head"><span class="seo-field-label">OpenCart Ready Format</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-opencart')">Copy All</button></div>
-                    <div class="oc-box" id="r-opencart"></div>
-                  </div>
+                  <p style="font-size:.78rem;color:var(--text2);margin-bottom:.875rem;line-height:1.6">Copy-paste directly into your OpenCart product editor fields.</p>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">OpenCart Ready Format</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-opencart')">Copy All</button></div><div class="oc-box" id="r-opencart"></div></div>
                 </div>
               </div>
             </div>
@@ -899,15 +572,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </div>
       </div>
 
-      <!-- ── HISTORY ── -->
+      <!-- HISTORY -->
       <div id="tab-history">
         <div class="history-filters">
           <input type="text" id="hist-search" placeholder="Search by product name..." oninput="renderHistory()" style="max-width:280px"/>
           <select id="hist-lang" onchange="renderHistory()" style="max-width:150px">
             <option value="">All Languages</option>
-            <option value="en">English</option>
-            <option value="hi">Hindi</option>
-            <option value="te">Telugu</option>
+            <option value="en">English</option><option value="hi">Hindi</option><option value="te">Telugu</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="exportHistory()" style="margin-left:auto">Export JSON</button>
           <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">Clear All</button>
@@ -915,20 +586,23 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="history-list" id="history-list"></div>
       </div>
 
-      <!-- ── SETTINGS ── -->
+      <!-- SETTINGS -->
       <div id="tab-settings">
         <div class="settings-section">
           <div class="settings-section-head">
             <h3>Groq API Key <span style="background:var(--green-bg);color:var(--green);font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px">FREE</span></h3>
-            <p>Get yours at console.groq.com — 14,400 requests/day, no credit card ever</p>
+            <p>Required to generate SEO content — 14,400 requests/day, no credit card</p>
           </div>
           <div class="settings-section-body">
-            <div class="free-steps">
-              <strong>✅ How to get your free Groq API key:</strong>
-              1. Go to <a href="https://console.groq.com/keys" target="_blank" style="color:#065f46;font-weight:600">console.groq.com/keys</a><br/>
-              2. Sign up with Google or Email — no credit card<br/>
-              3. Click "Create API Key" → Copy → Paste below<br/>
-              <strong>Free tier: 14,400 requests/day · 30 RPM forever.</strong>
+            <div class="info-box info-box-green">
+              <strong>✅ How to get your free Groq API key (2 minutes):</strong>
+              <div style="margin-top:8px;line-height:2">
+                1. Go to <a href="https://console.groq.com/keys" target="_blank" style="color:#065f46;font-weight:700;text-decoration:underline">https://console.groq.com/keys</a><br/>
+                2. Click <strong>Sign Up</strong> and sign in with Google (no credit card needed)<br/>
+                3. Click the <strong>"Create New Key"</strong> button<br/>
+                4. Copy the key (starts with <strong>gsk_</strong>)<br/>
+                5. Paste it in the field below and click <strong>Save API Key</strong>
+              </div>
             </div>
             <div id="settings-alert" class="alert alert-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span id="settings-alert-msg"></span></div>
             <div id="settings-ok" class="alert alert-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span id="settings-ok-msg"></span></div>
@@ -943,24 +617,22 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           </div>
         </div>
         <div class="settings-section">
-          <div class="settings-section-head"><h3>Profile</h3><p>Update your display name</p></div>
+          <div class="settings-section-head"><h3>🔥 Firebase Status</h3><p>Your data is synced to Firebase cloud</p></div>
           <div class="settings-section-body">
-            <div class="form-row"><label>Display Name</label><input type="text" id="s-name"/></div>
-            <div class="form-row"><label>Username</label><input type="text" id="s-username" disabled/></div>
-            <button class="btn btn-primary" onclick="saveProfile()">Update Profile</button>
+            <div class="info-box info-box-orange">
+              <strong>🔥 Connected to Firebase Project: abra-zylo-seo</strong>
+              All your SEO generations are saved to Firestore and synced across devices.<br/>
+              To manage data: <a href="https://console.firebase.google.com/project/abra-zylo-seo" target="_blank" style="color:#9a3412;font-weight:600">console.firebase.google.com</a>
+            </div>
+            <div id="firebase-status" style="font-size:.83rem;color:var(--text2)">Checking connection...</div>
           </div>
         </div>
         <div class="settings-section">
-          <div class="settings-section-head"><h3>Firebase Config</h3><p>Update your Firebase project settings — edit the config at the top of this HTML file</p></div>
+          <div class="settings-section-head"><h3>Profile</h3><p>Update your display name</p></div>
           <div class="settings-section-body">
-            <div class="free-steps" style="background:var(--blue-bg);color:#1e40af;border-color:#bfdbfe">
-              <strong>🔧 How to connect Firebase:</strong>
-              1. Go to <a href="https://console.firebase.google.com" target="_blank" style="color:#1e40af;font-weight:600">console.firebase.google.com</a><br/>
-              2. Create a new project → Enable Firestore & Authentication<br/>
-              3. Project Settings → Your apps → Add web app → Copy config<br/>
-              4. Replace the firebaseConfig values at the top of this HTML file<br/>
-              5. In Firestore → Rules, set read/write to authenticated users
-            </div>
+            <div class="form-row"><label>Display Name</label><input type="text" id="s-name"/></div>
+            <div class="form-row"><label>Email</label><input type="email" id="s-email" disabled/></div>
+            <button class="btn btn-primary" onclick="saveProfile()">Update Profile</button>
           </div>
         </div>
         <div class="settings-section">
@@ -971,17 +643,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           </div>
         </div>
       </div>
-
     </div>
   </main>
 </div>
 </div>
 
-<!-- ════════ HISTORY DETAIL MODAL ════════ -->
+<!-- HISTORY MODAL -->
 <div class="overlay" id="hist-modal">
   <div class="modal">
-    <div class="modal-head">
-      <h3 id="hm-title">Product Details</h3>
+    <div class="modal-head"><h3 id="hm-title">Product Details</h3>
       <button class="modal-close" onclick="closeModal('hist-modal')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -990,182 +660,234 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
-<!-- ════════ LOADING ════════ -->
+<!-- LOADING -->
 <div class="loading-overlay" id="loading">
   <div class="loading-card">
     <div class="spinner"></div>
     <p id="loading-msg">Generating SEO content...</p>
-    <div class="model-chip">Groq Llama 3.1 70B · Free</div>
+    <div class="model-chip">Groq Llama 4 · Free</div>
     <div class="loading-steps" id="loading-steps"></div>
   </div>
 </div>
-
 <div id="toast"></div>
 
-<!-- ════════════════════════════════════════════
-     JAVASCRIPT
-════════════════════════════════════════════ -->
 <script>
-// ══════════════════════════════════════════════════════════
-// ABRA ZYLO SEO PORTAL — MAIN JAVASCRIPT
-// Local-first: all data in localStorage, Firebase optional
-// ══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+// ABRA ZYLO — Firebase + Groq AI SEO Portal
+// Built by Sagar K
+// ════════════════════════════════════════════════════
 
-// ── STORAGE KEYS ─────────────────────────────────────────
-const USERS_KEY   = 'az_users_v3';
-const SESSION_KEY = 'az_session_v3';
-const HIST_KEY    = 'az_history_v3';
+// ── WAIT FOR FIREBASE ──
+function waitFB() {
+  return new Promise(res => {
+    // Check both _fbReady flag AND _fb object to handle race conditions
+    if (window._fbReady && window._fb) { res(); return; }
+    const check = setInterval(() => {
+      if (window._fbReady && window._fb) {
+        clearInterval(check);
+        res();
+      }
+    }, 50);
+    // Also listen for event as backup
+    document.addEventListener('fbReady', () => {
+      if (window._fb) { clearInterval(check); res(); }
+    }, { once: true });
+    // Timeout after 10s fallback
+    setTimeout(() => { clearInterval(check); res(); }, 10000);
+  });
+}
 
-// ── STATE ─────────────────────────────────────────────────
-let currentUser    = null;
+// ── STATE ──
+let fbUser = null;
+let userDoc = null;
 let currentResults = null;
 let currentImageBase64 = null;
-let currentImageMime   = 'image/jpeg';
-let currentLang    = 'en';
+let currentImageMime = 'image/jpeg';
+let currentLang = 'en';
 
 const STOP_WORDS = new Set(['the','a','an','for','of','and','in','on','at','to','is','it','as',
   'or','by','with','from','this','that','was','are','be','been','has','have','had','but','not',
   'its','into','about','up','out','if','so','we','our','your','their','there','which','will',
   'can','all','more','also','than','just','one','how','do','over','under','any','when','use','only','no']);
 
-// ── HELPERS ───────────────────────────────────────────────
-function getUsers()      { return JSON.parse(localStorage.getItem(USERS_KEY) || '{}'); }
-function saveUsers(u)    { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
-function getHistory()    { return JSON.parse(localStorage.getItem(HIST_KEY + '_' + (currentUser?.uid||'')) || '[]'); }
-function saveHistory(a)  { localStorage.setItem(HIST_KEY + '_' + (currentUser?.uid||''), JSON.stringify(a)); }
-function formatDate(ts) {
-  if (!ts) return '';
-  try { const d = typeof ts==='number'?new Date(ts):new Date(ts); return d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}); }
-  catch(e){ return ''; }
-}
-
-// ── INIT ──────────────────────────────────────────────────
-window.addEventListener('load', () => {
-  // Always ensure demo account exists fresh
-  const users = getUsers();
-  if (!users['sagark']) {
-    users['sagark'] = { uid:'uid_sagark', name:'Sagar K', username:'sagark', password:'sagar0559', email:'sagark@abrazylo.com', apiKey:'' };
-    saveUsers(users);
-  }
-  // Restore session only if user still exists
-  const sess = localStorage.getItem(SESSION_KEY);
-  if (sess) {
-    try {
-      const u = JSON.parse(sess);
-      const fresh = getUsers()[u.username];
-      if (fresh) {
-        currentUser = { ...fresh, apiKey: fresh.apiKey || u.apiKey || '' };
-        enterApp();
-        return;
-      }
-    } catch(e) { localStorage.removeItem(SESSION_KEY); }
-  }
-  showPage('page-login');
-  startSeoToast();
+// ── INIT ──
+window.addEventListener('load', async () => {
+  await waitFB();
+  if (!window._fb) { console.error('Firebase failed to load'); showPage('page-login'); return; }
+  const { auth, onAuthStateChanged } = window._fb;
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      fbUser = user;
+      await loadUserDoc();
+      enterApp();
+    } else {
+      fbUser = null; userDoc = null;
+      showPage('page-login');
+      startSeoToast();
+    }
+  });
 });
 
-// ── PAGE ROUTING ──────────────────────────────────────────
+async function loadUserDoc() {
+  if (!fbUser) return;
+  try {
+    const { db, doc, getDoc } = window._fb;
+    const snap = await getDoc(doc(db, 'users', fbUser.uid));
+    if (snap.exists()) userDoc = snap.data();
+  } catch(e) { console.warn('loadUserDoc:', e.message); }
+}
+
+// ── PAGE ROUTING ──
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-// ── AUTH ──────────────────────────────────────────────────
-function doLogin() {
-  const username = document.getElementById('login-user').value.trim();
-  const password = document.getElementById('login-pass').value;
+// ── LOGIN (Firebase Auth) ──
+async function doLogin() {
+  await waitFB();
+  const emailOrUser = document.getElementById('login-email').value.trim();
+  const password    = document.getElementById('login-pass').value;
   hideAlertEl('login-alert');
+  if (!emailOrUser || !password) { showAlertEl('login-alert','login-alert-msg','Please enter your credentials.'); return; }
 
-  if (!username || !password) { showAlertEl('login-alert','login-alert-msg','Please enter username and password.'); return; }
+  // Support email or username (sagark → sagark@abrazylo.com)
+  let email = emailOrUser.includes('@') ? emailOrUser : emailOrUser + '@abrazylo.com';
 
-  const users = getUsers();
-  const user  = users[username];
+  const btn = document.querySelector('#page-login .btn-accent');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
 
-  if (!user) { showAlertEl('login-alert','login-alert-msg','Username not found. Please register first.'); return; }
-  if (user.password !== password) { showAlertEl('login-alert','login-alert-msg','Incorrect password. Please try again.'); return; }
-
-  // Merge with latest stored data (API key etc)
-  const freshUser = getUsers()[username];
-  currentUser = freshUser || user;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-  enterApp();
+  try {
+    const { auth, signInWithEmailAndPassword } = window._fb;
+    await signInWithEmailAndPassword(auth, email, password);
+    // success — onAuthStateChanged will call enterApp()
+  } catch(err) {
+    // If account doesn't exist, auto-create it (first-time setup)
+    if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
+      try {
+        if (btn) btn.textContent = 'Creating account...';
+        const { auth, db, createUserWithEmailAndPassword, doc, setDoc, serverTimestamp } = window._fb;
+        const name = emailOrUser === 'sagark' ? 'Sagar K' : (emailOrUser.split('@')[0]);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          name, email, apiKey: '', uid: cred.user.uid,
+          username: emailOrUser.includes('@') ? emailOrUser.split('@')[0] : emailOrUser,
+          createdAt: serverTimestamp()
+        });
+        showToast('Account created & signed in! ✓');
+        // onAuthStateChanged will fire and call enterApp()
+        return;
+      } catch(e2) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Sign in →'; }
+        // If email already exists but wrong password
+        if (e2.code === 'auth/email-already-in-use') {
+          showAlertEl('login-alert','login-alert-msg','Incorrect password. Please try again.');
+        } else {
+          showAlertEl('login-alert','login-alert-msg','Error: ' + e2.message);
+        }
+        return;
+      }
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign in →'; }
+    let msg = 'Incorrect password. Please try again.';
+    if (err.code === 'auth/wrong-password') msg = 'Incorrect password.';
+    else if (err.code === 'auth/too-many-requests') msg = 'Too many attempts. Please wait a moment.';
+    showAlertEl('login-alert','login-alert-msg', msg);
+  }
 }
 
-function doRegister() {
-  const name     = document.getElementById('reg-name').value.trim();
-  const username = document.getElementById('reg-username').value.trim().toLowerCase();
-  const email    = document.getElementById('reg-email').value.trim();
-  const password = document.getElementById('reg-pass').value;
-  const apiKey   = document.getElementById('reg-apikey').value.trim();
+// ── REGISTER (Firebase Auth) ──
+async function doRegister() {
+  await waitFB();
+  const name    = document.getElementById('reg-name').value.trim();
+  const email   = document.getElementById('reg-email').value.trim();
+  const pass    = document.getElementById('reg-pass').value;
+  const apiKey  = document.getElementById('reg-apikey').value.trim();
   hideAlertEl('reg-alert');
-
-  if (!name || !username || !email || !password) { showAlertEl('reg-alert','reg-alert-msg','Please fill all required fields.'); return; }
-  if (password.length < 6)  { showAlertEl('reg-alert','reg-alert-msg','Password must be at least 6 characters.'); return; }
-  if (!/^[a-z0-9_]+$/.test(username)) { showAlertEl('reg-alert','reg-alert-msg','Username: only lowercase letters, numbers, underscores.'); return; }
-
-  const users = getUsers();
-  if (users[username]) { showAlertEl('reg-alert','reg-alert-msg','Username already taken. Please choose another.'); return; }
-
-  const newUser = { uid:'uid_'+username+'_'+Date.now(), name, username, email, password, apiKey };
-  users[username] = newUser;
-  saveUsers(users);
-
-  currentUser = newUser;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-  enterApp();
+  
+  // Validate required fields are not empty
+  if (!name || !email || !pass) { showAlertEl('reg-alert','reg-alert-msg','Please fill all required fields (marked with *).'); return; }
+  
+  // Validate fields are not just placeholders or asterisks
+  if (name === '*' || name.length < 2) { showAlertEl('reg-alert','reg-alert-msg','Please enter a valid full name.'); return; }
+  if (!email.includes('@')) { showAlertEl('reg-alert','reg-alert-msg','Please enter a valid email address.'); return; }
+  if (pass === '••••••••' || pass.length < 6) { showAlertEl('reg-alert','reg-alert-msg','Password must be at least 6 characters.'); return; }
+  
+  const btn = document.querySelector('#page-register .btn-accent');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+  try {
+    const { auth, db, createUserWithEmailAndPassword, doc, setDoc, serverTimestamp } = window._fb;
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      name, username: email.split('@')[0], email, apiKey: apiKey || '',
+      uid: cred.user.uid, createdAt: serverTimestamp()
+    });
+    // Success — onAuthStateChanged will call enterApp()
+  } catch(err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account →'; }
+    let msg = err.message;
+    if (err.code === 'auth/email-already-in-use') msg = 'Email already registered. Please sign in.';
+    showAlertEl('reg-alert','reg-alert-msg', msg);
+  }
 }
 
-function doLogout() {
-  localStorage.removeItem(SESSION_KEY);
-  currentUser = null; currentResults = null; currentImageBase64 = null;
-  showPage('page-login');
+// ── LOGOUT ──
+async function doLogout() {
+  try { await window._fb.signOut(window._fb.auth); } catch(e) {}
+  fbUser = null; userDoc = null; currentResults = null; currentImageBase64 = null;
 }
 
+// ── ENTER APP ──
 function enterApp() {
   showPage('page-app');
-  const name     = currentUser.name     || 'User';
-  const username = currentUser.username || '';
+  const name  = userDoc?.name || fbUser?.email?.split('@')[0] || 'Sagar K';
+  const email = fbUser?.email || '';
   document.getElementById('sidebar-name').textContent  = name;
-  document.getElementById('sidebar-email').textContent = '@' + username;
+  document.getElementById('sidebar-email').textContent = email;
   document.getElementById('sidebar-av').textContent    = name[0].toUpperCase();
   document.getElementById('s-name').value     = name;
-  document.getElementById('s-username').value = username;
-  const storedApiKey = currentUser.apiKey || '';
-  if (storedApiKey) document.getElementById('s-apikey').value = storedApiKey;
-  switchTab('dashboard');
+  if (document.getElementById('s-username')) {
+    document.getElementById('s-username').value = userDoc?.username || email.split('@')[0];
+  }
+  const key = userDoc?.apiKey || '';
+  if (key) document.getElementById('s-apikey').value = key;
+  
+  // Check if Groq API Key is missing
+  if (!key) {
+    switchTab('settings');
+    showLoadingMsg('⚠️ Add your Groq API Key', [
+      { text: '1. Visit https://console.groq.com/keys', done: false },
+      { text: '2. Sign up (Google, no credit card needed)', done: false },
+      { text: '3. Create & copy your free API key', done: false },
+      { text: '4. Paste it below and click Save', done: false }
+    ]);
+    setTimeout(() => hideLoading(), 3000);
+  } else {
+    switchTab('dashboard');
+  }
+  
   updateStats();
-  renderRecentActivity();
-  updateHistoryBadge();
   startSeoToast();
 }
 
-// ── TAB NAVIGATION ─────────────────────────────────────────
+// ── TAB NAVIGATION ──
 function switchTab(tab) {
   ['dashboard','generate','history','settings'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     const nav = document.getElementById('nav-'+t);
-    if (el) {
-      if (t === tab) {
-        el.removeAttribute('hidden');
-        el.style.cssText = 'display:block !important';
-      } else {
-        el.style.cssText = 'display:none !important';
-      }
-    }
+    if (el) el.style.cssText = t===tab ? 'display:block !important' : 'display:none !important';
     if (nav) nav.classList.toggle('active', t===tab);
   });
-  const titles = { dashboard:'Dashboard', generate:'Generate SEO Content', history:'Generation History', settings:'Settings' };
+  const titles = {dashboard:'Dashboard',generate:'Generate SEO Content',history:'Generation History',settings:'Settings'};
   const ttEl = document.getElementById('topbar-title');
   if (ttEl) ttEl.textContent = titles[tab] || tab;
   if (tab==='history')   renderHistory();
   if (tab==='dashboard') { updateStats(); renderRecentActivity(); }
   window.scrollTo(0,0);
-
-
-   if (window.innerWidth <= 768) {
-      document.querySelector('.sidebar')?.classList.remove('open');
-      document.getElementById('sidebarBackdrop')?.classList.remove('show');
-   }
+  if (window.innerWidth <= 768) {
+    document.querySelector('.sidebar')?.classList.remove('open');
+    document.getElementById('sidebarBackdrop')?.classList.remove('show');
+  }
 }
 
 function switchRTab(tab) {
@@ -1180,32 +902,45 @@ function setLang(lang) {
   document.getElementById('prod-lang').value = lang;
 }
 
-// ── FILE UPLOAD ────────────────────────────────────────────
+function toggleSidebar() {
+  document.querySelector('.sidebar')?.classList.toggle('open');
+  document.getElementById('sidebarBackdrop')?.classList.toggle('show');
+}
+
+// ── FILE UPLOAD ──
 function onFileSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 5*1024*1024) { showAlertEl('gen-alert','gen-alert-msg','Image too large. Max 5MB.'); return; }
-  currentImageMime = file.type || 'image/jpeg';
+  if (file.size > 10*1024*1024) { showAlertEl('gen-alert','gen-alert-msg','Image too large. Max 10MB.'); return; }
+  currentImageMime = 'image/jpeg';
   const reader = new FileReader();
   reader.onload = ev => {
-    currentImageBase64 = ev.target.result.split(',')[1];
-    const img = document.getElementById('img-preview');
-    img.src = ev.target.result; img.style.display = 'block';
-    document.getElementById('upload-ph').style.display = 'none';
+    // Compress image to max 800px and convert to JPEG to reduce payload
+    const img2 = new Image();
+    img2.onload = () => {
+      const MAX = 800;
+      let w = img2.width, h = img2.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img2, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      currentImageBase64 = compressed.split(',')[1];
+      const preview = document.getElementById('img-preview');
+      preview.src = compressed; preview.style.display = 'block';
+      document.getElementById('upload-ph').style.display = 'none';
+      const kb = Math.round(currentImageBase64.length * 0.75 / 1024);
+      console.log('Image compressed to ~' + kb + 'KB (' + w + 'x' + h + ')');
+    };
+    img2.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-// ── DUPLICATE CHECKS ───────────────────────────────────────
-function checkDuplicateName(name) {
-  return getHistory().some(h => h.productName?.toLowerCase() === name.toLowerCase());
-}
-function checkDuplicateSlug(slug) {
-  return getHistory().some(h => h.seo_slug === slug);
-}
-function clearDupWarning() { hideAlertEl('dup-name-alert'); }
-
-// ── SLUG GENERATOR ─────────────────────────────────────────
+// ── SLUG ──
 function generateSlug(input) {
   return input.toLowerCase()
     .replace(/[|&%@#*]/g,'').replace(/[^a-z0-9\s-]/g,'').trim()
@@ -1215,23 +950,22 @@ function generateSlug(input) {
 
 function validateSlug(slug) {
   return [
-    { label:'All lowercase letters',           pass: slug === slug.toLowerCase() },
-    { label:'Hyphens only — no spaces',         pass: !slug.includes(' ') },
-    { label:'No special characters (|&%@#*)',   pass: !/[|&%@#*]/.test(slug) },
-    { label:'Under 60 characters',              pass: slug.length <= 60 && slug.length > 0 },
-    { label:'No double hyphens (--)',            pass: !slug.includes('--') },
-    { label:'No trailing slash',                pass: !slug.endsWith('/') },
-    { label:'No leading/trailing hyphens',      pass: !slug.startsWith('-') && !slug.endsWith('-') },
-    { label:'No stop words (the, a, an...)',     pass: !slug.split('-').some(w => STOP_WORDS.has(w)) },
-    { label:'Short & descriptive (3+ chars)',   pass: slug.length >= 3 },
-    { label:'Matches product name closely',     pass: slug.length > 3 },
-    { label:'No duplicate URL',                 pass: !checkDuplicateSlug(slug) },
+    {label:'All lowercase letters', pass:slug===slug.toLowerCase()},
+    {label:'Hyphens only — no spaces', pass:!slug.includes(' ')},
+    {label:'No special characters (|&%@#*)', pass:!/[|&%@#*]/.test(slug)},
+    {label:'Under 60 characters', pass:slug.length<=60&&slug.length>0},
+    {label:'No double hyphens (--)', pass:!slug.includes('--')},
+    {label:'No trailing slash', pass:!slug.endsWith('/')},
+    {label:'No leading/trailing hyphens', pass:!slug.startsWith('-')&&!slug.endsWith('-')},
+    {label:'No stop words (the, a, an...)', pass:!slug.split('-').some(w=>STOP_WORDS.has(w))},
+    {label:'Short & descriptive (3+ chars)', pass:slug.length>=3},
+    {label:'Matches product name closely', pass:slug.length>3},
+    {label:'No duplicate URL', pass:true},
   ];
 }
 
 function renderSlugChecklist(slug) {
-  const checks = validateSlug(slug);
-  document.getElementById('url-checklist').innerHTML = checks.map(c => `
+  document.getElementById('url-checklist').innerHTML = validateSlug(slug).map(c=>`
     <div class="check-item ${c.pass?'pass':'fail'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         ${c.pass?'<polyline points="20 6 9 17 4 12"/>':'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}
@@ -1239,27 +973,51 @@ function renderSlugChecklist(slug) {
     </div>`).join('');
 }
 
-// ── GENERATE SEO ───────────────────────────────────────────
+// ── DUPLICATE CHECKS (Firestore) ──
+async function checkDuplicateName(name) {
+  if (!fbUser) return false;
+  try {
+    const { db, collection, query, where, getDocs } = window._fb;
+    const q = query(collection(db,'products'), where('uid','==',fbUser.uid), where('productNameLower','==',name.toLowerCase()));
+    const snap = await getDocs(q);
+    return !snap.empty;
+  } catch(e) { return false; }
+}
+
+async function checkDuplicateSlug(slug) {
+  if (!fbUser) return false;
+  try {
+    const { db, collection, query, where, getDocs } = window._fb;
+    const q = query(collection(db,'products'), where('uid','==',fbUser.uid), where('seo_slug','==',slug));
+    const snap = await getDocs(q);
+    return !snap.empty;
+  } catch(e) { return false; }
+}
+
+function clearDupWarning() { hideAlertEl('dup-name-alert'); }
+
+// ── GENERATE SEO (Groq AI) ──
 async function generateSEO() {
   const name   = document.getElementById('prod-name').value.trim();
   const cat    = document.getElementById('prod-cat').value;
   const lang   = document.getElementById('prod-lang').value;
-  const apiKey = currentUser?.apiKey || '';
-
+  const apiKey = userDoc?.apiKey || '';
   hideAlertEl('gen-alert'); hideAlertEl('dup-name-alert');
+  if (!name) { showAlertEl('gen-alert','gen-alert-msg','Please enter a product name.'); return; }
+  if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No Groq API key. Go to Settings → add your free key.'); return; }
 
-  if (!name)   { showAlertEl('gen-alert','gen-alert-msg','Please enter a product name.'); return; }
-  if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No Groq API key. Go to Settings → paste your free key.'); return; }
-
-  // Duplicate name check
-  if (checkDuplicateName(name)) {
-    showAlertEl('dup-name-alert','dup-name-msg',`"${name}" already exists! Use a unique product name.`);
+  showLoadingMsg('Checking Firebase for duplicates...', []);
+  document.getElementById('gen-btn').disabled = true;
+  const isDup = await checkDuplicateName(name);
+  if (isDup) {
+    hideLoading();
+    document.getElementById('gen-btn').disabled = false;
+    showAlertEl('dup-name-alert','dup-name-msg',`"${name}" already exists in Firebase! Use a unique product name.`);
     return;
   }
 
   const steps = ['Analyzing product image...','Generating SEO metadata...','Validating URL slug...','Building OpenCart format...'];
   showLoadingMsg('Generating with Groq AI...', steps);
-  document.getElementById('gen-btn').disabled = true;
 
   const langInstr = {
     en:'Generate all content in English.',
@@ -1272,192 +1030,116 @@ Product Name: ${name}
 ${cat?'Category: '+cat:''}
 ${currentImageBase64?'Product image provided — analyze for color, style, material details.':''}
 
-Generate SEO content targeting 100/100 Google PageSpeed SEO score.
-Respond ONLY with a valid JSON object (no markdown, no explanation, no extra text):
-{
-  "meta_title": "SEO title under 60 chars — include product name + key benefit + power word",
-  "meta_description": "Compelling 145-158 char description with CTA — include primary keyword naturally",
-  "focus_keywords": ["primary keyword","secondary keyword","long tail 1","long tail 2","question keyword","local keyword","buying intent keyword"],
-  "seo_slug": "lowercase-hyphen-slug-no-stop-words-under-60-chars-no-special-chars-no-double-hyphens-must-match-product-closely",
-  "alt_text": "Descriptive image alt text under 100 chars — include primary keyword",
-  "product_description": "3 rich SEO-optimized paragraphs.\n\nParagraph 1: Product overview and unique selling point.\n\nParagraph 2: Features, materials, and benefits.\n\nParagraph 3: Use cases, occasions, and call to action for Indian shoppers.",
-  "short_description": "One punchy sentence under 80 chars for listing page",
-  "product_tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
-}`;
+Respond ONLY with a valid JSON object (no markdown, no explanation):
+{"meta_title":"SEO title under 60 chars with product name and key benefit","meta_description":"145-158 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-60-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"3 SEO-optimized paragraphs for Indian shoppers","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
 
   try {
-    const parts = [{ text: prompt }];
-    if (currentImageBase64) parts.unshift({ inline_data:{ mime_type: currentImageMime, data: currentImageBase64 }});
-
-    // Groq API call with retry
-    let data, lastErr;
+    let data;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) {
-        document.getElementById('loading-msg').textContent = `Rate limit hit. Retrying in ${attempt * 5}s...`;
-        await new Promise(r => setTimeout(r, attempt * 5000));
+        document.getElementById('loading-msg').textContent = `Rate limit. Retrying in ${attempt*5}s...`;
+        await new Promise(r => setTimeout(r, attempt*5000));
       }
-      // Build Groq messages - image as base64 url
-      const groqMessages = [];
       const userContent = [];
-      if (currentImageBase64) {
-        userContent.push({
-          type: 'image_url',
-          image_url: { url: `data:${currentImageMime};base64,${currentImageBase64}` }
-        });
-      }
-      // Sanitize prompt to remove control characters that break JSON
-      const safePrompt = prompt.replace(/[-]/g, m => m === '\n' ? '\n' : m === '\t' ? '\t' : '');
-      userContent.push({ type: 'text', text: safePrompt });
-      groqMessages.push({ role: 'user', content: userContent });
-
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: groqMessages,
-          temperature: 0.7,
-          max_tokens: 1500
-        })
-      });
-      data = await res.json();
-      if (!data.error || !String(data.error?.message || '').includes('rate')) break;
-      lastErr = data.error.message;
-    }
-    if (data.error) throw new Error(data.error.code === 429 ? 'Rate limit hit. Please wait 30 seconds and try again.' : (data.error.message || JSON.stringify(data.error)));
-
-    const text = data.choices?.[0]?.message?.content || data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // Find JSON - look for first { to last } 
-    const jStart = text.indexOf('{');
-    const jEnd = text.lastIndexOf('}');
-    const jsonStr = (jStart !== -1 && jEnd !== -1 && jEnd > jStart) ? text.slice(jStart, jEnd+1) : null;
-    const jm = jsonStr ? [jsonStr] : text.match(/\{[\s\S]*\}/);
-    if (!jm) throw new Error('Could not parse AI response. Please try again.');
-    // Robustly extract and parse JSON from AI response
-    let parsed;
-    try {
-      // Try direct parse first
-      parsed = JSON.parse(jm[0]);
-    } catch(e1) {
+      if (currentImageBase64) userContent.push({type:'image_url',image_url:{url:`data:${currentImageMime};base64,${currentImageBase64}`}});
+      userContent.push({type:'text',text:prompt});
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
       try {
-        // Strip markdown code fences and retry
-        const stripped = jm[0]
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\s*```$/i, '')
-          .trim();
-        parsed = JSON.parse(stripped);
-      } catch(e2) {
-        try {
-          // Fix unescaped newlines inside string values
-          const fixed = jm[0].replace(
-            /"(?:[^"\\]|\\.)*"/g,
-            m => m.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' ')
-          );
-          parsed = JSON.parse(fixed);
-        } catch(e3) {
-          // Last resort: remove all control chars and try again
-          const last = jm[0].replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ');
-          parsed = JSON.parse(last);
-        }
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:userContent}],temperature:0.7,max_tokens:1500}),
+          signal: controller.signal
+        });
+        data = await res.json();
+      } finally {
+        clearTimeout(timeout);
       }
+      if (!data.error || !String(data.error?.message||'').includes('rate')) break;
+    }
+    if (!data) throw new Error('Request timed out after 30 seconds. Please try again.');
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    const text = data.choices?.[0]?.message?.content || '';
+    const jS = text.indexOf('{'), jE = text.lastIndexOf('}');
+    if (jS === -1) throw new Error('Could not parse AI response. Please try again.');
+    let parsed;
+    try { parsed = JSON.parse(text.slice(jS,jE+1)); }
+    catch(e1) {
+      try { parsed = JSON.parse(text.slice(jS,jE+1).replace(/"(?:[^"\\]|\\.)*"/g,m=>m.replace(/\n/g,'\\n').replace(/\r/g,'').replace(/\t/g,' '))); }
+      catch(e2) { parsed = JSON.parse(text.slice(jS,jE+1).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,' ')); }
     }
 
-    // Clean & validate slug
     parsed.seo_slug = generateSlug(parsed.seo_slug || name);
-
-    const isDupSlug = checkDuplicateSlug(parsed.seo_slug);
+    const isDupSlug = await checkDuplicateSlug(parsed.seo_slug);
     hideLoading();
     document.getElementById('gen-btn').disabled = false;
 
-    currentResults = { ...parsed, productName:name, category:cat, lang,
-      timestamp:Date.now(), imageThumb: currentImageBase64 ? `data:${currentImageMime};base64,${currentImageBase64}` : null,
-      versions:[] };
-
+    currentResults = {...parsed, productName:name, category:cat, lang, timestamp:Date.now(),
+      imageThumb: currentImageBase64 ? `data:${currentImageMime};base64,${currentImageBase64}` : null,
+      versions:[], uid:fbUser?.uid};
     renderResults(currentResults);
 
     if (isDupSlug) {
-      const suggest = parsed.seo_slug + '-' + Math.random().toString(36).slice(2,6);
+      const suggest = parsed.seo_slug+'-'+Math.random().toString(36).slice(2,6);
       document.getElementById('slug-suggest-val').textContent = suggest;
       document.getElementById('slug-dup-warn').classList.add('show');
     } else {
       document.getElementById('slug-dup-warn').classList.remove('show');
     }
-
   } catch(err) {
     hideLoading();
     document.getElementById('gen-btn').disabled = false;
-    showAlertEl('gen-alert','gen-alert-msg','Error: '+err.message);
+    const msg = err.name === 'AbortError' ? 'Request timed out (30s). Try without an image or try again.' : 'Error: '+err.message;
+    showAlertEl('gen-alert','gen-alert-msg', msg);
   }
 }
 
-// ── REGENERATE ─────────────────────────────────────────────
+// ── REGENERATE ──
 async function regenerateSEO() {
   if (!currentResults) return;
   if (!currentResults.versions) currentResults.versions = [];
-  currentResults.versions.push({ ...currentResults, versions:undefined, savedAt: new Date().toISOString() });
-  const apiKey = currentUser?.apiKey || '';
-  if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No API key set.'); return; }
-
-  const name = currentResults.productName;
-  const cat  = currentResults.category || '';
-  const lang = currentResults.lang || 'en';
-  const langInstr = {en:'Generate all content in English.',hi:'Generate ALL content in Hindi.',te:'Generate ALL content in Telugu.'};
-  const prompt = `You are an SEO specialist for Abra Zylo India. ${langInstr[lang]}
+  currentResults.versions.push({...currentResults, versions:undefined, savedAt:new Date().toISOString()});
+  const apiKey = userDoc?.apiKey || '';
+  if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No API key.'); return; }
+  const {productName:name, category:cat, lang} = currentResults;
+  const langInstr = {en:'Generate in English.',hi:'Generate in Hindi.',te:'Generate in Telugu.'};
+  const prompt = `SEO specialist for Abra Zylo India. ${langInstr[lang||'en']}
 Product: ${name}${cat?'\nCategory: '+cat:''}
-Generate a FRESH, DIFFERENT SEO version. Respond ONLY with valid JSON:
-{"meta_title":"under 60 chars","meta_description":"145-158 chars with CTA","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-unique-slug-no-stop-words","alt_text":"alt text under 100 chars","product_description":"3 fresh paragraphs with keywords","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
-
-  showLoadingMsg('Regenerating fresh content...', ['Getting new ideas...','Writing new SEO...','Finalizing...']);
-
+Generate a FRESH different SEO version. Respond ONLY with valid JSON:
+{"meta_title":"under 60 chars","meta_description":"145-158 chars","focus_keywords":["k1","k2","k3","k4","k5","k6","k7"],"seo_slug":"unique-slug","alt_text":"alt text","product_description":"3 fresh paragraphs","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
+  showLoadingMsg('Regenerating...', ['Getting fresh ideas...','Writing new SEO...','Done!']);
   try {
-    const parts = [{ text: prompt }];
-    if (currentImageBase64) parts.unshift({ inline_data:{ mime_type: currentImageMime, data: currentImageBase64 }});
     let data;
     for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 5000));
-      const regenContent = [];
-      if (currentImageBase64) regenContent.push({ type:'image_url', image_url:{ url:`data:${currentImageMime};base64,${currentImageBase64}` }});
-      const safePrompt2 = prompt.replace(/[\u0000-\u001F\u007F]/g, m => m === '\n' ? '\n' : m === '\t' ? '\t' : '');
-      regenContent.push({ type:'text', text: safePrompt2 });
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model:'meta-llama/llama-4-scout-17b-16e-instruct', messages:[{ role:'user', content: regenContent }], temperature:0.9, max_tokens:1500 })
-      });
-      data = await res.json();
+      if (attempt > 0) await new Promise(r => setTimeout(r, attempt*5000));
+      const rc = [];
+      if (currentImageBase64) rc.push({type:'image_url',image_url:{url:`data:${currentImageMime};base64,${currentImageBase64}`}});
+      rc.push({type:'text',text:prompt});
+      const rc2 = new AbortController();
+      const rt = setTimeout(() => rc2.abort(), 30000);
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+          method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:rc}],temperature:0.9,max_tokens:1500}),
+          signal: rc2.signal
+        });
+        data = await res.json();
+      } finally { clearTimeout(rt); }
       if (!data.error || !String(data.error?.message||'').includes('rate')) break;
     }
-    if (data.error) throw new Error(data.error.code === 429 ? 'Rate limit exceeded. Please wait 1 minute and try again.' : data.error.message);
-    const text = data.choices?.[0]?.message?.content || data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // Find JSON - look for first { to last } 
-    const jStart = text.indexOf('{');
-    const jEnd = text.lastIndexOf('}');
-    const jsonStr = (jStart !== -1 && jEnd !== -1 && jEnd > jStart) ? text.slice(jStart, jEnd+1) : null;
-    const jm = jsonStr ? [jsonStr] : text.match(/\{[\s\S]*\}/);
-    if (!jm) throw new Error('Parse error. Please try again.');
+    if (data.error) throw new Error(data.error.message);
+    const text = data.choices?.[0]?.message?.content || '';
+    const jS = text.indexOf('{'), jE = text.lastIndexOf('}');
+    if (jS===-1) throw new Error('Parse error. Try again.');
     let parsed;
-    try {
-      parsed = JSON.parse(jm[0]);
-    } catch(re1) {
-      try {
-        const rs = jm[0].replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/i,'').trim();
-        parsed = JSON.parse(rs);
-      } catch(re2) {
-        try {
-          const rf = jm[0].replace(/"(?:[^"\\]|\\.)*"/g, m => m.replace(/\n/g,'\\n').replace(/\r/g,'').replace(/\t/g,' '));
-          parsed = JSON.parse(rf);
-        } catch(re3) {
-          parsed = JSON.parse(jm[0].replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,' '));
-        }
-      }
-    }
+    try { parsed = JSON.parse(text.slice(jS,jE+1)); }
+    catch(e) { parsed = JSON.parse(text.slice(jS,jE+1).replace(/"(?:[^"\\]|\\.)*"/g,m=>m.replace(/\n/g,'\\n').replace(/\r/g,'').replace(/\t/g,' '))); }
     parsed.seo_slug = generateSlug(parsed.seo_slug || name);
     const prevVers = currentResults?.versions || [];
-    currentResults = { ...parsed, productName:name, category:cat, lang, timestamp:Date.now(),
-      imageThumb: currentResults?.imageThumb||null, versions: prevVers };
+    currentResults = {...parsed, productName:name, category:cat, lang, timestamp:Date.now(),
+      imageThumb:currentResults?.imageThumb||null, versions:prevVers, uid:fbUser?.uid};
     hideLoading();
     renderResults(currentResults);
     showToast(`Version ${prevVers.length+1} generated ✓`);
@@ -1477,114 +1159,104 @@ function applySlugSuggestion() {
   showToast('Slug updated ✓');
 }
 
-// ── RENDER RESULTS ─────────────────────────────────────────
+// ── RENDER RESULTS ──
 function renderResults(r) {
   document.getElementById('result-empty').style.display = 'none';
   document.getElementById('result-content').style.display = 'block';
   document.getElementById('result-pname').textContent = r.productName;
-
-  document.getElementById('r-title').textContent     = r.meta_title    || '';
+  document.getElementById('r-title').textContent     = r.meta_title || '';
   document.getElementById('r-metadesc').textContent  = r.meta_description || '';
   document.getElementById('r-proddesc').textContent  = r.product_description || '';
-  document.getElementById('r-shortdesc').textContent = r.short_description  || '';
-  document.getElementById('r-slug').textContent      = r.seo_slug       || '';
-  document.getElementById('r-alt').textContent       = r.alt_text       || '';
-
-  const tl = (r.meta_title||'').length, ml = (r.meta_description||'').length;
-  const tc = document.getElementById('title-chars');
-  tc.textContent = tl+'/60'; tc.className = 'char-pill '+(tl<=60&&tl>0?'char-ok':'char-bad');
-  const mc = document.getElementById('desc-chars');
-  mc.textContent = ml+'/160'; mc.className = 'char-pill '+(ml>=140&&ml<=160?'char-ok':ml<140?'char-warn':'char-bad');
-
-  document.getElementById('r-keywords').innerHTML = (r.focus_keywords||[]).map(k=>`<span class="kw-tag">${k}</span>`).join('');
-  document.getElementById('r-tags').innerHTML     = (r.product_tags||[]).map(t=>`<span class="prod-tag">${t}</span>`).join('');
-
+  document.getElementById('r-shortdesc').textContent = r.short_description || '';
+  document.getElementById('r-slug').textContent      = r.seo_slug || '';
+  document.getElementById('r-alt').textContent       = r.alt_text || '';
+  const tl=(r.meta_title||'').length, ml=(r.meta_description||'').length;
+  const tc=document.getElementById('title-chars');
+  tc.textContent=tl+'/60'; tc.className='char-pill '+(tl<=60&&tl>0?'char-ok':'char-bad');
+  const mc=document.getElementById('desc-chars');
+  mc.textContent=ml+'/160'; mc.className='char-pill '+(ml>=140&&ml<=160?'char-ok':ml<140?'char-warn':'char-bad');
+  document.getElementById('r-keywords').innerHTML=(r.focus_keywords||[]).map(k=>`<span class="kw-tag">${k}</span>`).join('');
+  document.getElementById('r-tags').innerHTML=(r.product_tags||[]).map(t=>`<span class="prod-tag">${t}</span>`).join('');
   renderSlugChecklist(r.seo_slug||'');
   updateOpenCartFormat();
 }
 
 function updateOpenCartFormat() {
   if (!currentResults) return;
-  const r = currentResults;
-  const ll = {en:'English',hi:'Hindi',te:'Telugu'};
-  document.getElementById('r-opencart').textContent =
-`━━━ GENERAL TAB ━━━
-Product Name:
-${r.productName}
-
-━━━ DATA TAB ━━━
-Meta Tag Title:
-${r.meta_title||''}
-
-Meta Tag Description:
-${r.meta_description||''}
-
-SEO URL (Keyword):
-${r.seo_slug||''}
-
-━━━ DESCRIPTION TAB ━━━
-Description:
-${r.product_description||''}
-
-Summary:
-${r.short_description||''}
-
-━━━ IMAGE TAB ━━━
-Alt Text / Image Title:
-${r.alt_text||''}
-
-━━━ TAGS ━━━
-${(r.product_tags||[]).join(', ')}
-
-━━━ KEYWORDS ━━━
-${(r.focus_keywords||[]).join(', ')}
-
-━━━ INFO ━━━
-Language: ${ll[r.lang]||'English'} | Category: ${r.category||'N/A'}
-Generated: ${formatDate(r.timestamp)}`;
+  const r=currentResults, ll={en:'English',hi:'Hindi',te:'Telugu'};
+  document.getElementById('r-opencart').textContent=
+`━━━ GENERAL TAB ━━━\nProduct Name:\n${r.productName}\n\n━━━ DATA TAB ━━━\nMeta Tag Title:\n${r.meta_title||''}\n\nMeta Tag Description:\n${r.meta_description||''}\n\nSEO URL (Keyword):\n${r.seo_slug||''}\n\n━━━ DESCRIPTION TAB ━━━\nDescription:\n${r.product_description||''}\n\nSummary:\n${r.short_description||''}\n\n━━━ IMAGE TAB ━━━\nAlt Text:\n${r.alt_text||''}\n\n━━━ TAGS ━━━\n${(r.product_tags||[]).join(', ')}\n\n━━━ KEYWORDS ━━━\n${(r.focus_keywords||[]).join(', ')}\n\n━━━ INFO ━━━\nLanguage: ${ll[r.lang]||'English'} | Category: ${r.category||'N/A'}\nGenerated: ${formatDate(r.timestamp)}`;
 }
 
-// ── SAVE ───────────────────────────────────────────────────
-function saveToFirebase() {
-  if (!currentResults) return;
+// ── SAVE TO FIREBASE (Firestore) ──
+async function saveToFirebase() {
+  if (!currentResults || !fbUser) return;
   document.getElementById('save-btn').disabled = true;
-  const history = getHistory();
-  const idx = history.findIndex(h => h.productName?.toLowerCase() === currentResults.productName.toLowerCase() && h.lang === currentResults.lang);
-  if (idx >= 0) {
-    if (!history[idx].versions) history[idx].versions = [];
-    history[idx].versions.push({ ...history[idx], versions:undefined, savedAt:new Date().toISOString() });
-    Object.assign(history[idx], { ...currentResults });
-  } else {
-    history.unshift({ ...currentResults });
+  try {
+    const { db, collection, addDoc, doc, updateDoc, query, where, getDocs, serverTimestamp } = window._fb;
+    const r = currentResults;
+    const q = query(collection(db,'products'),
+      where('uid','==',fbUser.uid),
+      where('productNameLower','==',r.productName.toLowerCase()),
+      where('lang','==',r.lang));
+    const snap = await getDocs(q);
+    const payload = {
+      uid:fbUser.uid, productName:r.productName, productNameLower:r.productName.toLowerCase(),
+      category:r.category||'', lang:r.lang||'en', meta_title:r.meta_title||'',
+      meta_description:r.meta_description||'', seo_slug:r.seo_slug||'', alt_text:r.alt_text||'',
+      product_description:r.product_description||'', short_description:r.short_description||'',
+      focus_keywords:r.focus_keywords||[], product_tags:r.product_tags||[],
+      imageThumb:r.imageThumb ? r.imageThumb.substring(0,2000) : null,
+      versions:r.versions||[], timestamp:r.timestamp, updatedAt:serverTimestamp()
+    };
+    if (!snap.empty) {
+      const existing = snap.docs[0];
+      const existData = existing.data();
+      const versions = existData.versions || [];
+      versions.push({...existData, versions:undefined, savedAt:new Date().toISOString()});
+      await updateDoc(doc(db,'products',existing.id), {...payload, versions, createdAt:existData.createdAt});
+    } else {
+      await addDoc(collection(db,'products'), {...payload, createdAt:serverTimestamp()});
+    }
+    document.getElementById('save-btn').disabled = false;
+    showToast('✅ Saved to Firebase!');
+    updateStats(); renderRecentActivity(); updateHistoryBadge();
+  } catch(err) {
+    document.getElementById('save-btn').disabled = false;
+    showToast('Save failed: '+err.message);
+    console.error(err);
   }
-  if (history.length > 200) history.pop();
-  saveHistory(history);
-  document.getElementById('save-btn').disabled = false;
-  showToast('Saved successfully ✓');
-  updateStats(); renderRecentActivity(); updateHistoryBadge();
 }
 
-// ── HISTORY ────────────────────────────────────────────────
-function renderHistory() {
+// ── FETCH FROM FIREBASE ──
+async function fetchProducts() {
+  if (!fbUser) return [];
+  try {
+    const { db, collection, query, where, getDocs } = window._fb;
+    const q = query(collection(db,'products'), where('uid','==',fbUser.uid));
+    const snap = await getDocs(q);
+    const products = snap.docs.map(d => ({id:d.id,...d.data()}));
+    // Sort by timestamp descending (client-side to avoid index requirement)
+    return products.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  } catch(e) { console.warn('fetchProducts:', e.message); return []; }
+}
+
+// ── HISTORY ──
+async function renderHistory() {
   const search = document.getElementById('hist-search').value.toLowerCase();
   const langF  = document.getElementById('hist-lang').value;
-  let history  = getHistory();
-  if (search) history = history.filter(h => h.productName?.toLowerCase().includes(search));
-  if (langF)  history = history.filter(h => h.lang === langF);
-
-  const list = document.getElementById('history-list');
-  if (!history.length) {
-    list.innerHTML = `<div class="empty-state">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <h3>${search||langF?'No results found':'No history yet'}</h3>
-      <p>${search||langF?'Try a different search.':'Products will appear here after saving.'}</p>
-    </div>`;
+  const list   = document.getElementById('history-list');
+  list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3);font-size:.85rem">🔥 Loading from Firebase...</div>';
+  let products = await fetchProducts();
+  if (search) products = products.filter(h => h.productName?.toLowerCase().includes(search));
+  if (langF)  products = products.filter(h => h.lang === langF);
+  if (!products.length) {
+    list.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><h3>${search||langF?'No results':'No history yet'}</h3><p>${search||langF?'Try different search.':'Save a generated product to see it here.'}</p></div>`;
     return;
   }
-
-  const ll = {en:'EN',hi:'हिं',te:'తె'};
-  window._histCache = history;
-  list.innerHTML = history.map((h,i) => `
+  const ll={en:'EN',hi:'हिं',te:'తె'};
+  window._histCache = products;
+  list.innerHTML = products.map((h,i) => `
     <div class="history-item" onclick="openHistModal(${i})">
       <div class="history-thumb">${h.imageThumb?`<img src="${h.imageThumb}" alt="${h.productName}"/>`:'📦'}</div>
       <div class="history-info">
@@ -1594,6 +1266,7 @@ function renderHistory() {
       <div class="history-meta">
         <div class="history-date">${formatDate(h.timestamp)}</div>
         <span class="lang-badge">${ll[h.lang]||'EN'}</span>
+        <span style="display:inline-block;margin-top:3px;margin-left:4px;background:#fff7ed;color:#ea580c;padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700">🔥</span>
         ${(h.versions||[]).length>0?`<span class="versions-badge">${(h.versions||[]).length}v</span>`:''}
       </div>
     </div>`).join('');
@@ -1602,25 +1275,26 @@ function renderHistory() {
 function openHistModal(idx) {
   const h = window._histCache?.[idx];
   if (!h) return;
-  const ll = {en:'English',hi:'Hindi',te:'Telugu'};
+  const ll={en:'English',hi:'Hindi',te:'Telugu'};
   document.getElementById('hm-title').textContent = h.productName||'';
   document.getElementById('hm-body').innerHTML = `
     ${h.imageThumb?`<img src="${h.imageThumb}" style="max-height:120px;border-radius:10px;margin-bottom:1rem;"/>`:''}
     <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap">
       <span style="background:var(--blue-bg);color:var(--blue);padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:700">${ll[h.lang]||h.lang}</span>
       ${h.category?`<span style="background:var(--surface2);color:var(--text2);padding:3px 10px;border-radius:99px;font-size:.72rem">${h.category}</span>`:''}
+      <span style="background:#fff7ed;color:#ea580c;padding:3px 10px;border-radius:99px;font-size:.72rem">🔥 Firebase</span>
       <span style="background:var(--surface2);color:var(--text2);padding:3px 10px;border-radius:99px;font-size:.72rem">${formatDate(h.timestamp)}</span>
     </div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Title</span></div><div class="seo-val">${h.meta_title||''}</div></div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Description</span></div><div class="seo-val">${h.meta_description||''}</div></div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">SEO Slug</span></div><div class="seo-val mono">${h.seo_slug||''}</div></div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Keywords</span></div><div class="kw-wrap">${(h.focus_keywords||[]).map(k=>`<span class="kw-tag">${k}</span>`).join('')}</div></div>
-    <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Product Tags</span></div><div class="kw-wrap">${(h.product_tags||[]).map(t=>`<span class="prod-tag">${t}</span>`).join('')}</div></div>
+    <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Tags</span></div><div class="kw-wrap">${(h.product_tags||[]).map(t=>`<span class="prod-tag">${t}</span>`).join('')}</div></div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Description</span></div><div class="seo-val" style="white-space:pre-wrap;max-height:140px;overflow-y:auto">${h.product_description||''}</div></div>
-    ${(h.versions||[]).length>0?`<div style="margin-top:1rem"><p style="font-size:.75rem;font-weight:700;color:var(--text2);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em">Previous Versions (${h.versions.length})</p>${(h.versions||[]).map((v,vi)=>`<div class="version-item"><div class="version-head"><span class="version-num">Version ${vi+1}</span><span class="version-date">${formatDate(v.savedAt||v.timestamp)}</span></div><div class="version-title">${v.meta_title||''}</div></div>`).join('')}</div>`:''}
+    ${(h.versions||[]).length>0?`<div style="margin-top:1rem"><p style="font-size:.75rem;font-weight:700;color:var(--text2);margin-bottom:.5rem;text-transform:uppercase">Previous Versions (${h.versions.length})</p>${(h.versions||[]).map((v,vi)=>`<div class="version-item"><div class="version-head"><span class="version-num">Version ${vi+1}</span><span class="version-date">${formatDate(v.savedAt||v.timestamp)}</span></div><div class="version-title">${v.meta_title||''}</div></div>`).join('')}</div>`:''}
     <div style="margin-top:1.25rem;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-accent btn-sm" onclick="loadHistItem(${idx})">Load & Edit</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteHistItem(${idx})">Delete</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteHistItem(${idx},'${h.id||''}')">Delete</button>
       <button class="btn btn-outline btn-sm" onclick="closeModal('hist-modal')">Close</button>
     </div>`;
   document.getElementById('hist-modal').classList.add('open');
@@ -1633,52 +1307,63 @@ function loadHistItem(idx) {
   document.getElementById('prod-name').value = h.productName||'';
   if (h.category) document.getElementById('prod-cat').value = h.category;
   document.getElementById('prod-lang').value = h.lang||'en';
-  currentResults = { ...h };
+  currentResults = {...h};
   renderResults(currentResults);
 }
 
-function deleteHistItem(idx) {
-  if (!confirm('Delete this product? Cannot be undone.')) return;
-  const h = getHistory(); h.splice(idx,1); saveHistory(h);
+async function deleteHistItem(idx, docId) {
+  if (!confirm('Delete this product from Firebase? Cannot be undone.')) return;
+  if (docId && fbUser) {
+    try {
+      const { db, doc, deleteDoc } = window._fb;
+      await deleteDoc(doc(db,'products',docId));
+    } catch(e) { console.warn(e); }
+  }
   closeModal('hist-modal'); renderHistory();
   updateStats(); updateHistoryBadge(); showToast('Deleted ✓');
 }
 
-function clearAllHistory() {
-  if (!confirm('Delete ALL history? Cannot be undone.')) return;
-  saveHistory([]);
-  renderHistory(); updateStats(); updateHistoryBadge(); showToast('History cleared ✓');
+async function clearAllHistory() {
+  if (!confirm('Delete ALL products from Firebase? Cannot be undone.')) return;
+  try {
+    const { db, collection, query, where, getDocs, doc, deleteDoc } = window._fb;
+    const q = query(collection(db,'products'), where('uid','==',fbUser.uid));
+    const snap = await getDocs(q);
+    for (const d of snap.docs) await deleteDoc(doc(db,'products',d.id));
+  } catch(e) { console.warn(e); }
+  renderHistory(); updateStats(); updateHistoryBadge(); showToast('All cleared ✓');
 }
 
-function exportHistory() {
-  const h = getHistory();
-  const blob = new Blob([JSON.stringify({exported:new Date().toISOString(),count:h.length,history:h},null,2)],{type:'application/json'});
+async function exportHistory() {
+  const products = await fetchProducts();
+  const blob = new Blob([JSON.stringify({exported:new Date().toISOString(),count:products.length,products},null,2)],{type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `abrazylo-history-${Date.now()}.json`; a.click();
+  a.download = `abrazylo-firebase-${Date.now()}.json`; a.click();
 }
 
-// ── STATS ──────────────────────────────────────────────────
-function updateStats() {
-  const h = getHistory();
-  document.getElementById('stat-total').textContent    = h.length;
+// ── STATS ──
+async function updateStats() {
+  const products = await fetchProducts();
+  document.getElementById('stat-total').textContent    = products.length;
   const wa = Date.now()-7*24*60*60*1000;
-  document.getElementById('stat-week').textContent     = h.filter(x=>(x.timestamp||0)>wa).length;
-  document.getElementById('stat-versions').textContent = h.reduce((a,x)=>a+(x.versions?.length||0),0);
-  document.getElementById('stat-langs').textContent    = new Set(h.map(x=>x.lang).filter(Boolean)).size;
+  document.getElementById('stat-week').textContent     = products.filter(x=>(x.timestamp||0)>wa).length;
+  document.getElementById('stat-versions').textContent = products.reduce((a,x)=>a+(x.versions?.length||0),0);
+  document.getElementById('stat-langs').textContent    = new Set(products.map(x=>x.lang).filter(Boolean)).size;
 }
 
-function updateHistoryBadge() {
-  document.getElementById('history-badge').textContent = getHistory().length;
+async function updateHistoryBadge() {
+  const products = await fetchProducts();
+  document.getElementById('history-badge').textContent = products.length;
 }
 
-function renderRecentActivity() {
-  const h = getHistory().slice(0,5);
+async function renderRecentActivity() {
+  const products = (await fetchProducts()).slice(0,5);
   const el = document.getElementById('recent-list');
-  if (!h.length) { el.innerHTML='<p style="font-size:.83rem;color:var(--text3)">No activity yet. Generate your first product!</p>'; return; }
-  el.innerHTML = h.map(x=>`
+  if (!products.length) { el.innerHTML='<p style="font-size:.83rem;color:var(--text3)">No activity yet. Generate your first product!</p>'; return; }
+  el.innerHTML = products.map(x=>`
     <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
       <div style="width:30px;height:30px;border-radius:7px;background:var(--surface2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem">
-        ${x.imageThumb?`<img src="${x.imageThumb}" style="width:100%;height:100%;object-fit:cover"/>` : '📦'}
+        ${x.imageThumb?`<img src="${x.imageThumb}" style="width:100%;height:100%;object-fit:cover"/>`:'📦'}
       </div>
       <div style="flex:1;min-width:0">
         <p style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.productName||''}</p>
@@ -1687,32 +1372,36 @@ function renderRecentActivity() {
     </div>`).join('');
 }
 
-// ── SETTINGS ───────────────────────────────────────────────
-function saveApiKey() {
+// ── SETTINGS ──
+async function saveApiKey() {
   const key = document.getElementById('s-apikey').value.trim();
   hideAlertEl('settings-alert');
   if (!key) { showAlertEl('settings-alert','settings-alert-msg','Please enter an API key.'); return; }
-  const users = getUsers();
-  if (users[currentUser.username]) users[currentUser.username].apiKey = key;
-  saveUsers(users);
-  if (!currentUser) currentUser = {};
-  currentUser.apiKey = key;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-  showAlertEl('settings-ok','settings-ok-msg','Groq API key saved! ✓');
-  setTimeout(()=>hideAlertEl('settings-ok'), 3000);
+  try {
+    if (fbUser) {
+      const { db, doc, updateDoc } = window._fb;
+      await updateDoc(doc(db,'users',fbUser.uid), { apiKey: key });
+    }
+    if (!userDoc) userDoc = {};
+    userDoc.apiKey = key;
+    showAlertEl('settings-ok','settings-ok-msg','Groq API key saved to Firebase ✓');
+    setTimeout(()=>hideAlertEl('settings-ok'), 3000);
+  } catch(e) { showAlertEl('settings-alert','settings-alert-msg','Save failed: '+e.message); }
 }
 
-function saveProfile() {
+async function saveProfile() {
   const name = document.getElementById('s-name').value.trim();
   if (!name) return;
-  const users = getUsers();
-  if (users[currentUser.username]) users[currentUser.username].name = name;
-  saveUsers(users);
-  currentUser.name = name;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
-  document.getElementById('sidebar-name').textContent = name;
-  document.getElementById('sidebar-av').textContent   = name[0].toUpperCase();
-  showToast('Profile updated ✓');
+  try {
+    if (fbUser) {
+      const { db, doc, updateDoc } = window._fb;
+      await updateDoc(doc(db,'users',fbUser.uid), { name });
+    }
+    if (userDoc) userDoc.name = name;
+    document.getElementById('sidebar-name').textContent = name;
+    document.getElementById('sidebar-av').textContent   = name[0].toUpperCase();
+    showToast('Profile updated ✓');
+  } catch(e) { showToast('Failed: '+e.message); }
 }
 
 function toggleKey() {
@@ -1721,93 +1410,63 @@ function toggleKey() {
   b.textContent = i.type==='password' ? 'Show' : 'Hide';
 }
 
-// ── COPY ───────────────────────────────────────────────────
+// ── COPY ──
 function copyField(id) { navigator.clipboard.writeText(document.getElementById(id)?.textContent||'').then(()=>showToast('Copied ✓')); }
-function copyKeywords() {
-  const t = Array.from(document.querySelectorAll('#r-keywords .kw-tag')).map(x=>x.textContent).join(', ');
-  navigator.clipboard.writeText(t).then(()=>showToast('Keywords copied ✓'));
-}
-function copyTags() {
-  const t = Array.from(document.querySelectorAll('#r-tags .prod-tag')).map(x=>x.textContent).join(', ');
-  navigator.clipboard.writeText(t).then(()=>showToast('Tags copied ✓'));
-}
+function copyKeywords() { navigator.clipboard.writeText(Array.from(document.querySelectorAll('#r-keywords .kw-tag')).map(x=>x.textContent).join(', ')).then(()=>showToast('Keywords copied ✓')); }
+function copyTags() { navigator.clipboard.writeText(Array.from(document.querySelectorAll('#r-tags .prod-tag')).map(x=>x.textContent).join(', ')).then(()=>showToast('Tags copied ✓')); }
 function copyAll() {
   if (!currentResults) return;
-  const r = currentResults;
-  navigator.clipboard.writeText(
-    `Product: ${r.productName}\n\nMeta Title:\n${r.meta_title}\n\nMeta Description:\n${r.meta_description}\n\nSEO Slug:\n${r.seo_slug}\n\nAlt Text:\n${r.alt_text}\n\nKeywords:\n${(r.focus_keywords||[]).join(', ')}\n\nProduct Tags:\n${(r.product_tags||[]).join(', ')}\n\nDescription:\n${r.product_description}\n\nShort Description:\n${r.short_description}`
-  ).then(()=>showToast('All content copied ✓'));
+  const r=currentResults;
+  navigator.clipboard.writeText(`Product: ${r.productName}\n\nMeta Title:\n${r.meta_title}\n\nMeta Description:\n${r.meta_description}\n\nSEO Slug:\n${r.seo_slug}\n\nAlt Text:\n${r.alt_text}\n\nKeywords:\n${(r.focus_keywords||[]).join(', ')}\n\nTags:\n${(r.product_tags||[]).join(', ')}\n\nDescription:\n${r.product_description}\n\nShort:\n${r.short_description}`).then(()=>showToast('All copied ✓'));
 }
 
-// ── MODAL ──────────────────────────────────────────────────
+// ── MODAL ──
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); }));
 });
 
-// ── LOADING ────────────────────────────────────────────────
+// ── LOADING ──
 function showLoadingMsg(msg, steps) {
   document.getElementById('loading-msg').textContent = msg;
-  document.getElementById('loading-steps').innerHTML = steps.map((s,i)=>`
-    <div class="loading-step" id="lstep-${i}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>${s}
-    </div>`).join('');
+  document.getElementById('loading-steps').innerHTML = steps.map((s,i)=>{
+    const text = s.text || s;
+    return `<div class="loading-step" id="lstep-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>${text}</div>`;
+  }).join('');
   document.getElementById('loading').classList.add('open');
-  steps.forEach((_,i) => setTimeout(()=>{
-    const el = document.getElementById('lstep-'+i);
-    if(el){ el.className='loading-step done'; el.querySelector('svg').innerHTML='<polyline points="20 6 9 17 4 12"/>'; }
-  },(i+1)*900));
 }
 function hideLoading() { document.getElementById('loading').classList.remove('open'); }
 
-// ── ALERTS ─────────────────────────────────────────────────
-function showAlertEl(aid, mid, msg) {
-  const a = document.getElementById(aid), m = document.getElementById(mid);
-  if(m) m.textContent = msg; if(a) a.classList.add('show');
-}
+// ── ALERTS ──
+function showAlertEl(aid, mid, msg) { const a=document.getElementById(aid),m=document.getElementById(mid); if(m)m.textContent=msg; if(a)a.classList.add('show'); }
 function hideAlertEl(aid) { document.getElementById(aid)?.classList.remove('show'); }
 
-// ── TOAST ──────────────────────────────────────────────────
-function hardReset() {
-  if (!confirm('This will clear all local data and reload. Continue?')) return;
-  localStorage.clear();
-  location.reload();
-}
-
+// ── TOAST ──
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  if (window._toastHideTimeout) clearTimeout(window._toastHideTimeout);
-  window._toastHideTimeout = setTimeout(() => t.classList.remove('show'), 5000);
+  t.textContent = msg; t.classList.add('show');
+  if (window._toastHide) clearTimeout(window._toastHide);
+  window._toastHide = setTimeout(() => t.classList.remove('show'), 5000);
 }
 
 function startSeoToast() {
   const msg = 'This AI is trained for only SEO generation, built by Sagar K.';
   if (window._seoToastInterval) clearInterval(window._seoToastInterval);
-  if (window._seoToastTimeout) clearTimeout(window._seoToastTimeout);
-
-  const show = () => {
-    showToast(msg);
-    window._seoToastTimeout = setTimeout(() => {
-      const t = document.getElementById('toast');
-      t.classList.remove('show');
-    }, 5000);
-  };
-
-  show();
-  window._seoToastInterval = setInterval(show, 10000);
+  showToast(msg);
+  window._seoToastInterval = setInterval(() => showToast(msg), 10000);
 }
 
-// ── ENTER KEY ──────────────────────────────────────────────
+// ── UTILS ──
+function formatDate(ts) {
+  if (!ts) return '';
+  try { const d=typeof ts==='number'?new Date(ts):(ts.toDate?ts.toDate():new Date(ts)); return d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}); }
+  catch(e){return '';}
+}
+function hardReset() { if(!confirm('Clear all local data and reload?'))return; localStorage.clear(); location.reload(); }
+
 document.addEventListener('keydown', e => {
   if (e.key==='Enter' && document.getElementById('page-login')?.classList.contains('active')) doLogin();
 });
-
-function toggleSidebar() {
-    document.querySelector('.sidebar')?.classList.toggle('open');
-    document.getElementById('sidebarBackdrop')?.classList.toggle('show');
-}
 </script>
 </body>
 </html>
