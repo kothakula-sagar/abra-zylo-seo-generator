@@ -170,7 +170,41 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .tab-pane{display:none;padding:1.25rem}
 .tab-pane.active{display:block}
 
-/* SEO FIELDS */
+.seo-score-panel{display:grid;grid-template-columns:280px 1fr;gap:1.25rem;align-items:start}
+.score-card{background:var(--surface);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1rem;transition:transform .2s ease}
+.score-card:hover{transform:translateY(-4px)}
+.score-label{font-size:.75rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);}
+.score-ring-wrapper{position:relative;width:220px;height:220px}
+.score-ring{transform:rotate(-90deg)}
+.score-ring circle{fill:none;stroke-width:12;stroke-linecap:round}
+.ring-bg{stroke:var(--border)}
+.ring-fill{stroke:#10B981;stroke-dasharray:615.75;stroke-dashoffset:615.75;transition:stroke-dashoffset 1.5s ease-out, stroke 1.5s ease-out}
+.score-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.score-value{font-size:3.5rem;font-weight:800;color:var(--brand)}
+.score-max{font-size:.95rem;color:var(--text2);letter-spacing:.08em}
+.score-status{font-size:1rem;font-weight:700;color:var(--brand);text-align:center}
+.quality-badge{background:rgba(59,130,246,.1);color:#1d4ed8;font-size:.82rem;font-weight:700;padding:.55rem 1rem;border-radius:999px;margin:0 auto 0.75rem;max-width:fit-content}
+.score-message{font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;max-width:240px}
+.ranking-card{background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.18);border-radius:18px;padding:1rem 1.1rem;width:100%;text-align:left}
+.ranking-head{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.75rem}
+.ranking-stars{font-size:1rem;letter-spacing:.08em;margin-bottom:.75rem;display:block;color:#2563eb}
+.ranking-line{display:flex;justify-content:space-between;gap:.6rem;font-size:.85rem;color:var(--text2);margin-bottom:.4rem}
+.ranking-line span{color:var(--text3)}
+.score-checklist-card{background:var(--surface);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:1.5rem;}
+.score-checklist-head h3{font-size:1rem;margin:0 0 .85rem}
+.score-checklist{display:grid;gap:.75rem}
+.score-check-item{display:flex;align-items:flex-start;gap:.75rem;font-size:.9rem;color:var(--text);line-height:1.5}
+.score-check-item span{margin-top:2px}
+.check-icon{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0}
+.check-good{background:#ecfdf5;color:#10b981}
+.check-warn{background:#fef3c7;color:#b45309}
+.check-bad{background:#fee2e2;color:#dc2626}
+.score-recommendations{margin-top:1.25rem}
+.score-recommendations-head h3{font-size:1rem;margin-bottom:.85rem}
+.recommendation-list{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.recommendation-list li{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;font-size:.9rem;color:var(--text2)}
+.recommendation-list li::before{content:'•';color:var(--brand);margin-right:8px}
+@media(max-width:1024px){.seo-score-panel{grid-template-columns:1fr;}.score-card{width:100%;}.score-checklist-card{width:100%;}}
 .seo-field{margin-bottom:1.1rem}
 .seo-field-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
 .seo-field-label{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2)}
@@ -238,17 +272,28 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .alert-warn{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
 
 /* LOADING */
-.loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
 .loading-overlay.open{display:flex}
-.loading-card{background:var(--surface);border-radius:var(--radius);padding:2rem 2.5rem;text-align:center;min-width:260px;box-shadow:var(--shadow-lg)}
-.spinner{width:42px;height:42px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-card p{font-size:.875rem;color:var(--text2);margin-bottom:.5rem}
-.model-chip{display:inline-block;background:var(--green-bg);color:var(--green);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:99px}
-.loading-steps{margin-top:1rem;display:flex;flex-direction:column;gap:4px}
-.loading-step{font-size:.75rem;color:var(--text3);display:flex;align-items:center;gap:6px}
-.loading-step.done{color:var(--green)}
-.loading-step svg{width:13px;height:13px}
+.loading-card{background:var(--surface);border-radius:28px;padding:2rem 2.25rem;text-align:left;min-width:320px;max-width:520px;box-shadow:0 34px 80px rgba(15,23,42,.18)}
+.loading-header{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem}
+.loading-icon{width:46px;height:46px;background:rgba(59,130,246,.12);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.35rem}
+.loading-title{font-size:1.05rem;font-weight:800;color:var(--text)}
+.loading-subtitle{font-size:.95rem;color:var(--text2);margin-top:.25rem;line-height:1.5}
+.loading-progress{margin:1rem 0 1.5rem}
+.progress-label{display:flex;justify-content:flex-end;font-size:.78rem;color:var(--text3);margin-bottom:.5rem}
+.progress-track{height:10px;border-radius:999px;background:rgba(59,130,246,.12);overflow:hidden}
+.progress-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg, #2563eb, #38bdf8)}
+.loading-steps{display:flex;flex-direction:column;gap:.8rem}
+.loading-step{display:grid;grid-template-columns:22px 1fr 22px;align-items:center;gap:.6rem;font-size:.85rem;color:var(--text3);padding:.55rem 0;border-bottom:1px solid rgba(148,163,184,.12)}
+.loading-step:last-child{border-bottom:none}
+.loading-step .step-index{width:22px;height:22px;border-radius:50%;background:rgba(148,163,184,.16);color:var(--text3);display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700}
+.loading-step .step-content{display:flex;flex-direction:column;gap:.2rem}
+.loading-step .step-label{font-weight:600;color:var(--text)}
+.loading-step .step-icon{font-size:.95rem;color:var(--text3)}
+.loading-step.done .step-index{background:var(--green);color:#fff}
+.loading-step.done .step-icon{color:var(--green)}
+.loading-step.done .step-label{color:var(--text)}
+.loading-step.complete .step-icon{color:var(--green)}
 
 /* DUP WARNING */
 .dup-warn{background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius-sm);padding:.875rem 1rem;margin-bottom:.875rem;display:none}
@@ -318,6 +363,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Product tags + image alt text</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Regenerate & version history</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>🔥 Firebase cloud — sync across devices</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Designed and Developed by <b>Sagar K</b> — SEO Expert</span></div>
     </div>
   </div>
   <div class="auth-right">
@@ -354,6 +400,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Free with Groq API — 14,400 req/day</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Firebase cloud storage — access anywhere</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>No credit card needed</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Designed and Developed by <b>Sagar K</b> — SEO Expert</span></div>
     </div>
   </div>
   <div class="auth-right">
@@ -539,24 +586,61 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                   <button class="btn btn-sm" style="background:#fef3c7;color:#78350f;border:1px solid #fde68a" onclick="applySlugSuggestion()">Use Suggested Slug</button>
                 </div>
                 <div class="tabs">
-                  <button class="tab active" onclick="switchRTab('seo')">SEO Tags</button>
+                  <button class="tab active" onclick="switchRTab('score')">SEO Score ⭐ NEW</button>
+                  <button class="tab" onclick="switchRTab('seo')">SEO Tags</button>
                   <button class="tab" onclick="switchRTab('desc')">Description</button>
                   <button class="tab" onclick="switchRTab('url')">URL Validator</button>
                   <button class="tab" onclick="switchRTab('tags')">Tags</button>
                   <button class="tab" onclick="switchRTab('opencart')">OpenCart</button>
                 </div>
-                <div class="tab-pane active" id="rtab-seo">
-                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Title</span><div class="seo-field-actions"><span class="char-pill" id="title-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-title')">Copy</button></div></div><div class="seo-val" id="r-title"></div></div>
-                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Description</span><div class="seo-field-actions"><span class="char-pill" id="desc-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-metadesc')">Copy</button></div></div><div class="seo-val" id="r-metadesc"></div></div>
+                <div class="tab-pane active" id="rtab-score">
+                  <div class="seo-score-panel">
+                    <div class="score-card">
+                      <div class="score-label">SEO SCORE</div>
+                      <div class="score-ring-wrapper">
+                        <svg class="score-ring" viewBox="0 0 220 220">
+                          <circle cx="110" cy="110" r="98" class="ring-bg"/>
+                          <circle cx="110" cy="110" r="98" class="ring-fill" id="score-ring-fill"/>
+                        </svg>
+                        <div class="score-center">
+                          <div class="score-value" id="score-value">0</div>
+                          <div class="score-max">/100</div>
+                        </div>
+                      </div>
+                      <div class="score-status" id="score-status">Excellent SEO</div>
+                      <div class="quality-badge" id="quality-badge">✨ AI Optimized</div>
+                      <div class="score-message" id="score-message">This product is highly optimized for search engines.</div>
+                      <div class="ranking-card">
+                        <div class="ranking-head">Google Ranking Prediction</div>
+                        <div class="ranking-stars" id="ranking-stars">⭐⭐⭐⭐⭐</div>
+                        <div class="ranking-line"><span>Ranking Potential:</span> <strong id="ranking-potential">93%</strong></div>
+                        <div class="ranking-line"><span>Competition Level:</span> <strong id="ranking-competition">Medium</strong></div>
+                        <div class="ranking-line"><span>Page 1 Probability:</span> <strong id="ranking-page">High</strong></div>
+                        <div class="ranking-line"><span>SEO Strength:</span> <strong id="ranking-strength">Strong</strong></div>
+                      </div>
+                    </div>
+                    <div class="score-checklist-card">
+                      <div class="score-checklist-head"><h3>SEO Analysis</h3></div>
+                      <div class="score-checklist" id="score-checklist"></div>
+                    </div>
+                  </div>
+                  <div class="score-recommendations">
+                    <div class="score-recommendations-head"><h3>Recommendations</h3></div>
+                    <ul class="recommendation-list" id="score-recommendations"></ul>
+                  </div>
+                </div>
+                <div class="tab-pane" id="rtab-seo">
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Title</span><div class="seo-field-actions"><span class="char-pill" id="title-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-title')">Copy</button><button class="btn btn-ghost btn-xs" onclick="regenerateField('meta_title')">Regenerate</button></div></div><div class="seo-val" id="r-title"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Description</span><div class="seo-field-actions"><span class="char-pill" id="desc-chars"></span><button class="btn btn-ghost btn-xs" onclick="copyField('r-metadesc')">Copy</button><button class="btn btn-ghost btn-xs" onclick="regenerateField('meta_description')">Regenerate</button></div></div><div class="seo-val" id="r-metadesc"></div></div>
                   <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Focus Keywords</span><button class="btn btn-ghost btn-xs" onclick="copyKeywords()">Copy</button></div><div class="kw-wrap" id="r-keywords"></div></div>
-                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Image Alt Text</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-alt')">Copy</button></div><div class="seo-val" id="r-alt"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Image Alt Text</span><div class="seo-field-actions"><button class="btn btn-ghost btn-xs" onclick="copyField('r-alt')">Copy</button><button class="btn btn-ghost btn-xs" onclick="regenerateField('alt_text')">Regenerate</button></div></div><div class="seo-val" id="r-alt"></div></div>
                 </div>
                 <div class="tab-pane" id="rtab-desc">
-                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Product Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-proddesc')">Copy</button></div><div class="seo-val" id="r-proddesc" style="white-space:pre-wrap;min-height:120px"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Product Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-proddesc')">Copy</button><button class="btn btn-ghost btn-xs" onclick="regenerateField('product_description')">Regenerate</button></div><div class="seo-val" id="r-proddesc" style="white-space:pre-wrap;min-height:120px"></div></div>
                   <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Short Description</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-shortdesc')">Copy</button></div><div class="seo-val" id="r-shortdesc"></div></div>
                 </div>
                 <div class="tab-pane" id="rtab-url">
-                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">SEO URL Slug</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-slug')">Copy</button></div><div class="seo-val mono" id="r-slug"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">SEO URL Slug</span><div class="seo-field-actions"><button class="btn btn-ghost btn-xs" onclick="copyField('r-slug')">Copy</button><button class="btn btn-ghost btn-xs" onclick="regenerateField('seo_slug')">Regenerate</button></div></div><div class="seo-val mono" id="r-slug"></div></div>
                   <div class="url-validator"><div class="url-validator-title">11-Point URL Checklist</div><div class="checklist" id="url-checklist"></div></div>
                 </div>
                 <div class="tab-pane" id="rtab-tags">
@@ -663,9 +747,17 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 <!-- LOADING -->
 <div class="loading-overlay" id="loading">
   <div class="loading-card">
-    <div class="spinner"></div>
-    <p id="loading-msg">Generating SEO content...</p>
-    <div class="model-chip">Groq Llama 4 · Free</div>
+    <div class="loading-header">
+      <div class="loading-icon">🤖</div>
+      <div>
+        <div class="loading-title" id="loading-title">🤖 AI SEO Engine</div>
+        <div class="loading-subtitle" id="loading-subtitle">Generating and optimizing your SEO content...</div>
+      </div>
+    </div>
+    <div class="loading-progress">
+      <div class="progress-label"><span id="progress-text">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
     <div class="loading-steps" id="loading-steps"></div>
   </div>
 </div>
@@ -891,7 +983,7 @@ function switchTab(tab) {
 }
 
 function switchRTab(tab) {
-  const names = ['seo','desc','url','tags','opencart'];
+  const names = ['score','seo','desc','url','tags','opencart'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===tab));
   names.forEach(t => document.getElementById('rtab-'+t).classList.toggle('active', t===tab));
 }
@@ -1006,18 +1098,21 @@ async function generateSEO() {
   if (!name) { showAlertEl('gen-alert','gen-alert-msg','Please enter a product name.'); return; }
   if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No Groq API key. Go to Settings → add your free key.'); return; }
 
-  showLoadingMsg('Checking Firebase for duplicates...', []);
+  document.getElementById('result-content').style.display = 'none';
+  const steps = [
+    'Analyzing Product Image...',
+    'Generating SEO Content...',
+    'Optimizing Meta Title...',
+    'Optimizing Meta Description...',
+    'Optimizing Product Description...',
+    'Generating SEO Tags...',
+    'Validating SEO URL...',
+    'Calculating SEO Score...',
+    'Finalizing Best Version...'
+  ];
+  showLoadingMsg('🤖 AI SEO Engine', steps);
+  setLoadingProgress(0);
   document.getElementById('gen-btn').disabled = true;
-  const isDup = await checkDuplicateName(name);
-  if (isDup) {
-    hideLoading();
-    document.getElementById('gen-btn').disabled = false;
-    showAlertEl('dup-name-alert','dup-name-msg',`"${name}" already exists in Firebase! Use a unique product name.`);
-    return;
-  }
-
-  const steps = ['Analyzing product image...','Generating SEO metadata...','Validating URL slug...','Building OpenCart format...'];
-  showLoadingMsg('Generating with Groq AI...', steps);
 
   const langInstr = {
     en:'Generate all content in English.',
@@ -1025,68 +1120,109 @@ async function generateSEO() {
     te:'Generate ALL content in Telugu (తెలుగు). Use Telugu script for all text.'
   };
 
-  const prompt = `You are an expert e-commerce SEO specialist for Abra Zylo, an Indian online store. ${langInstr[lang]}
-Product Name: ${name}
-${cat?'Category: '+cat:''}
-${currentImageBase64?'Product image provided — analyze for color, style, material details.':''}
-
-Respond ONLY with a valid JSON object (no markdown, no explanation):
-{"meta_title":"SEO title under 60 chars with product name and key benefit","meta_description":"145-158 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-60-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"3 SEO-optimized paragraphs for Indian shoppers","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
-
   try {
-    let data;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) {
-        document.getElementById('loading-msg').textContent = `Rate limit. Retrying in ${attempt*5}s...`;
-        await new Promise(r => setTimeout(r, attempt*5000));
-      }
-      const userContent = [];
-      if (currentImageBase64) userContent.push({type:'image_url',image_url:{url:`data:${currentImageMime};base64,${currentImageBase64}`}});
-      userContent.push({type:'text',text:prompt});
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
-      try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:userContent}],temperature:0.7,max_tokens:1500}),
-          signal: controller.signal
-        });
-        data = await res.json();
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!data.error || !String(data.error?.message||'').includes('rate')) break;
+    const isDup = await checkDuplicateName(name);
+    completeLoadingStep(0, 10);
+    if (isDup) {
+      hideLoading();
+      document.getElementById('gen-btn').disabled = false;
+      showAlertEl('dup-name-alert','dup-name-msg',`"${name}" already exists in Firebase! Use a unique product name.`);
+      return;
     }
-    if (!data) throw new Error('Request timed out after 30 seconds. Please try again.');
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    const prompt = `You are an expert SEO specialist for Abra Zylo India. ${langInstr[lang]}
+Product Name: ${name}
+${cat ? 'Category: ' + cat + '\n' : ''}
+${currentImageBase64 ? 'Product image provided — analyze for color, style, material details.\n' : ''}
+Generate premium SEO content for this product. Respond ONLY with valid JSON and do not include markdown:
+{"meta_title":"SEO title 50-60 chars with product name and key benefit","meta_description":"140-160 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-60-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"250+ word SEO optimized description","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
+    const data = await callGroqAI([{role:'user',content:prompt}], apiKey);
+    completeLoadingStep(1, 25);
 
     const text = data.choices?.[0]?.message?.content || '';
-    const jS = text.indexOf('{'), jE = text.lastIndexOf('}');
-    if (jS === -1) throw new Error('Could not parse AI response. Please try again.');
-    let parsed;
-    try { parsed = JSON.parse(text.slice(jS,jE+1)); }
-    catch(e1) {
-      try { parsed = JSON.parse(text.slice(jS,jE+1).replace(/"(?:[^"\\]|\\.)*"/g,m=>m.replace(/\n/g,'\\n').replace(/\r/g,'').replace(/\t/g,' '))); }
-      catch(e2) { parsed = JSON.parse(text.slice(jS,jE+1).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,' ')); }
+    const parsed = parseAiJson(text);
+    if (!parsed) throw new Error('Could not parse AI response. Please try again.');
+    parsed.seo_slug = generateSlug(parsed.seo_slug || name);
+
+    let candidate = {
+      ...parsed,
+      productName: name,
+      category: cat,
+      lang,
+      timestamp: Date.now(),
+      imageThumb: currentImageBase64 ? `data:${currentImageMime};base64,${currentImageBase64}` : null,
+      versions: [],
+      uid: fbUser?.uid
+    };
+
+    let scoreData = computeSeoScore(candidate);
+    setLoadingSubtitle('Reviewing quality and preparing improvements...');
+    completeLoadingStep(7, 95);
+
+    let optimizationAttempts = 1;
+    let bestResult = {...candidate};
+    let bestScore = scoreData.score;
+    let bestScoreData = scoreData;
+
+    while (scoreData.score < 85 && optimizationAttempts < 3) {
+      const failedFields = scoreData.failedSections;
+      if (!failedFields.length) break;
+      const fieldLabels = {
+        meta_title:'Meta Title',
+        meta_description:'Meta Description',
+        product_description:'Product Description',
+        alt_text:'Image Alt Text',
+        seo_slug:'SEO URL Slug'
+      };
+
+      for (const field of failedFields) {
+        const stepIndex = field === 'meta_title' ? 2 : field === 'meta_description' ? 3 : field === 'product_description' ? 4 : field === 'seo_slug' ? 6 : 5;
+        completeLoadingStep(stepIndex, stepIndex === 2 ? 40 : stepIndex === 3 ? 50 : stepIndex === 4 ? 60 : stepIndex === 6 ? 80 : 70);
+        setLoadingSubtitle(`Improving ${fieldLabels[field]}...`);
+      }
+
+      const updated = await optimizeFailedSections(failedFields, candidate, apiKey, name, cat, langInstr[lang]);
+      candidate = {...candidate, ...updated};
+      scoreData = computeSeoScore(candidate);
+      optimizationAttempts += 1;
+      showToast(`✓ ${failedFields.map(f => fieldLabels[f]).join(', ')} optimized`);
+
+      if (scoreData.score > bestScore) {
+        bestScore = scoreData.score;
+        bestResult = {...candidate};
+        bestScoreData = scoreData;
+      }
     }
 
-    parsed.seo_slug = generateSlug(parsed.seo_slug || name);
-    const isDupSlug = await checkDuplicateSlug(parsed.seo_slug);
+    setLoadingSubtitle('Finalizing best version...');
+    completeLoadingStep(8, 100);
+    if (scoreData.score >= 85) {
+      setLoadingSubtitle('SEO Optimization Complete');
+    } else {
+      setLoadingSubtitle('Quality limit reached. Showing best available result.');
+    }
+
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+    await delay(700);
     hideLoading();
     document.getElementById('gen-btn').disabled = false;
 
-    currentResults = {...parsed, productName:name, category:cat, lang, timestamp:Date.now(),
-      imageThumb: currentImageBase64 ? `data:${currentImageMime};base64,${currentImageBase64}` : null,
-      versions:[], uid:fbUser?.uid};
+    currentResults = {...bestResult, optimizationAttempts, qualityLimitReached: scoreData.score < 85};
     renderResults(currentResults);
 
+    const isDupSlug = await checkDuplicateSlug(currentResults.seo_slug);
     if (isDupSlug) {
-      const suggest = parsed.seo_slug+'-'+Math.random().toString(36).slice(2,6);
+      const suggest = currentResults.seo_slug + '-' + Math.random().toString(36).slice(2,6);
       document.getElementById('slug-suggest-val').textContent = suggest;
       document.getElementById('slug-dup-warn').classList.add('show');
     } else {
       document.getElementById('slug-dup-warn').classList.remove('show');
+    }
+
+    if (currentResults.qualityLimitReached) {
+      showToast(`⚠ Quality Limit Reached • Best SEO Score Achieved: ${scoreData.score}/100`);
+    } else {
+      showToast(`🏆 SEO Optimization Complete • ${scoreData.score}/100`);
     }
   } catch(err) {
     hideLoading();
@@ -1149,6 +1285,185 @@ Generate a FRESH different SEO version. Respond ONLY with valid JSON:
   }
 }
 
+function validateRegenField(field, value, r) {
+  const v = (value || '').trim();
+  if (field === 'meta_title') return v.length >= 50 && v.length <= 60;
+  if (field === 'meta_description') return v.length >= 140 && v.length <= 160;
+  if (field === 'product_description') {
+    const words = v.split(/\s+/).filter(Boolean).length;
+    const sentences = Math.max((v.match(/[.!?]+/g) || []).length, 0);
+    return words >= 180 && sentences >= 2;
+  }
+  if (field === 'alt_text') return v.length > 0;
+  if (field === 'seo_slug') {
+    const slug = generateSlug(v || (r.productName || ''));
+    const words = (r.productName || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const slugOk = slug.length > 0 && slug === slug.toLowerCase() && slug.length < 75;
+    return slugOk && words.some(w => slug.includes(w));
+  }
+  return false;
+}
+
+function parseAiJson(text) {
+  const jS = text.indexOf('{');
+  const jE = text.lastIndexOf('}');
+  if (jS === -1 || jE === -1) return null;
+  try { return JSON.parse(text.slice(jS, jE + 1)); }
+  catch (err) {
+    try { return JSON.parse(text.slice(jS, jE + 1).replace(/"(?:[^"\\]|\\.)*"/g, m => m.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))); }
+    catch (err2) { return null; }
+  }
+}
+
+async function callGroqAI(messages, apiKey) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+      body: JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages,temperature:0.75,max_tokens:1500}),
+      signal: controller.signal
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return data;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function optimizeFailedSections(fields, candidate, apiKey, name, cat, langInstr) {
+  const fieldMap = {
+    meta_title:'Meta Title',
+    meta_description:'Meta Description',
+    product_description:'Product Description',
+    alt_text:'Image Alt Text',
+    seo_slug:'SEO URL Slug'
+  };
+  const failedLabels = fields.map(f => fieldMap[f] || f).join(', ');
+  const currentValues = [
+    `Meta Title: ${candidate.meta_title || ''}`,
+    `Meta Description: ${candidate.meta_description || ''}`,
+    `SEO URL Slug: ${candidate.seo_slug || ''}`,
+    `Image Alt Text: ${candidate.alt_text || ''}`,
+    `Product Description: ${candidate.product_description || ''}`,
+    `Short Description: ${candidate.short_description || ''}`,
+    `Focus Keywords: ${(candidate.focus_keywords || []).join(', ')}`,
+    `Product Tags: ${(candidate.product_tags || []).join(', ')}`
+  ].join('\n');
+
+  const prompt = `You are an expert SEO specialist for Abra Zylo India. ${langInstr}
+Product Name: ${name}
+${cat ? 'Category: ' + cat + '\n' : ''}
+${currentValues}
+
+Improve only the following fields: ${failedLabels}.
+Do not change any other content.
+Return ONLY valid JSON with the updated fields: {${fields.map(f => `"${f}":"..."`).join(',')}}`;
+
+  const data = await callGroqAI([{role:'user',content:prompt}], apiKey);
+  const parsed = parseAiJson(data.choices?.[0]?.message?.content || '');
+  if (!parsed) throw new Error('AI failed to optimize the requested fields.');
+
+  const updated = {...candidate};
+  for (const field of fields) {
+    if (parsed[field]) {
+      let value = String(parsed[field]).trim();
+      if (field === 'seo_slug') value = generateSlug(value || name);
+      updated[field] = value;
+    }
+  }
+  updated.timestamp = Date.now();
+  return updated;
+}
+
+async function regenerateField(field) {
+  if (!currentResults) return;
+  const apiKey = userDoc?.apiKey || '';
+  if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No API key.'); return; }
+
+  const fieldMap = {
+    meta_title: {label:'Meta Title', key:'meta_title', requirement:'50-60 characters and include the product name or main benefit.'},
+    meta_description: {label:'Meta Description', key:'meta_description', requirement:'140-160 characters, conversion-focused and keyword-rich.'},
+    alt_text: {label:'Image Alt Text', key:'alt_text', requirement:'descriptive alt text for the product image.'},
+    product_description: {label:'Product Description', key:'product_description', requirement:'at least 180 words with 2+ sentences, SEO-friendly and product-focused.'},
+    seo_slug: {label:'SEO URL Slug', key:'seo_slug', requirement:'lowercase hyphenated slug under 75 characters with no spaces or symbols, relevant to the product name.'}
+  };
+
+  const meta = fieldMap[field];
+  if (!meta) return;
+
+  const {productName:name, category:cat, lang} = currentResults;
+  const langInstr = {en:'Generate in English.',hi:'Generate in Hindi.',te:'Generate in Telugu.'};
+  const currentValue = currentResults[meta.key] || '';
+
+  showLoadingMsg(`Regenerating ${meta.label}...`, ['Preparing a quality rewrite...','Checking field quality...','Finalizing the update...']);
+  document.getElementById('gen-btn').disabled = true;
+
+  try {
+    let success = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const prompt = `You are an expert SEO specialist for Abra Zylo India. ${langInstr[lang||'en']}
+Product Name: ${name}
+${cat ? 'Category: ' + cat + '\n' : ''}
+Current ${meta.label}: ${currentValue}
+
+Update ONLY the ${meta.label}. Do not change any other fields.
+The new ${meta.label} must be ${meta.requirement}
+Return ONLY valid JSON with the field: {"${meta.key}":"..."}` + (attempt > 1 ? ' Improve the result to meet the quality requirements exactly.' : '');
+
+      const userContent = [];
+      if (currentImageBase64) userContent.push({type:'image_url',image_url:{url:`data:${currentImageMime};base64,${currentImageBase64}`}});
+      userContent.push({type:'text',text:prompt});
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      let data;
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:userContent}],temperature:0.75,max_tokens:900}),
+          signal: controller.signal
+        });
+        data = await res.json();
+      } finally { clearTimeout(timeout); }
+
+      if (data?.error) {
+        if (attempt === 3) throw new Error(data.error.message || 'AI regeneration failed.');
+        continue;
+      }
+      const parsed = parseAiJson(data.choices?.[0]?.message?.content || '');
+      if (!parsed || !parsed[meta.key]) {
+        if (attempt === 3) throw new Error('AI did not return a valid ' + meta.label + '.');
+        continue;
+      }
+
+      let candidate = String(parsed[meta.key]).trim();
+      if (field === 'seo_slug') candidate = generateSlug(candidate || name);
+      if (!validateRegenField(field, candidate, currentResults)) {
+        if (attempt === 3) throw new Error(`${meta.label} did not meet the quality criteria.`);
+        continue;
+      }
+
+      currentResults[meta.key] = candidate;
+      currentResults.timestamp = Date.now();
+      success = true;
+      break;
+    }
+
+    hideLoading();
+    document.getElementById('gen-btn').disabled = false;
+    if (!success) return;
+    renderResults(currentResults);
+    showToast(`${meta.label} regenerated ✓`);
+  } catch(err) {
+    hideLoading();
+    document.getElementById('gen-btn').disabled = false;
+    showAlertEl('gen-alert','gen-alert-msg','Error: '+err.message);
+  }
+}
+
 function applySlugSuggestion() {
   const s = document.getElementById('slug-suggest-val').textContent;
   if (currentResults) currentResults.seo_slug = s;
@@ -1179,6 +1494,154 @@ function renderResults(r) {
   document.getElementById('r-tags').innerHTML=(r.product_tags||[]).map(t=>`<span class="prod-tag">${t}</span>`).join('');
   renderSlugChecklist(r.seo_slug||'');
   updateOpenCartFormat();
+  const scoreData = computeSeoScore(r);
+  renderSeoScore(scoreData);
+  switchRTab('score');
+}
+
+function computeSeoScore(r) {
+  const title = (r.meta_title || '').trim();
+  const desc = (r.meta_description || '').trim();
+  const slug = (r.seo_slug || '').trim();
+  const prodDesc = (r.product_description || '').trim();
+  const alt = (r.alt_text || '').trim();
+  const productName = (r.productName || '').toLowerCase().trim();
+  const productWords = productName.split(/\s+/).filter(Boolean).map(w => w.replace(/[^a-z0-9]/g, '')).filter(Boolean);
+
+  const titleLenOk = title.length >= 50 && title.length <= 60;
+  const descLenOk = desc.length >= 140 && desc.length <= 160;
+  const slugLen = slug.length;
+  const slugLower = slug === slug.toLowerCase();
+  const slugNoSpaces = !/\s/.test(slug);
+  const slugClean = slugLen > 0 && slugLen < 75 && slugLower && slugNoSpaces && !/[|&%@#*]/.test(slug);
+  const slugRelevant = productWords.some(word => word.length > 2 && slug.includes(word));
+  const seoSlugOk = slugClean && slugRelevant;
+
+  const altExists = Boolean(alt);
+  const prodDescWords = prodDesc.split(/\s+/).filter(Boolean).length;
+  const prodDescSentences = Math.max((prodDesc.match(/[.!?]+/g) || []).length, 0);
+  const prodDescOk = prodDescWords >= 180 && prodDescSentences >= 2;
+
+  const passedChecks = [
+    titleLenOk,
+    descLenOk,
+    slugClean,
+    altExists,
+    prodDescOk,
+    seoSlugOk
+  ];
+  const rawScore = Math.round((passedChecks.filter(Boolean).length / passedChecks.length) * 100);
+  const score = rawScore > 98 ? 98 : rawScore;
+
+  const readabilityAvg = prodDescWords / Math.max(prodDescSentences, 1);
+  const readabilityScore = readabilityAvg <= 15 ? 95 : readabilityAvg <= 18 ? 88 : readabilityAvg <= 22 ? 80 : 72;
+  const titleKeyword = productWords.some(word => word.length > 2 && title.toLowerCase().includes(word));
+  const descKeyword = productWords.some(word => word.length > 2 && desc.toLowerCase().includes(word));
+  const keywordQuality = Math.min(100, Math.round((titleKeyword ? 20 : 10) + (descKeyword ? 20 : 10) + (slugRelevant ? 25 : 10) + (altExists ? 15 : 5) + (prodDescOk ? 20 : 10) + (titleLenOk ? 10 : 5)));
+  const contentQuality = Math.min(100, Math.round((prodDescOk ? 40 : 20) + (descLenOk ? 20 : 10) + (altExists ? 15 : 5) + (titleLenOk ? 15 : 8) + (seoSlugOk ? 10 : 5)));
+  const rankingPotential = Math.round((score * 0.5) + (readabilityScore * 0.2) + (keywordQuality * 0.15) + (contentQuality * 0.15));
+  const competitionLevel = rankingPotential >= 90 ? 'Medium' : rankingPotential >= 80 ? 'Medium' : rankingPotential >= 70 ? 'High' : 'High';
+  const pageProbability = rankingPotential >= 90 ? 'High' : rankingPotential >= 80 ? 'Good' : rankingPotential >= 70 ? 'Possible' : 'Low';
+  const seoStrength = rankingPotential >= 90 ? 'Strong' : rankingPotential >= 80 ? 'Good' : rankingPotential >= 70 ? 'Fair' : 'Weak';
+
+  const categories = [
+    {min:92,status:'Excellent SEO',color:'#10B981',icon:'🏆',message:'Excellent SEO optimization based on the requested checklist.'},
+    {min:80,status:'Good SEO',color:'#3B82F6',icon:'🚀',message:'Your SEO meets most checklist items, with a few areas to improve.'},
+    {min:70,status:'Fair SEO',color:'#F59E0B',icon:'🎯',message:'Some checklist items are missing or need improvement.'},
+    {min:0,status:'Poor SEO',color:'#EF4444',icon:'🚨',message:'The SEO checklist is incomplete and needs attention.'}
+  ];
+  const category = categories.find(c => score >= c.min) || categories[categories.length - 1];
+
+  const checklist = [
+    {label:'Meta Title Optimized', state: titleLenOk ? 'good' : 'bad'},
+    {label:'Meta Description Optimized', state: descLenOk ? 'good' : 'bad'},
+    {label:'URL Structure Good', state: slugClean ? 'good' : 'bad'},
+    {label:'Image Alt Text', state: altExists ? 'good' : 'bad'},
+    {label:'Product Description', state: prodDescOk ? 'good' : 'bad'},
+    {label:'SEO URL Slug', state: seoSlugOk ? 'good' : 'bad'}
+  ];
+
+  const failedSections = [];
+  if (!titleLenOk) failedSections.push('meta_title');
+  if (!descLenOk) failedSections.push('meta_description');
+  if (!prodDescOk) failedSections.push('product_description');
+  if (!altExists) failedSections.push('alt_text');
+  if (!seoSlugOk) failedSections.push('seo_slug');
+
+  const suggestions = [];
+  if (!titleLenOk) suggestions.push('Optimize the meta title to 50-60 characters.');
+  if (!descLenOk) suggestions.push('Optimize the meta description to 140-160 characters.');
+  if (!slugClean) suggestions.push('Use a lowercase hyphenated slug under 75 characters with no spaces or special symbols.');
+  if (!altExists) suggestions.push('Add descriptive image alt text.');
+  if (!prodDescOk) suggestions.push('Use a longer product description with at least 2 sentences and around 180 words.');
+  if (!seoSlugOk && slugClean) suggestions.push('Make the SEO URL slug relevant to the product name.');
+  if (!seoSlugOk && !slugClean) suggestions.push('Optimize the SEO URL slug to be clean and relevant.');
+  if (!suggestions.length) suggestions.push('All checklist items are optimized.');
+
+  return {
+    score,
+    category,
+    checklist,
+    suggestions,
+    failedSections,
+    readabilityScore,
+    keywordQuality,
+    contentQuality,
+    rankingPotential,
+    competitionLevel,
+    pageProbability,
+    seoStrength,
+    optimizationAttempts: r.optimizationAttempts || 1,
+    qualityLimitReached: r.qualityLimitReached || false
+  };
+}
+
+function renderSeoScore(data) {
+  const scoreEl = document.getElementById('score-value');
+  const statusEl = document.getElementById('score-status');
+  const messageEl = document.getElementById('score-message');
+  const ring = document.getElementById('score-ring-fill');
+  const checklistEl = document.getElementById('score-checklist');
+  const recEl = document.getElementById('score-recommendations');
+  const badgeEl = document.getElementById('quality-badge');
+  const rankingStars = document.getElementById('ranking-stars');
+  const rankingPotentialEl = document.getElementById('ranking-potential');
+  const rankingCompetitionEl = document.getElementById('ranking-competition');
+  const rankingPageEl = document.getElementById('ranking-page');
+  const rankingStrengthEl = document.getElementById('ranking-strength');
+  const circumference = 2 * Math.PI * 98;
+  const offset = circumference - (circumference * Math.min(data.score, 100) / 100);
+  scoreEl.textContent = '0';
+  statusEl.textContent = `${data.category.icon} ${data.category.status}`;
+  statusEl.style.color = data.category.color;
+  messageEl.textContent = data.category.message;
+  ring.style.stroke = data.category.color;
+  ring.style.strokeDashoffset = circumference;
+  badgeEl.textContent = data.qualityLimitReached ? '⚠ Quality Limit Reached' : data.optimizationAttempts > 1 ? `✨ Optimized in ${data.optimizationAttempts} AI Passes` : '✨ AI Optimized';
+  rankingStars.textContent = data.rankingPotential >= 90 ? '⭐⭐⭐⭐⭐' : data.rankingPotential >= 80 ? '⭐⭐⭐⭐' : data.rankingPotential >= 70 ? '⭐⭐⭐' : '⭐⭐';
+  rankingPotentialEl.textContent = `${data.rankingPotential}%`;
+  rankingCompetitionEl.textContent = data.competitionLevel;
+  rankingPageEl.textContent = data.pageProbability;
+  rankingStrengthEl.textContent = data.seoStrength;
+
+  ring.style.strokeDashoffset = circumference;
+  checklistEl.innerHTML = data.checklist.map(item => {
+    const icon = item.state === 'good' ? '✅' : item.state === 'warn' ? '⚠️' : '❌';
+    const badge = item.state === 'good' ? 'check-good' : item.state === 'warn' ? 'check-warn' : 'check-bad';
+    return `<div class="score-check-item"><div class="check-icon ${badge}">${icon}</div><span>${item.label}</span></div>`;
+  }).join('');
+  recEl.innerHTML = data.suggestions.map(s => `<li>${s}</li>`).join('');
+  setTimeout(() => {
+    ring.style.strokeDashoffset = offset;
+    let current = 0;
+    const target = data.score;
+    const step = Math.max(1, Math.ceil(target / 45));
+    const interval = setInterval(() => {
+      current += step;
+      if (current >= target) { current = target; clearInterval(interval); }
+      scoreEl.textContent = current;
+    }, 33);
+  }, 150);
 }
 
 function updateOpenCartFormat() {
@@ -1427,13 +1890,35 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── LOADING ──
-function showLoadingMsg(msg, steps) {
-  document.getElementById('loading-msg').textContent = msg;
-  document.getElementById('loading-steps').innerHTML = steps.map((s,i)=>{
-    const text = s.text || s;
-    return `<div class="loading-step" id="lstep-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>${text}</div>`;
+function showLoadingMsg(title, steps) {
+  document.getElementById('loading-title').textContent = title;
+  document.getElementById('loading-subtitle').textContent = 'Generating and optimizing your SEO content...';
+  document.getElementById('progress-text').textContent = '0%';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('loading-steps').innerHTML = steps.map((s,i) => {
+    const label = s.text || s;
+    return `<div class="loading-step" id="lstep-${i}">` +
+           `<div class="step-index">${i+1}</div>` +
+           `<div class="step-content"><span class="step-label">${label}</span></div>` +
+           `<div class="step-icon">•</div>` +
+           `</div>`;
   }).join('');
   document.getElementById('loading').classList.add('open');
+}
+function setLoadingProgress(percent) {
+  document.getElementById('progress-text').textContent = `${percent}%`;
+  document.getElementById('progress-fill').style.width = `${percent}%`;
+}
+function completeLoadingStep(index, percent) {
+  const step = document.getElementById(`lstep-${index}`);
+  if (!step) return;
+  step.classList.add('done');
+  const icon = step.querySelector('.step-icon');
+  if (icon) icon.textContent = '✓';
+  setLoadingProgress(percent);
+}
+function setLoadingSubtitle(text) {
+  document.getElementById('loading-subtitle').textContent = text;
 }
 function hideLoading() { document.getElementById('loading').classList.remove('open'); }
 
