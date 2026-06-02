@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -665,7 +666,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
             <option value="en">English</option><option value="hi">Hindi</option><option value="te">Telugu</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="exportHistory()" style="margin-left:auto">Export JSON</button>
-          <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">Clear All</button>
+          <button class="btn btn-danger btn-sm admin-only" onclick="clearAllHistory()">Clear All</button>
         </div>
         <div class="history-list" id="history-list"></div>
       </div>
@@ -723,7 +724,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           <div class="settings-section-head"><h3>Data</h3><p>Manage your generation history</p></div>
           <div class="settings-section-body" style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-outline btn-sm" onclick="exportHistory()">Export History (JSON)</button>
-            <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">Clear All History</button>
+            <button class="btn btn-danger btn-sm admin-only" onclick="clearAllHistory()">Clear All History</button>
           </div>
         </div>
       </div>
@@ -796,6 +797,10 @@ let currentResults = null;
 let currentImageBase64 = null;
 let currentImageMime = 'image/jpeg';
 let currentLang = 'en';
+
+// Admin config
+const ADMIN_EMAIL = "kothakulasagar2002@gmail.com";
+function isAdmin() { return fbUser?.email === ADMIN_EMAIL; }
 
 const STOP_WORDS = new Set(['the','a','an','for','of','and','in','on','at','to','is','it','as',
   'or','by','with','from','this','that','was','are','be','been','has','have','had','but','not',
@@ -960,6 +965,10 @@ function enterApp() {
   
   updateStats();
   startSeoToast();
+  // Admin UI visibility
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin() ? '' : 'none';
+  });
 }
 
 // ── TAB NAVIGATION ──
@@ -1040,6 +1049,31 @@ function generateSlug(input) {
     .replace(/--+/g,'-').replace(/(^-|-$)/g,'').substring(0,60);
 }
 
+// Compress a data URL (base64) to a smaller JPEG data URL (resize + quality)
+async function compressDataUrl(dataUrl, maxDim = 300, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,w,h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const out = canvas.toDataURL('image/jpeg', quality);
+        resolve(out);
+      };
+      img.onerror = (err) => reject(err);
+      img.src = dataUrl;
+    } catch (err) { reject(err); }
+  });
+}
+
 function validateSlug(slug) {
   return [
     {label:'All lowercase letters', pass:slug===slug.toLowerCase()},
@@ -1088,6 +1122,17 @@ async function checkDuplicateSlug(slug) {
 
 function clearDupWarning() { hideAlertEl('dup-name-alert'); }
 
+const seoStyles = [
+  "Luxury",
+  "Premium",
+  "Trendy",
+  "Professional",
+  "Minimalist",
+  "Gift-focused",
+  "Fashion-forward",
+  "Budget-friendly"
+];
+
 // ── GENERATE SEO (Groq AI) ──
 async function generateSEO() {
   const name   = document.getElementById('prod-name').value.trim();
@@ -1095,6 +1140,8 @@ async function generateSEO() {
   const lang   = document.getElementById('prod-lang').value;
   const apiKey = userDoc?.apiKey || '';
   hideAlertEl('gen-alert'); hideAlertEl('dup-name-alert');
+
+  const selectedStyle = seoStyles[Math.floor(Math.random() * seoStyles.length)];
   if (!name) { showAlertEl('gen-alert','gen-alert-msg','Please enter a product name.'); return; }
   if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No Groq API key. Go to Settings → add your free key.'); return; }
 
@@ -1132,9 +1179,19 @@ async function generateSEO() {
 
     const prompt = `You are an expert SEO specialist for Abra Zylo India. ${langInstr[lang]}
 Product Name: ${name}
+Style: ${selectedStyle}
 ${cat ? 'Category: ' + cat + '\n' : ''}
 ${currentImageBase64 ? 'Product image provided — analyze for color, style, material details.\n' : ''}
-Generate premium SEO content for this product. Respond ONLY with valid JSON and do not include markdown:
+Generate premium SEO content for this product using the selected marketing angle.
+Important:
+- Create a completely different version from previous generations.
+- Do not reuse previous titles.
+- Do not reuse previous descriptions.
+- Use different keyword combinations.
+- Use a different marketing angle.
+- Maintain SEO optimization.
+- Create unique and engaging content.
+Respond ONLY with valid JSON and do not include markdown:
 {"meta_title":"SEO title 50-60 chars with product name and key benefit","meta_description":"140-160 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-60-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"250+ word SEO optimized description","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
     const data = await callGroqAI([{role:'user',content:prompt}], apiKey);
     completeLoadingStep(1, 25);
@@ -1152,6 +1209,7 @@ Generate premium SEO content for this product. Respond ONLY with valid JSON and 
       timestamp: Date.now(),
       imageThumb: currentImageBase64 ? `data:${currentImageMime};base64,${currentImageBase64}` : null,
       versions: [],
+      generatedStyle: selectedStyle,
       uid: fbUser?.uid
     };
 
@@ -1236,37 +1294,45 @@ Generate premium SEO content for this product. Respond ONLY with valid JSON and 
 async function regenerateSEO() {
   if (!currentResults) return;
   if (!currentResults.versions) currentResults.versions = [];
-  currentResults.versions.push({...currentResults, versions:undefined, savedAt:new Date().toISOString()});
+  const previousVersions = currentResults.versions.map((v, idx) => `Version ${idx + 1} Title: ${v.meta_title || ''}\nVersion ${idx + 1} Description: ${v.meta_description || ''}`).join('\n\n');
+  const usedStyles = [...new Set([...(currentResults.versions || []).map(v => v.generatedStyle).filter(Boolean), currentResults.generatedStyle].filter(Boolean))];
+  const remainingStyles = seoStyles.filter(s => !usedStyles.includes(s));
+  const selectedStyle = remainingStyles.length ? remainingStyles[Math.floor(Math.random() * remainingStyles.length)] : seoStyles[Math.floor(Math.random() * seoStyles.length)];
+  currentResults.versions.push({...currentResults, versions:undefined, generatedStyle:currentResults.generatedStyle, savedAt:new Date().toISOString()});
   const apiKey = userDoc?.apiKey || '';
   if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No API key.'); return; }
   const {productName:name, category:cat, lang} = currentResults;
   const langInstr = {en:'Generate in English.',hi:'Generate in Hindi.',te:'Generate in Telugu.'};
-  const prompt = `SEO specialist for Abra Zylo India. ${langInstr[lang||'en']}
-Product: ${name}${cat?'\nCategory: '+cat:''}
-Generate a FRESH different SEO version. Respond ONLY with valid JSON:
+  const regenerationCount = currentResults.versions.length + 1;
+  const previousNote = previousVersions ? `Avoid generating content similar to these previous versions:\n${previousVersions}` : 'Create a fresh version with new wording and new angle.';
+  const prompt = `You are an expert SEO specialist for Abra Zylo India. ${langInstr[lang||'en']}
+Product: ${name}
+Style: ${selectedStyle}
+Regeneration Count: ${regenerationCount}
+${cat ? 'Category: ' + cat + '\n' : ''}
+${previousNote}
+Important:
+- Create a completely different version from previous generations.
+- Do not reuse previous titles.
+- Do not reuse previous descriptions.
+- Use different keyword combinations.
+- Use a different marketing angle.
+- Maintain SEO optimization.
+- Create unique and engaging content.
+Respond ONLY with valid JSON:
 {"meta_title":"under 60 chars","meta_description":"145-158 chars","focus_keywords":["k1","k2","k3","k4","k5","k6","k7"],"seo_slug":"unique-slug","alt_text":"alt text","product_description":"3 fresh paragraphs","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
   showLoadingMsg('Regenerating...', ['Getting fresh ideas...','Writing new SEO...','Done!']);
   try {
     let data;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, attempt*5000));
-      const rc = [];
-      if (currentImageBase64) rc.push({type:'image_url',image_url:{url:`data:${currentImageMime};base64,${currentImageBase64}`}});
-      rc.push({type:'text',text:prompt});
-      const rc2 = new AbortController();
-      const rt = setTimeout(() => rc2.abort(), 30000);
-      try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
-          method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:rc}],temperature:0.9,max_tokens:1500}),
-          signal: rc2.signal
-        });
-        data = await res.json();
-      } finally { clearTimeout(rt); }
+      const userMessage = [];
+      if (currentImageBase64) userMessage.push({type:'image_url',image_url:{url:`data:${currentImageMime};base64,${currentImageBase64}`}});
+      userMessage.push({type:'text',text:prompt});
+      data = await callGroqAI([{role:'user',content:userMessage}], apiKey, {temperature:0.9, top_p:0.95, max_tokens:1500});
       if (!data.error || !String(data.error?.message||'').includes('rate')) break;
     }
-    if (data.error) throw new Error(data.error.message);
-    const text = data.choices?.[0]?.message?.content || '';
+    if (data?.error) throw new Error(data.error.message);    const text = data.choices?.[0]?.message?.content || '';
     const jS = text.indexOf('{'), jE = text.lastIndexOf('}');
     if (jS===-1) throw new Error('Parse error. Try again.');
     let parsed;
@@ -1275,7 +1341,7 @@ Generate a FRESH different SEO version. Respond ONLY with valid JSON:
     parsed.seo_slug = generateSlug(parsed.seo_slug || name);
     const prevVers = currentResults?.versions || [];
     currentResults = {...parsed, productName:name, category:cat, lang, timestamp:Date.now(),
-      imageThumb:currentResults?.imageThumb||null, versions:prevVers, uid:fbUser?.uid};
+      imageThumb:currentResults?.imageThumb||null, versions:prevVers, uid:fbUser?.uid, generatedStyle:selectedStyle};
     hideLoading();
     renderResults(currentResults);
     showToast(`Version ${prevVers.length+1} generated ✓`);
@@ -1315,14 +1381,20 @@ function parseAiJson(text) {
   }
 }
 
-async function callGroqAI(messages, apiKey) {
+async function callGroqAI(messages, apiKey, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-      body: JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages,temperature:0.75,max_tokens:1500}),
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages,
+        temperature: options.temperature ?? 0.9,
+        top_p: options.top_p ?? 0.95,
+        max_tokens: options.max_tokens || 1500
+      }),
       signal: controller.signal
     });
     const data = await res.json();
@@ -1423,7 +1495,7 @@ Return ONLY valid JSON with the field: {"${meta.key}":"..."}` + (attempt > 1 ? '
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:userContent}],temperature:0.75,max_tokens:900}),
+          body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:userContent}],temperature:0.9,top_p:0.95,max_tokens:900}),
           signal: controller.signal
         });
         data = await res.json();
@@ -1663,23 +1735,53 @@ async function saveToFirebase() {
       where('productNameLower','==',r.productName.toLowerCase()),
       where('lang','==',r.lang));
     const snap = await getDocs(q);
+    // Prepare imageThumb without truncation and compress if necessary
+    let imageThumbToSave = r.imageThumb || null;
+    try {
+      if (imageThumbToSave && typeof imageThumbToSave === 'string' && imageThumbToSave.startsWith('data:')) {
+        const base64 = imageThumbToSave.split(',')[1] || '';
+        const byteSize = Math.ceil((base64.length * 3) / 4);
+        const MAX_BYTES = 900000; // safe margin under Firestore limit
+        if (byteSize > MAX_BYTES) {
+          try {
+            imageThumbToSave = await compressDataUrl(imageThumbToSave, 300, 0.75);
+            console.log('Image compressed before save; new approx size:', Math.ceil((imageThumbToSave.split(',')[1].length * 3) / 4));
+          } catch (e) { console.warn('Image compression failed', e); }
+        }
+      }
+    } catch(e) { console.warn('prepare imageThumb error', e); }
+
+    console.log('Saving image:', imageThumbToSave);
+
     const payload = {
-      uid:fbUser.uid, productName:r.productName, productNameLower:r.productName.toLowerCase(),
-      category:r.category||'', lang:r.lang||'en', meta_title:r.meta_title||'',
-      meta_description:r.meta_description||'', seo_slug:r.seo_slug||'', alt_text:r.alt_text||'',
-      product_description:r.product_description||'', short_description:r.short_description||'',
-      focus_keywords:r.focus_keywords||[], product_tags:r.product_tags||[],
-      imageThumb:r.imageThumb ? r.imageThumb.substring(0,2000) : null,
-      versions:r.versions||[], timestamp:r.timestamp, updatedAt:serverTimestamp()
+      uid: fbUser.uid,
+      productName: r.productName,
+      productNameLower: r.productName.toLowerCase(),
+      category: r.category || '',
+      lang: r.lang || 'en',
+      meta_title: r.meta_title || '',
+      meta_description: r.meta_description || '',
+      seo_slug: r.seo_slug || '',
+      alt_text: r.alt_text || '',
+      product_description: r.product_description || '',
+      short_description: r.short_description || '',
+      focus_keywords: r.focus_keywords || [],
+      product_tags: r.product_tags || [],
+      imageThumb: imageThumbToSave || null,
+      versions: r.versions || [],
+      timestamp: r.timestamp,
+      updatedAt: serverTimestamp(),
+      createdBy: fbUser.email
     };
+
     if (!snap.empty) {
       const existing = snap.docs[0];
       const existData = existing.data();
       const versions = existData.versions || [];
       versions.push({...existData, versions:undefined, savedAt:new Date().toISOString()});
-      await updateDoc(doc(db,'products',existing.id), {...payload, versions, createdAt:existData.createdAt});
+      await updateDoc(doc(db,'products',existing.id), {...payload, versions, createdAt:existData.createdAt, createdBy: existData.createdBy || payload.createdBy});
     } else {
-      await addDoc(collection(db,'products'), {...payload, createdAt:serverTimestamp()});
+      await addDoc(collection(db,'products'), {...payload, createdAt: serverTimestamp(), createdBy: payload.createdBy});
     }
     document.getElementById('save-btn').disabled = false;
     showToast('✅ Saved to Firebase!');
@@ -1695,10 +1797,12 @@ async function saveToFirebase() {
 async function fetchProducts() {
   if (!fbUser) return [];
   try {
-    const { db, collection, query, where, getDocs } = window._fb;
-    const q = query(collection(db,'products'), where('uid','==',fbUser.uid));
-    const snap = await getDocs(q);
+    const { db, collection, getDocs } = window._fb;
+    // Return ALL products for authenticated users (shared company SEO database)
+    const snap = await getDocs(collection(db,'products'));
     const products = snap.docs.map(d => ({id:d.id,...d.data()}));
+    // Debug: log loaded image fields for verification
+    products.forEach(product => console.log('Loaded image:', product.imageThumb));
     // Sort by timestamp descending (client-side to avoid index requirement)
     return products.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   } catch(e) { console.warn('fetchProducts:', e.message); return []; }
@@ -1721,7 +1825,7 @@ async function renderHistory() {
   window._histCache = products;
   list.innerHTML = products.map((h,i) => `
     <div class="history-item" onclick="openHistModal(${i})">
-      <div class="history-thumb">${h.imageThumb?`<img src="${h.imageThumb}" alt="${h.productName}"/>`:'📦'}</div>
+      <div class="history-thumb">${(h.imageThumb && (typeof h.imageThumb === 'string') && (h.imageThumb.startsWith('data:') || h.imageThumb.startsWith('http'))) ? `<img src="${h.imageThumb}" alt="${h.productName}"/>` : '📦'}</div>
       <div class="history-info">
         <h4>${h.productName||''}</h4>
         <p>${h.category||'No category'} · ${(h.meta_title||'').substring(0,55)}${(h.meta_title||'').length>55?'...':''}</p>
@@ -1746,6 +1850,7 @@ function openHistModal(idx) {
       <span style="background:var(--blue-bg);color:var(--blue);padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:700">${ll[h.lang]||h.lang}</span>
       ${h.category?`<span style="background:var(--surface2);color:var(--text2);padding:3px 10px;border-radius:99px;font-size:.72rem">${h.category}</span>`:''}
       <span style="background:#fff7ed;color:#ea580c;padding:3px 10px;border-radius:99px;font-size:.72rem">🔥 Firebase</span>
+      ${h.createdBy?`<span style="background:var(--surface2);color:var(--text2);padding:3px 10px;border-radius:99px;font-size:.72rem">By: ${h.createdBy}</span>`:''}
       <span style="background:var(--surface2);color:var(--text2);padding:3px 10px;border-radius:99px;font-size:.72rem">${formatDate(h.timestamp)}</span>
     </div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Meta Title</span></div><div class="seo-val">${h.meta_title||''}</div></div>
@@ -1757,7 +1862,7 @@ function openHistModal(idx) {
     ${(h.versions||[]).length>0?`<div style="margin-top:1rem"><p style="font-size:.75rem;font-weight:700;color:var(--text2);margin-bottom:.5rem;text-transform:uppercase">Previous Versions (${h.versions.length})</p>${(h.versions||[]).map((v,vi)=>`<div class="version-item"><div class="version-head"><span class="version-num">Version ${vi+1}</span><span class="version-date">${formatDate(v.savedAt||v.timestamp)}</span></div><div class="version-title">${v.meta_title||''}</div></div>`).join('')}</div>`:''}
     <div style="margin-top:1.25rem;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-accent btn-sm" onclick="loadHistItem(${idx})">Load & Edit</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteHistItem(${idx},'${h.id||''}')">Delete</button>
+      ${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteHistItem(${idx},'${h.id||''}')">Delete</button>` : ''}
       <button class="btn btn-outline btn-sm" onclick="closeModal('hist-modal')">Close</button>
     </div>`;
   document.getElementById('hist-modal').classList.add('open');
@@ -1775,6 +1880,7 @@ function loadHistItem(idx) {
 }
 
 async function deleteHistItem(idx, docId) {
+  if (!isAdmin()) { showAlertEl('gen-alert','gen-alert-msg','Only admins can delete records.'); return; }
   if (!confirm('Delete this product from Firebase? Cannot be undone.')) return;
   if (docId && fbUser) {
     try {
@@ -1787,11 +1893,11 @@ async function deleteHistItem(idx, docId) {
 }
 
 async function clearAllHistory() {
+  if (!isAdmin()) { showAlertEl('gen-alert','gen-alert-msg','Only admins can clear all history.'); return; }
   if (!confirm('Delete ALL products from Firebase? Cannot be undone.')) return;
   try {
-    const { db, collection, query, where, getDocs, doc, deleteDoc } = window._fb;
-    const q = query(collection(db,'products'), where('uid','==',fbUser.uid));
-    const snap = await getDocs(q);
+    const { db, collection, getDocs, doc, deleteDoc } = window._fb;
+    const snap = await getDocs(collection(db,'products'));
     for (const d of snap.docs) await deleteDoc(doc(db,'products',d.id));
   } catch(e) { console.warn(e); }
   renderHistory(); updateStats(); updateHistoryBadge(); showToast('All cleared ✓');
