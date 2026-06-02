@@ -1192,7 +1192,7 @@ Important:
 - Maintain SEO optimization.
 - Create unique and engaging content.
 Respond ONLY with valid JSON and do not include markdown:
-{"meta_title":"SEO title 50-60 chars with product name and key benefit","meta_description":"140-160 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-60-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"250+ word SEO optimized description","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
+{"meta_title":"SEO title 50-70 chars with product name and key benefit","meta_description":"140-160 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-70-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"250+ word SEO optimized description","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
     const data = await callGroqAI([{role:'user',content:prompt}], apiKey);
     completeLoadingStep(1, 25);
 
@@ -1320,7 +1320,7 @@ Important:
 - Maintain SEO optimization.
 - Create unique and engaging content.
 Respond ONLY with valid JSON:
-{"meta_title":"under 60 chars","meta_description":"145-158 chars","focus_keywords":["k1","k2","k3","k4","k5","k6","k7"],"seo_slug":"unique-slug","alt_text":"alt text","product_description":"3 fresh paragraphs","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
+{"meta_title":"under 70 chars","meta_description":"145-158 chars","focus_keywords":["k1","k2","k3","k4","k5","k6","k7"],"seo_slug":"unique-slug","alt_text":"alt text","product_description":"3 fresh paragraphs","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
   showLoadingMsg('Regenerating...', ['Getting fresh ideas...','Writing new SEO...','Done!']);
   try {
     let data;
@@ -1353,7 +1353,7 @@ Respond ONLY with valid JSON:
 
 function validateRegenField(field, value, r) {
   const v = (value || '').trim();
-  if (field === 'meta_title') return v.length >= 50 && v.length <= 60;
+  if (field === 'meta_title') return v.length >= 40 && v.length <= 70;
   if (field === 'meta_description') return v.length >= 140 && v.length <= 160;
   if (field === 'product_description') {
     const words = v.split(/\s+/).filter(Boolean).length;
@@ -1456,7 +1456,7 @@ async function regenerateField(field) {
   if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No API key.'); return; }
 
   const fieldMap = {
-    meta_title: {label:'Meta Title', key:'meta_title', requirement:'50-60 characters and include the product name or main benefit.'},
+    meta_title: {label:'Meta Title', key:'meta_title', requirement:'50-70 characters is optimal; avoid titles under 40 or above 70 characters.'},
     meta_description: {label:'Meta Description', key:'meta_description', requirement:'140-160 characters, conversion-focused and keyword-rich.'},
     alt_text: {label:'Image Alt Text', key:'alt_text', requirement:'descriptive alt text for the product image.'},
     product_description: {label:'Product Description', key:'product_description', requirement:'at least 180 words with 2+ sentences, SEO-friendly and product-focused.'},
@@ -1559,7 +1559,8 @@ function renderResults(r) {
   document.getElementById('r-alt').textContent       = r.alt_text || '';
   const tl=(r.meta_title||'').length, ml=(r.meta_description||'').length;
   const tc=document.getElementById('title-chars');
-  tc.textContent=tl+'/60'; tc.className='char-pill '+(tl<=60&&tl>0?'char-ok':'char-bad');
+  tc.textContent=tl+'/70';
+  tc.className='char-pill '+(tl>=50&&tl<=70 ? 'char-ok' : (tl===0||tl<40 ? 'char-bad' : 'char-warn'));
   const mc=document.getElementById('desc-chars');
   mc.textContent=ml+'/160'; mc.className='char-pill '+(ml>=140&&ml<=160?'char-ok':ml<140?'char-warn':'char-bad');
   document.getElementById('r-keywords').innerHTML=(r.focus_keywords||[]).map(k=>`<span class="kw-tag">${k}</span>`).join('');
@@ -1580,7 +1581,8 @@ function computeSeoScore(r) {
   const productName = (r.productName || '').toLowerCase().trim();
   const productWords = productName.split(/\s+/).filter(Boolean).map(w => w.replace(/[^a-z0-9]/g, '')).filter(Boolean);
 
-  const titleLenOk = title.length >= 50 && title.length <= 60;
+  const titleLenOk = title.length >= 40 && title.length <= 70;
+  const titleLenOptimal = title.length >= 50 && title.length <= 70;
   const descLenOk = desc.length >= 140 && desc.length <= 160;
   const slugLen = slug.length;
   const slugLower = slug === slug.toLowerCase();
@@ -1609,8 +1611,8 @@ function computeSeoScore(r) {
   const readabilityScore = readabilityAvg <= 15 ? 95 : readabilityAvg <= 18 ? 88 : readabilityAvg <= 22 ? 80 : 72;
   const titleKeyword = productWords.some(word => word.length > 2 && title.toLowerCase().includes(word));
   const descKeyword = productWords.some(word => word.length > 2 && desc.toLowerCase().includes(word));
-  const keywordQuality = Math.min(100, Math.round((titleKeyword ? 20 : 10) + (descKeyword ? 20 : 10) + (slugRelevant ? 25 : 10) + (altExists ? 15 : 5) + (prodDescOk ? 20 : 10) + (titleLenOk ? 10 : 5)));
-  const contentQuality = Math.min(100, Math.round((prodDescOk ? 40 : 20) + (descLenOk ? 20 : 10) + (altExists ? 15 : 5) + (titleLenOk ? 15 : 8) + (seoSlugOk ? 10 : 5)));
+  const keywordQuality = Math.min(100, Math.round((titleKeyword ? 20 : 10) + (descKeyword ? 20 : 10) + (slugRelevant ? 25 : 10) + (altExists ? 15 : 5) + (prodDescOk ? 20 : 10) + (titleLenOptimal ? 15 : titleLenOk ? 10 : 5)));
+  const contentQuality = Math.min(100, Math.round((prodDescOk ? 40 : 20) + (descLenOk ? 20 : 10) + (altExists ? 15 : 5) + (titleLenOptimal ? 20 : titleLenOk ? 12 : 8) + (seoSlugOk ? 10 : 5)));
   const rankingPotential = Math.round((score * 0.5) + (readabilityScore * 0.2) + (keywordQuality * 0.15) + (contentQuality * 0.15));
   const competitionLevel = rankingPotential >= 90 ? 'Medium' : rankingPotential >= 80 ? 'Medium' : rankingPotential >= 70 ? 'High' : 'High';
   const pageProbability = rankingPotential >= 90 ? 'High' : rankingPotential >= 80 ? 'Good' : rankingPotential >= 70 ? 'Possible' : 'Low';
@@ -1625,7 +1627,7 @@ function computeSeoScore(r) {
   const category = categories.find(c => score >= c.min) || categories[categories.length - 1];
 
   const checklist = [
-    {label:'Meta Title Optimized', state: titleLenOk ? 'good' : 'bad'},
+    {label:'Meta Title Optimized', state: titleLenOptimal ? 'good' : titleLenOk ? 'warn' : 'bad'},
     {label:'Meta Description Optimized', state: descLenOk ? 'good' : 'bad'},
     {label:'URL Structure Good', state: slugClean ? 'good' : 'bad'},
     {label:'Image Alt Text', state: altExists ? 'good' : 'bad'},
@@ -1634,14 +1636,14 @@ function computeSeoScore(r) {
   ];
 
   const failedSections = [];
-  if (!titleLenOk) failedSections.push('meta_title');
+  if (title.length === 0 || !titleLenOk) failedSections.push('meta_title');
   if (!descLenOk) failedSections.push('meta_description');
   if (!prodDescOk) failedSections.push('product_description');
   if (!altExists) failedSections.push('alt_text');
   if (!seoSlugOk) failedSections.push('seo_slug');
 
   const suggestions = [];
-  if (!titleLenOk) suggestions.push('Optimize the meta title to 50-60 characters.');
+  if (!titleLenOk) suggestions.push('Optimize the meta title to 50-70 characters; keep it above 40 and avoid going over 70 characters.');
   if (!descLenOk) suggestions.push('Optimize the meta description to 140-160 characters.');
   if (!slugClean) suggestions.push('Use a lowercase hyphenated slug under 75 characters with no spaces or special symbols.');
   if (!altExists) suggestions.push('Add descriptive image alt text.');
