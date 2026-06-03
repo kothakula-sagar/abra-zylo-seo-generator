@@ -4,13 +4,13 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Abra Zylo — AI SEO Portal</title>
+<title>Abra Zylo - AI SEO Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile }
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, deleteDoc, updateDoc, addDoc, serverTimestamp, limit }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -30,7 +30,7 @@ const db   = getFirestore(app);
 
 window._fb = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy,
-  deleteDoc, updateDoc, addDoc, serverTimestamp, limit, updateProfile };
+  deleteDoc, updateDoc, addDoc, serverTimestamp, limit, updateProfile, sendPasswordResetEmail };
 window._fbReady = true;
 document.dispatchEvent(new CustomEvent('fbReady'));
 </script>
@@ -99,6 +99,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none !important;box-shadow:none !important}
 .auth-switch{margin-top:1.25rem;text-align:center;font-size:.85rem;color:var(--text2)}
 .auth-switch a{color:var(--brand2);font-weight:600;cursor:pointer;text-decoration:none}
+.auth-help-row{margin:.85rem 0 1.25rem;text-align:right}
+.auth-forgot-link{color:var(--brand2);font-weight:700;cursor:pointer;text-decoration:none;font-size:.88rem}
+.auth-forgot-link:hover{text-decoration:underline}
+.modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:1.25rem;background:rgba(15,23,42,.6);backdrop-filter:blur(2px);z-index:10000}
+.modal-backdrop.show{display:flex}
+.modal-card{width:100%;max-width:420px;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:1.5rem;position:relative}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+.modal-header h3{margin:0;font-size:1.35rem}
+.modal-card .sub{margin-top:.15rem;color:var(--text2);font-size:.92rem;line-height:1.55}
+.modal-close{background:transparent;border:none;color:var(--text2);font-size:1.6rem;cursor:pointer;line-height:1}
+.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-top:1rem}
+.modal-actions .btn-full{width:100%}
 
 /* APP SHELL */
 .app-shell{display:flex;min-height:100vh;width:100%}
@@ -126,6 +138,20 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .user-email{color:rgba(255,255,255,.3);font-size:.65rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .logout-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.3);padding:4px;border-radius:6px;transition:color .15s}
 .logout-btn:hover{color:rgba(255,255,255,.8)}
+.access-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:9999;padding:1rem}
+.access-card{background:var(--surface);border-radius:22px;padding:2rem;max-width:540px;width:100%;text-align:center;box-shadow:0 25px 80px rgba(0,0,0,.25);border:1px solid var(--border)}
+.access-card h2{margin:0 0 .75rem;font-size:1.4rem}
+.access-card p{margin:.5rem 0;color:var(--text2);line-height:1.75}
+.account-list{display:grid;gap:.75rem;margin-top:1rem}
+.account-row{display:flex;align-items:center;gap:.75rem;padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--surface2);flex-wrap:wrap}
+.account-details{flex:1;min-width:0}
+.account-name{font-weight:700;margin:0 0 .25rem}
+.account-meta{font-size:.8rem;color:var(--text2);margin:0}
+.account-actions{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end}
+.user-status-badge{display:inline-flex;align-items:center;gap:6px;padding:.35rem .75rem;border-radius:999px;font-size:.72rem;font-weight:700}
+.user-status-badge.pending{background:#fef3c7;color:#92400e}
+.user-status-badge.approved{background:#d1fae5;color:#065f46}
+.user-status-badge.blocked{background:#fee2e2;color:#991b1b}
 .main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;padding:0 1.75rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
 .topbar-title{font-weight:700;font-size:.95rem}
@@ -353,18 +379,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <div class="auth-left">
     <div class="auth-logo">
       <div class="auth-logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-      <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal</span></div>
+      <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal By Sagar K</span></div>
     </div>
     <h1>SEO that scores<br/><em>100 out of 100.</em></h1>
-    <p>AI-powered SEO for every product on your OpenCart store — powered by Groq AI & Firebase.</p>
+    <p>AI-powered SEO for every product on your OpenCart store - powered by Groq AI & Firebase.</p>
     <div class="auth-feats">
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Meta title, description & product copy</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>SEO URL validator — 11 point checklist</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>SEO URL validator - 11 point checklist</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Duplicate name & slug detection</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Product tags + image alt text</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>Regenerate & version history</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>🔥 Firebase cloud — sync across devices</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Designed and Developed by <b>Sagar K</b> — SEO Expert</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>🔥 Firebase cloud - sync across devices</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Designed and Developed by <b>Sagar K</b> - SEO Expert</span></div>
     </div>
   </div>
   <div class="auth-right">
@@ -378,6 +404,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="form-row"><label>Email</label><input type="email" id="login-email" placeholder="Email address"/></div>
       <div class="form-row"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"/></div>
       <button class="btn btn-accent btn-full" id="login-btn" onclick="doLogin()">Sign in →</button>
+      <div class="auth-help-row"><a onclick="openForgotModal()" class="auth-forgot-link">Forgot Password?</a></div>
       <div class="auth-switch">No account? <a onclick="showPage('page-register')">Create one</a></div>
       <div style="margin-top:.5rem;text-align:center">
         <a onclick="hardReset()" style="font-size:.72rem;color:var(--text3);cursor:pointer;text-decoration:underline">Having trouble? Reset local data</a>
@@ -398,10 +425,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <h1>Create your<br/><em>SEO workspace.</em></h1>
     <p>Set up in 60 seconds. All data saved to Firebase cloud.</p>
     <div class="auth-feats">
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Free with Groq API — 14,400 req/day</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Firebase cloud storage — access anywhere</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Free with Groq API - 14,400 req/day</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Firebase cloud storage - access anywhere</span></div>
       <div class="auth-feat"><div class="auth-feat-dot"></div><span>No credit card needed</span></div>
-      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Designed and Developed by <b>Sagar K</b> — SEO Expert</span></div>
+      <div class="auth-feat"><div class="auth-feat-dot"></div><span>Designed and Developed by <b>Sagar K</b> - SEO Expert</span></div>
     </div>
   </div>
   <div class="auth-right">
@@ -426,6 +453,28 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 </div>
 </div>
 
+<div id="forgot-password-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h3>Forgot Password</h3>
+        <p class="sub">Enter your email and we’ll send a reset link.</p>
+      </div>
+      <button class="modal-close" onclick="closeForgotModal()" aria-label="Close">×</button>
+    </div>
+    <div id="forgot-alert" class="alert alert-danger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="forgot-alert-msg"></span>
+    </div>
+    <div class="form-row"><label>Email Address</label><input type="email" id="forgot-email" placeholder="you@example.com"/></div>
+    <div class="modal-actions">
+      <button class="btn btn-accent btn-full" id="forgot-send-btn" onclick="doForgotPassword()">Send Reset Link</button>
+      <button class="btn btn-outline btn-full" onclick="closeForgotModal()">Cancel</button>
+    </div>
+    <div class="auth-switch" style="margin-top:1rem;text-align:center">Don't have an account? <a onclick="closeForgotModal(); showPage('page-register')">Create one</a></div>
+  </div>
+</div>
+
 <!-- ═══ MAIN APP ═══ -->
 <div id="page-app" class="page">
 <div class="app-shell">
@@ -433,7 +482,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="sidebar-top">
       <div class="sidebar-logo">
         <div class="sidebar-logo-icon"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:var(--brand)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-        <div class="sidebar-logo-text">Abra Zylo<span>AI SEO Portal</span></div>
+        <div class="sidebar-logo-text">Abra Zylo<span>AI SEO Portal by <b>Sagar K</b></span></div>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -449,6 +498,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <span class="nav-badge" id="history-badge">0</span>
       </a>
       <div class="nav-section-label" style="margin-top:.5rem">Account</div>
+      <a class="nav-link admin-only" id="nav-accounts" onclick="switchTab('accounts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>Accounts
+      </a>
       <a class="nav-link" id="nav-settings" onclick="switchTab('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>Settings
       </a>
@@ -491,11 +543,16 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           <div class="stat-card"><div class="stat-label">Versions</div><div class="stat-val" id="stat-versions">0</div><div class="stat-sub">Regenerations</div></div>
           <div class="stat-card"><div class="stat-label">Languages</div><div class="stat-val" id="stat-langs">0</div><div class="stat-sub">EN / HI / TE</div></div>
         </div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Products Generated</div><div class="stat-val" id="stat-user-generated">0</div><div class="stat-sub">Your saved SEO items</div></div>
+          <div class="stat-card"><div class="stat-label">Products Saved</div><div class="stat-val" id="stat-user-saved">0</div><div class="stat-sub">Saved under your account</div></div>
+          <div class="stat-card"><div class="stat-label">Last Login</div><div class="stat-val" id="stat-last-login">-</div><div class="stat-sub">Your last sign-in</div></div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
           <div class="card">
             <div class="card-header"><h3>Quick Start</h3></div>
             <div class="card-body">
-              <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">Upload a product image, enter name & category — get complete SEO content saved to Firebase cloud.</p>
+              <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">Upload a product image, enter name & category - get complete SEO content saved to Firebase cloud.</p>
               <button class="btn btn-accent" onclick="switchTab('generate')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generate SEO Content
               </button>
@@ -592,6 +649,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                   <button class="tab" onclick="switchRTab('desc')">Description</button>
                   <button class="tab" onclick="switchRTab('url')">URL Validator</button>
                   <button class="tab" onclick="switchRTab('tags')">Tags</button>
+                  <button class="tab" onclick="switchRTab('social')">Social Media</button>
                   <button class="tab" onclick="switchRTab('opencart')">OpenCart</button>
                 </div>
                 <div class="tab-pane active" id="rtab-score">
@@ -647,6 +705,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
                 <div class="tab-pane" id="rtab-tags">
                   <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Product Tags</span><button class="btn btn-ghost btn-xs" onclick="copyTags()">Copy</button></div><div class="kw-wrap" id="r-tags" style="gap:6px"></div><p style="font-size:.72rem;color:var(--text3);margin-top:.625rem">Paste comma-separated into OpenCart → Data → Tags</p></div>
                 </div>
+                <div class="tab-pane" id="rtab-social">
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Instagram Caption</span><div class="seo-field-actions"><button class="btn btn-ghost btn-xs" onclick="copyField('r-instagram')">Copy</button></div></div><div class="seo-val" id="r-instagram" style="white-space:pre-wrap;min-height:120px"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Facebook Post</span><div class="seo-field-actions"><button class="btn btn-ghost btn-xs" onclick="copyField('r-facebook')">Copy</button></div></div><div class="seo-val" id="r-facebook" style="white-space:pre-wrap;min-height:120px"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">X (Twitter) Post</span><div class="seo-field-actions"><button class="btn btn-ghost btn-xs" onclick="copyField('r-twitter')">Copy</button></div></div><div class="seo-val" id="r-twitter" style="white-space:pre-wrap;min-height:100px"></div></div>
+                  <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">YouTube Description</span><div class="seo-field-actions"><button class="btn btn-ghost btn-xs" onclick="copyField('r-youtube')">Copy</button></div></div><div class="seo-val" id="r-youtube" style="white-space:pre-wrap;min-height:140px"></div></div>
+                </div>
                 <div class="tab-pane" id="rtab-opencart">
                   <p style="font-size:.78rem;color:var(--text2);margin-bottom:.875rem;line-height:1.6">Copy-paste directly into your OpenCart product editor fields.</p>
                   <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">OpenCart Ready Format</span><button class="btn btn-ghost btn-xs" onclick="copyField('r-opencart')">Copy All</button></div><div class="oc-box" id="r-opencart"></div></div>
@@ -676,7 +740,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="settings-section">
           <div class="settings-section-head">
             <h3>Groq API Key <span style="background:var(--green-bg);color:var(--green);font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px">FREE</span></h3>
-            <p>Required to generate SEO content — 14,400 requests/day, no credit card</p>
+            <p>Required to generate SEO content - 14,400 requests/day, no credit card</p>
           </div>
           <div class="settings-section-body">
             <div class="info-box info-box-green">
@@ -728,6 +792,41 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           </div>
         </div>
       </div>
+
+      <div id="tab-accounts" style="display:none">
+        <div class="card">
+          <div class="card-header"><h3>Account Approval Management</h3></div>
+          <div class="card-body">
+            <div class="info-box info-box-orange">
+              This page is visible only to admins. Approve, reject, block, or unblock users here.
+            </div>
+            <div class="stats-row" style="margin-bottom:1rem">
+              <div class="stat-card"><div class="stat-label">Pending Users</div><div class="stat-val" id="acct-pending-count">0</div></div>
+              <div class="stat-card"><div class="stat-label">Approved Users</div><div class="stat-val" id="acct-approved-count">0</div></div>
+              <div class="stat-card"><div class="stat-label">Blocked Users</div><div class="stat-val" id="acct-blocked-count">0</div></div>
+            </div>
+            <div class="account-section">
+              <h4>Pending Users</h4>
+              <div id="acct-pending-list" class="account-list"></div>
+            </div>
+            <div class="account-section">
+              <h4>Approved Users</h4>
+              <div id="acct-approved-list" class="account-list"></div>
+            </div>
+            <div class="account-section">
+              <h4>Blocked Users</h4>
+              <div id="acct-blocked-list" class="account-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="access-overlay" id="access-overlay">
+      <div class="access-card">
+        <h2>Account Access Restricted</h2>
+        <p id="access-overlay-msg">Your account is waiting for administrator approval.</p>
+        <p>Please contact the administrator if you believe this is a mistake.</p>
+      </div>
     </div>
   </main>
 </div>
@@ -765,12 +864,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 <div id="toast"></div>
 
 <script>
-// ════════════════════════════════════════════════════
-// ABRA ZYLO — Firebase + Groq AI SEO Portal
+// ABRA ZYLO SEO Portal
+// ABRA ZYLO - Firebase + Groq AI SEO Portal
 // Built by Sagar K
-// ════════════════════════════════════════════════════
+// ABRA ZYLO SEO Portal
 
-// ── WAIT FOR FIREBASE ──
+// -- WAIT FOR FIREBASE --
 function waitFB() {
   return new Promise(res => {
     // Check both _fbReady flag AND _fb object to handle race conditions
@@ -807,6 +906,13 @@ const STOP_WORDS = new Set(['the','a','an','for','of','and','in','on','at','to',
   'its','into','about','up','out','if','so','we','our','your','their','there','which','will',
   'can','all','more','also','than','just','one','how','do','over','under','any','when','use','only','no']);
 
+// ── UTILITY HELPERS ──
+function safeString(value) {
+  if (typeof value === 'string') return value;
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
 // ── INIT ──
 window.addEventListener('load', async () => {
   await waitFB();
@@ -828,10 +934,83 @@ window.addEventListener('load', async () => {
 async function loadUserDoc() {
   if (!fbUser) return;
   try {
-    const { db, doc, getDoc } = window._fb;
-    const snap = await getDoc(doc(db, 'users', fbUser.uid));
-    if (snap.exists()) userDoc = snap.data();
+    const { db, doc, getDoc, setDoc, updateDoc, serverTimestamp } = window._fb;
+    const userRef = doc(db, 'users', fbUser.uid);
+    const snap = await getDoc(userRef);
+    const now = Date.now();
+    const defaultDoc = {
+      uid: fbUser.uid,
+      email: fbUser.email || '',
+      displayName: fbUser.displayName || fbUser.email?.split('@')[0] || '',
+      name: fbUser.displayName || fbUser.email?.split('@')[0] || '',
+      username: fbUser.email?.split('@')[0] || '',
+      apiKey: '',
+      role: isAdmin() ? 'admin' : 'user',
+      approved: isAdmin(),
+      blocked: false,
+      createdAt: serverTimestamp(),
+      lastLogin: serverTimestamp()
+    };
+    if (snap.exists()) {
+      userDoc = snap.data();
+      const updateFields = { lastLogin: serverTimestamp() };
+      if (!userDoc.role) updateFields.role = isAdmin() ? 'admin' : 'user';
+      if (userDoc.approved === undefined) updateFields.approved = isAdmin();
+      if (userDoc.blocked === undefined) updateFields.blocked = false;
+      if (isAdmin()) {
+        updateFields.role = 'admin';
+        updateFields.approved = true;
+        updateFields.blocked = false;
+      }
+      await updateDoc(userRef, updateFields);
+      userDoc = { ...userDoc, ...updateFields, lastLogin: now };
+    } else {
+      await setDoc(userRef, defaultDoc);
+      userDoc = { ...defaultDoc, lastLogin: now };
+    }
   } catch(e) { console.warn('loadUserDoc:', e.message); }
+}
+
+function getUserStatus() {
+  if (isAdmin()) return 'approved';
+  if (userDoc?.blocked) return 'blocked';
+  if (userDoc?.approved === false) return 'pending';
+  return 'approved';
+}
+
+function isUserPending() {
+  return !isAdmin() && userDoc?.approved === false && !userDoc?.blocked;
+}
+
+function isUserBlocked() {
+  return !isAdmin() && userDoc?.blocked === true;
+}
+
+function isAccessRestricted() {
+  return isUserPending() || isUserBlocked();
+}
+
+function getAccessMessage() {
+  if (isUserBlocked()) return 'Your account has been blocked. Contact administrator.';
+  return 'Your account is waiting for administrator approval.';
+}
+
+function applyAccessControls() {
+  const restricted = isAccessRestricted() && !isAdmin();
+  ['nav-generate','nav-history','nav-settings'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = restricted ? 'none' : '';
+  });
+  const overlay = document.getElementById('access-overlay');
+  if (overlay) {
+    overlay.style.display = restricted ? 'flex' : 'none';
+    const msgEl = document.getElementById('access-overlay-msg');
+    if (msgEl) msgEl.textContent = getAccessMessage();
+  }
+  const genBtn = document.getElementById('gen-btn');
+  const saveBtn = document.getElementById('save-btn');
+  if (genBtn) restricted ? genBtn.setAttribute('disabled','true') : genBtn.removeAttribute('disabled');
+  if (saveBtn) restricted ? saveBtn.setAttribute('disabled','true') : saveBtn.removeAttribute('disabled');
 }
 
 // ── PAGE ROUTING ──
@@ -857,7 +1036,10 @@ async function doLogin() {
   try {
     const { auth, signInWithEmailAndPassword } = window._fb;
     await signInWithEmailAndPassword(auth, email, password);
-    // success — onAuthStateChanged will call enterApp()
+    // Set welcome toast for this session
+    const userName = userDoc?.name || emailOrUser.split('@')[0] || 'User';
+    sessionStorage.setItem('welcomeToast', `👋 Welcome back ${userName}! Welcome to AI SEO Generator by Sagar K.`);
+    // success - onAuthStateChanged will call enterApp()
   } catch(err) {
     // If account doesn't exist, auto-create it (first-time setup)
     if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
@@ -867,11 +1049,20 @@ async function doLogin() {
         const name = emailOrUser === 'sagark' ? 'Sagar K' : (emailOrUser.split('@')[0]);
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await setDoc(doc(db, 'users', cred.user.uid), {
-          name, email, apiKey: '', uid: cred.user.uid,
+          uid: cred.user.uid,
+          name,
+          displayName: name,
+          email,
+          apiKey: '',
           username: emailOrUser.includes('@') ? emailOrUser.split('@')[0] : emailOrUser,
-          createdAt: serverTimestamp()
+          role: isAdmin() ? 'admin' : 'user',
+          approved: isAdmin(),
+          blocked: false,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp()
         });
-        showToast('Account created & signed in! ✓');
+        // Set welcome toast for this session (account created)
+        sessionStorage.setItem('welcomeToast', `🎉 Welcome ${name}! Welcome to AI SEO Generator by Sagar K.`);
         // onAuthStateChanged will fire and call enterApp()
         return;
       } catch(e2) {
@@ -890,6 +1081,47 @@ async function doLogin() {
     if (err.code === 'auth/wrong-password') msg = 'Incorrect password.';
     else if (err.code === 'auth/too-many-requests') msg = 'Too many attempts. Please wait a moment.';
     showAlertEl('login-alert','login-alert-msg', msg);
+  }
+}
+
+function openForgotModal() {
+  hideAlertEl('forgot-alert');
+  document.getElementById('forgot-email').value = document.getElementById('login-email').value.trim();
+  document.getElementById('forgot-password-modal').classList.add('show');
+}
+
+function closeForgotModal() {
+  document.getElementById('forgot-password-modal').classList.remove('show');
+}
+
+async function doForgotPassword() {
+  await waitFB();
+  hideAlertEl('forgot-alert');
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn = document.getElementById('forgot-send-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending reset link...'; }
+  try {
+    if (!email) {
+      throw { code: 'auth/invalid-email', message: 'Please enter your email address.' };
+    }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+      throw { code: 'auth/invalid-email', message: 'Please enter a valid email address.' };
+    }
+    console.log('Password reset requested:', email);
+    const { auth, sendPasswordResetEmail } = window._fb;
+    await sendPasswordResetEmail(auth, email);
+    closeForgotModal();
+    showToast('Password reset email sent successfully.');
+  } catch(err) {
+    let msg = 'Error sending reset link.';
+    if (err.code === 'auth/user-not-found') msg = 'No account found with this email. Please create a new account.';
+    else if (err.code === 'auth/invalid-email') msg = 'Please enter a valid email address.';
+    else if (err.code === 'auth/too-many-requests') msg = 'Too many requests. Please try again later.';
+    showAlertEl('forgot-alert','forgot-alert-msg', msg);
+    console.log('Password reset failed:', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link'; }
   }
 }
 
@@ -916,10 +1148,21 @@ async function doRegister() {
     const { auth, db, createUserWithEmailAndPassword, doc, setDoc, serverTimestamp } = window._fb;
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     await setDoc(doc(db, 'users', cred.user.uid), {
-      name, username: email.split('@')[0], email, apiKey: apiKey || '',
-      uid: cred.user.uid, createdAt: serverTimestamp()
+      uid: cred.user.uid,
+      name,
+      displayName: name,
+      email,
+      apiKey: apiKey || '',
+      username: email.split('@')[0],
+      role: isAdmin() ? 'admin' : 'user',
+      approved: isAdmin(),
+      blocked: false,
+      createdAt: serverTimestamp(),
+      lastLogin: serverTimestamp()
     });
-    // Success — onAuthStateChanged will call enterApp()
+    // Set welcome toast for this session (signup)
+    sessionStorage.setItem('welcomeToast', `🎉 Welcome ${name}! Welcome to AI SEO Generator by Sagar K.`);
+    // Success - onAuthStateChanged will call enterApp()
   } catch(err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Create account →'; }
     let msg = err.message;
@@ -946,8 +1189,13 @@ function enterApp() {
   if (document.getElementById('s-username')) {
     document.getElementById('s-username').value = userDoc?.username || email.split('@')[0];
   }
+  if (document.getElementById('s-email')) {
+    document.getElementById('s-email').value = email;
+  }
   const key = userDoc?.apiKey || '';
   if (key) document.getElementById('s-apikey').value = key;
+  
+  applyAccessControls();
   
   // Check if Groq API Key is missing
   if (!key) {
@@ -964,6 +1212,14 @@ function enterApp() {
   }
   
   updateStats();
+  
+  // Show one-time welcome toast if it was set during login/signup
+  const welcomeMessage = sessionStorage.getItem('welcomeToast');
+  if (welcomeMessage) {
+    showToast(welcomeMessage);
+    sessionStorage.removeItem('welcomeToast');
+  }
+  
   startSeoToast();
   // Admin UI visibility
   document.querySelectorAll('.admin-only').forEach(el => {
@@ -973,17 +1229,27 @@ function enterApp() {
 
 // ── TAB NAVIGATION ──
 function switchTab(tab) {
-  ['dashboard','generate','history','settings'].forEach(t => {
+  if (tab === 'accounts' && !isAdmin()) tab = 'dashboard';
+  const restricted = isAccessRestricted() && !isAdmin();
+  if (restricted && tab !== 'dashboard') tab = 'dashboard';
+  ['dashboard','generate','history','settings','accounts'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     const nav = document.getElementById('nav-'+t);
     if (el) el.style.cssText = t===tab ? 'display:block !important' : 'display:none !important';
     if (nav) nav.classList.toggle('active', t===tab);
   });
-  const titles = {dashboard:'Dashboard',generate:'Generate SEO Content',history:'Generation History',settings:'Settings'};
+  const titles = {
+    dashboard:'Dashboard',
+    generate:'Generate SEO Content',
+    history:'Generation History',
+    settings:'Settings',
+    accounts:'Accounts'
+  };
   const ttEl = document.getElementById('topbar-title');
   if (ttEl) ttEl.textContent = titles[tab] || tab;
-  if (tab==='history')   renderHistory();
+  if (tab==='history') renderHistory();
   if (tab==='dashboard') { updateStats(); renderRecentActivity(); }
+  if (tab==='accounts') renderAccounts();
   window.scrollTo(0,0);
   if (window.innerWidth <= 768) {
     document.querySelector('.sidebar')?.classList.remove('open');
@@ -991,8 +1257,75 @@ function switchTab(tab) {
   }
 }
 
+async function renderAccounts() {
+  if (!isAdmin()) return;
+  try {
+    const { db, collection, getDocs } = window._fb;
+    const snap = await getDocs(collection(db, 'users'));
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const pending = users.filter(u => !u.approved && !u.blocked && u.role !== 'admin');
+    const approved = users.filter(u => u.approved && !u.blocked && u.role !== 'admin');
+    const blocked = users.filter(u => u.blocked && u.role !== 'admin');
+    document.getElementById('acct-pending-count').textContent = pending.length;
+    document.getElementById('acct-approved-count').textContent = approved.length;
+    document.getElementById('acct-blocked-count').textContent = blocked.length;
+    renderUserList('acct-pending-list', pending, ['Approve','Reject','Block']);
+    renderUserList('acct-approved-list', approved, ['Block','Reject']);
+    renderUserList('acct-blocked-list', blocked, ['Unblock','Approve']);
+  } catch(e) {
+    console.warn('renderAccounts:', e.message);
+  }
+}
+
+function renderUserList(containerId, users, actions) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!users.length) {
+    el.innerHTML = '<p style="color:var(--text2);font-size:.9rem">No users in this category.</p>';
+    return;
+  }
+  el.innerHTML = users.map(user => {
+    const status = user.blocked ? 'Blocked' : user.approved ? 'Approved' : 'Pending';
+    const badgeClass = user.blocked ? 'blocked' : user.approved ? 'approved' : 'pending';
+    const actionsHtml = [];
+    if (actions.includes('Approve')) actionsHtml.push(`<button class="btn btn-accent btn-sm" onclick="approveUser('${user.id}')">Approve</button>`);
+    if (actions.includes('Reject')) actionsHtml.push(`<button class="btn btn-outline btn-sm" onclick="rejectUser('${user.id}')">Reject</button>`);
+    if (actions.includes('Block')) actionsHtml.push(`<button class="btn btn-danger btn-sm" onclick="blockUser('${user.id}')">Block</button>`);
+    if (actions.includes('Unblock')) actionsHtml.push(`<button class="btn btn-accent btn-sm" onclick="unblockUser('${user.id}')">Unblock</button>`);
+    return `
+      <div class="account-row">
+        <div class="account-details">
+          <p class="account-name">${user.displayName || user.name || user.username || user.email || 'Unknown'}</p>
+          <p class="account-meta">${user.email || 'No email'} • ${status} • ${user.role || 'user'}</p>
+          <p class="account-meta">Last login: ${formatDate(user.lastLogin) || 'N/A'} • Created: ${formatDate(user.createdAt) || 'N/A'}</p>
+        </div>
+        <div class="account-actions">${actionsHtml.join('')}</div>
+      </div>`;
+  }).join('');
+}
+
+async function approveUser(uid) { await updateUserStatus(uid, { approved: true, blocked: false }); }
+async function rejectUser(uid) { await updateUserStatus(uid, { approved: false, blocked: false }); }
+async function blockUser(uid) { await updateUserStatus(uid, { blocked: true, approved: false }); }
+async function unblockUser(uid) { await updateUserStatus(uid, { blocked: false, approved: false }); }
+
+async function updateUserStatus(uid, data) {
+  if (!isAdmin()) return;
+  try {
+    const { db, doc, updateDoc } = window._fb;
+    await updateDoc(doc(db, 'users', uid), data);
+    if (uid === fbUser?.uid) {
+      await loadUserDoc();
+      applyAccessControls();
+    }
+    renderAccounts();
+  } catch(e) {
+    console.warn('updateUserStatus:', e.message);
+  }
+}
+
 function switchRTab(tab) {
-  const names = ['score','seo','desc','url','tags','opencart'];
+  const names = ['score','seo','desc','url','tags','social','opencart'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===tab));
   names.forEach(t => document.getElementById('rtab-'+t).classList.toggle('active', t===tab));
 }
@@ -1077,7 +1410,7 @@ async function compressDataUrl(dataUrl, maxDim = 300, quality = 0.75) {
 function validateSlug(slug) {
   return [
     {label:'All lowercase letters', pass:slug===slug.toLowerCase()},
-    {label:'Hyphens only — no spaces', pass:!slug.includes(' ')},
+    {label:'Hyphens only - no spaces', pass:!slug.includes(' ')},
     {label:'No special characters (|&%@#*)', pass:!/[|&%@#*]/.test(slug)},
     {label:'Under 60 characters', pass:slug.length<=60&&slug.length>0},
     {label:'No double hyphens (--)', pass:!slug.includes('--')},
@@ -1142,6 +1475,7 @@ async function generateSEO() {
   hideAlertEl('gen-alert'); hideAlertEl('dup-name-alert');
 
   const selectedStyle = seoStyles[Math.floor(Math.random() * seoStyles.length)];
+  if (isAccessRestricted() && !isAdmin()) { showAlertEl('gen-alert','gen-alert-msg', getAccessMessage()); return; }
   if (!name) { showAlertEl('gen-alert','gen-alert-msg','Please enter a product name.'); return; }
   if (!apiKey) { showAlertEl('gen-alert','gen-alert-msg','No Groq API key. Go to Settings → add your free key.'); return; }
 
@@ -1181,18 +1515,19 @@ async function generateSEO() {
 Product Name: ${name}
 Style: ${selectedStyle}
 ${cat ? 'Category: ' + cat + '\n' : ''}
-${currentImageBase64 ? 'Product image provided — analyze for color, style, material details.\n' : ''}
+${currentImageBase64 ? 'Product image provided - analyze for color, style, material details.\n' : ''}
 Generate premium SEO content for this product using the selected marketing angle.
+Also create production-ready social media copy for Instagram, Facebook, X, and YouTube.
 Important:
-- Create a completely different version from previous generations.
-- Do not reuse previous titles.
-- Do not reuse previous descriptions.
-- Use different keyword combinations.
-- Use a different marketing angle.
-- Maintain SEO optimization.
-- Create unique and engaging content.
+- Do not output any placeholders such as [CTA Button], [Insert Link], [Your Website], or similar.
+- Do not include markdown, bullets, or bracketed callouts.
+- Instagram must be at least 80 words, include emojis, features, benefits, and 5-10 hashtags.
+- Instagram must end with: "💬 Like, Share, Follow and Comment 'LINK' – I will direct DM you."
+- Facebook must be at least 80 words, include features and benefits, no placeholders, and end with: "👍 Like, Share, Follow and Comment 'LINK' – I will direct DM you."
+- X must be maximum 280 characters, include a strong CTA, and use 3-5 hashtags.
+- YouTube must be 150-300 words, include product overview, features, benefits, SEO keywords, and a call-to-action.
 Respond ONLY with valid JSON and do not include markdown:
-{"meta_title":"SEO title 50-70 chars with product name and key benefit","meta_description":"140-160 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-70-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"250+ word SEO optimized description","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
+{"meta_title":"SEO title 50-70 chars with product name and key benefit","meta_description":"140-160 char description with CTA and primary keyword","focus_keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7"],"seo_slug":"lowercase-hyphen-slug-no-stop-words-under-70-chars","alt_text":"image alt text under 100 chars with primary keyword","product_description":"250+ word SEO optimized description","short_description":"one punchy sentence under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"],"socialMedia":{"instagram":"Instagram caption with emojis, features, benefits, hashtags, and CTA","facebook":"Facebook post with features, benefits, and CTA","twitter":"Tweet under 280 characters with hashtags and CTA","youtube":"YouTube description with overview, features, benefits, keywords, and CTA"}}`;
     const data = await callGroqAI([{role:'user',content:prompt}], apiKey);
     completeLoadingStep(1, 25);
 
@@ -1200,9 +1535,15 @@ Respond ONLY with valid JSON and do not include markdown:
     const parsed = parseAiJson(text);
     if (!parsed) throw new Error('Could not parse AI response. Please try again.');
     parsed.seo_slug = generateSlug(parsed.seo_slug || name);
+    parsed.socialMedia = parsed.socialMedia || {instagram:'',facebook:'',twitter:'',youtube:''};
+    parsed.socialMedia.instagram = sanitizeSocialMediaText(parsed.socialMedia.instagram);
+    parsed.socialMedia.facebook = sanitizeSocialMediaText(parsed.socialMedia.facebook);
+    parsed.socialMedia.twitter = sanitizeSocialMediaText(parsed.socialMedia.twitter, 280);
+    parsed.socialMedia.youtube = sanitizeSocialMediaText(parsed.socialMedia.youtube);
 
     let candidate = {
       ...parsed,
+      socialMedia: parsed.socialMedia,
       productName: name,
       category: cat,
       lang,
@@ -1319,8 +1660,16 @@ Important:
 - Use a different marketing angle.
 - Maintain SEO optimization.
 - Create unique and engaging content.
+- Regenerate social media copy using a completely different angle than before.
+- Use one of these angles: Luxury, Professional, Trendy, Budget-Friendly, Feature-Focused, Lifestyle.
+- Do not output any placeholders such as [CTA Button], [Insert Link], [Your Website], or similar.
+- Instagram should be at least 80 words, include emojis, features, benefits, and 5-10 hashtags.
+- Instagram must end with: "💬 Like, Share, Follow and Comment 'LINK' – I will direct DM you."
+- Facebook should be at least 80 words, include features and benefits, no placeholders, and end with: "👍 Like, Share, Follow and Comment 'LINK' – I will direct DM you."
+- X must be maximum 280 characters, include a strong CTA, and use 3-5 hashtags.
+- YouTube must be 150-300 words, include product overview, features, benefits, SEO keywords, and a call-to-action.
 Respond ONLY with valid JSON:
-{"meta_title":"under 70 chars","meta_description":"145-158 chars","focus_keywords":["k1","k2","k3","k4","k5","k6","k7"],"seo_slug":"unique-slug","alt_text":"alt text","product_description":"3 fresh paragraphs","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"]}`;
+{"meta_title":"under 70 chars","meta_description":"145-158 chars","focus_keywords":["k1","k2","k3","k4","k5","k6","k7"],"seo_slug":"unique-slug","alt_text":"alt text","product_description":"3 fresh paragraphs","short_description":"under 80 chars","product_tags":["t1","t2","t3","t4","t5","t6","t7","t8"],"socialMedia":{"instagram":"Instagram caption with emojis, features, benefits, hashtags, and CTA","facebook":"Facebook post with features, benefits, and CTA","twitter":"Tweet under 280 characters with hashtags and CTA","youtube":"YouTube description with overview, features, benefits, keywords, and CTA"}}`;
   showLoadingMsg('Regenerating...', ['Getting fresh ideas...','Writing new SEO...','Done!']);
   try {
     let data;
@@ -1339,6 +1688,11 @@ Respond ONLY with valid JSON:
     try { parsed = JSON.parse(text.slice(jS,jE+1)); }
     catch(e) { parsed = JSON.parse(text.slice(jS,jE+1).replace(/"(?:[^"\\]|\\.)*"/g,m=>m.replace(/\n/g,'\\n').replace(/\r/g,'').replace(/\t/g,' '))); }
     parsed.seo_slug = generateSlug(parsed.seo_slug || name);
+    parsed.socialMedia = parsed.socialMedia || {instagram:'',facebook:'',twitter:'',youtube:''};
+    parsed.socialMedia.instagram = sanitizeSocialMediaText(parsed.socialMedia.instagram);
+    parsed.socialMedia.facebook = sanitizeSocialMediaText(parsed.socialMedia.facebook);
+    parsed.socialMedia.twitter = sanitizeSocialMediaText(parsed.socialMedia.twitter, 280);
+    parsed.socialMedia.youtube = sanitizeSocialMediaText(parsed.socialMedia.youtube);
     const prevVers = currentResults?.versions || [];
     currentResults = {...parsed, productName:name, category:cat, lang, timestamp:Date.now(),
       imageThumb:currentResults?.imageThumb||null, versions:prevVers, uid:fbUser?.uid, generatedStyle:selectedStyle};
@@ -1368,6 +1722,21 @@ function validateRegenField(field, value, r) {
     return slugOk && words.some(w => slug.includes(w));
   }
   return false;
+}
+
+function sanitizeSocialMediaText(text, maxLen) {
+  if (!text) return '';
+  let cleaned = String(text);
+  cleaned = cleaned.replace(/\[(CTA Button|Insert Link|Your Website)\]/gi, '');
+  cleaned = cleaned.replace(/\[[^\]]+\]/g, '');
+  cleaned = cleaned.replace(/https?:\/\/\S+/gi, '');
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+  if (maxLen && cleaned.length > maxLen) {
+    cleaned = cleaned.slice(0, maxLen);
+    const lastSpace = cleaned.lastIndexOf(' ');
+    if (lastSpace > 50) cleaned = cleaned.slice(0, lastSpace);
+  }
+  return cleaned;
 }
 
 function parseAiJson(text) {
@@ -1557,6 +1926,10 @@ function renderResults(r) {
   document.getElementById('r-shortdesc').textContent = r.short_description || '';
   document.getElementById('r-slug').textContent      = r.seo_slug || '';
   document.getElementById('r-alt').textContent       = r.alt_text || '';
+  document.getElementById('r-instagram').textContent = r.socialMedia?.instagram || '';
+  document.getElementById('r-facebook').textContent  = r.socialMedia?.facebook || '';
+  document.getElementById('r-twitter').textContent   = r.socialMedia?.twitter || '';
+  document.getElementById('r-youtube').textContent   = r.socialMedia?.youtube || '';
   const tl=(r.meta_title||'').length, ml=(r.meta_description||'').length;
   const tc=document.getElementById('title-chars');
   tc.textContent=tl+'/70';
@@ -1573,12 +1946,22 @@ function renderResults(r) {
 }
 
 function computeSeoScore(r) {
-  const title = (r.meta_title || '').trim();
-  const desc = (r.meta_description || '').trim();
-  const slug = (r.seo_slug || '').trim();
-  const prodDesc = (r.product_description || '').trim();
-  const alt = (r.alt_text || '').trim();
-  const productName = (r.productName || '').toLowerCase().trim();
+  // Debug logging: log all field types
+  console.log('computeSeoScore input:', r);
+  console.log('  meta_title:', r.meta_title, typeof r.meta_title);
+  console.log('  meta_description:', r.meta_description, typeof r.meta_description);
+  console.log('  product_description:', r.product_description, typeof r.product_description);
+  console.log('  alt_text:', r.alt_text, typeof r.alt_text);
+  console.log('  seo_slug:', r.seo_slug, typeof r.seo_slug);
+  console.log('  productName:', r.productName, typeof r.productName);
+  
+  // Use safe string conversion for all fields
+  const title = safeString(r.meta_title).trim();
+  const desc = safeString(r.meta_description).trim();
+  const slug = safeString(r.seo_slug).trim();
+  const prodDesc = safeString(r.product_description).trim();
+  const alt = safeString(r.alt_text).trim();
+  const productName = safeString(r.productName).toLowerCase().trim();
   const productWords = productName.split(/\s+/).filter(Boolean).map(w => w.replace(/[^a-z0-9]/g, '')).filter(Boolean);
 
   const titleLenOk = title.length >= 40 && title.length <= 70;
@@ -1595,6 +1978,14 @@ function computeSeoScore(r) {
   const prodDescWords = prodDesc.split(/\s+/).filter(Boolean).length;
   const prodDescSentences = Math.max((prodDesc.match(/[.!?]+/g) || []).length, 0);
   const prodDescOk = prodDescWords >= 180 && prodDescSentences >= 2;
+
+  console.log('SEO Calculations:', {
+    title: {value: title, len: title.length, ok: titleLenOk},
+    desc: {value: desc, len: desc.length, ok: descLenOk},
+    slug: {value: slug, clean: slugClean, relevant: slugRelevant},
+    alt: {exists: altExists},
+    prodDesc: {words: prodDescWords, sentences: prodDescSentences, ok: prodDescOk}
+  });
 
   const passedChecks = [
     titleLenOk,
@@ -1721,13 +2112,92 @@ function renderSeoScore(data) {
 function updateOpenCartFormat() {
   if (!currentResults) return;
   const r=currentResults, ll={en:'English',hi:'Hindi',te:'Telugu'};
-  document.getElementById('r-opencart').textContent=
-`━━━ GENERAL TAB ━━━\nProduct Name:\n${r.productName}\n\n━━━ DATA TAB ━━━\nMeta Tag Title:\n${r.meta_title||''}\n\nMeta Tag Description:\n${r.meta_description||''}\n\nSEO URL (Keyword):\n${r.seo_slug||''}\n\n━━━ DESCRIPTION TAB ━━━\nDescription:\n${r.product_description||''}\n\nSummary:\n${r.short_description||''}\n\n━━━ IMAGE TAB ━━━\nAlt Text:\n${r.alt_text||''}\n\n━━━ TAGS ━━━\n${(r.product_tags||[]).join(', ')}\n\n━━━ KEYWORDS ━━━\n${(r.focus_keywords||[]).join(', ')}\n\n━━━ INFO ━━━\nLanguage: ${ll[r.lang]||'English'} | Category: ${r.category||'N/A'}\nGenerated: ${formatDate(r.timestamp)}`;
+  const text = `=== GENERAL TAB ===
+Product Name:
+${r.productName}
+
+=== DATA TAB ===
+Meta Tag Title:
+${r.meta_title||''}
+
+Meta Tag Description:
+${r.meta_description||''}
+
+SEO URL (Keyword):
+${r.seo_slug||''}
+
+=== DESCRIPTION TAB ===
+Description:
+${r.product_description||''}
+
+Summary:
+${r.short_description||''}
+
+=== IMAGE TAB ===
+Alt Text:
+${r.alt_text||''}
+
+=== SOCIAL MEDIA ===
+Instagram:
+${r.socialMedia?.instagram||''}
+
+Facebook:
+${r.socialMedia?.facebook||''}
+
+X (Twitter):
+${r.socialMedia?.twitter||''}
+
+YouTube:
+${r.socialMedia?.youtube||''}
+
+=== TAGS ===
+${(r.product_tags||[]).join(', ')}
+
+=== KEYWORDS ===
+${(r.focus_keywords||[]).join(', ')}
+
+=== INFO ===
+Language: ${ll[r.lang]||'English'} | Category: ${r.category||'N/A'}
+Generated: ${formatDate(r.timestamp)}`;
+  document.getElementById('r-opencart').textContent = text;
+}
+
+function removeUndefined(obj) {
+  return JSON.parse(
+    JSON.stringify(obj, (key, value) =>
+      value === undefined ? null : value
+    )
+  );
+}
+
+function findUndefinedFields(obj, path = '') {
+  const fields = [];
+  if (obj && typeof obj === 'object') {
+    if (Array.isArray(obj)) {
+      obj.forEach((value, index) => {
+        const childPath = `${path}[${index}]`;
+        if (value === undefined) fields.push(childPath);
+        else if (value && typeof value === 'object') fields.push(...findUndefinedFields(value, childPath));
+      });
+    } else {
+      Object.keys(obj).forEach(key => {
+        const value = obj[key];
+        const childPath = path ? `${path}.${key}` : key;
+        if (value === undefined) fields.push(childPath);
+        else if (value && typeof value === 'object') fields.push(...findUndefinedFields(value, childPath));
+      });
+    }
+  }
+  return fields;
 }
 
 // ── SAVE TO FIREBASE (Firestore) ──
 async function saveToFirebase() {
   if (!currentResults || !fbUser) return;
+  if (isAccessRestricted() && !isAdmin()) {
+    showToast(getAccessMessage());
+    return;
+  }
   document.getElementById('save-btn').disabled = true;
   try {
     const { db, collection, addDoc, doc, updateDoc, query, where, getDocs, serverTimestamp } = window._fb;
@@ -1757,33 +2227,58 @@ async function saveToFirebase() {
 
     const payload = {
       uid: fbUser.uid,
-      productName: r.productName,
-      productNameLower: r.productName.toLowerCase(),
-      category: r.category || '',
-      lang: r.lang || 'en',
-      meta_title: r.meta_title || '',
-      meta_description: r.meta_description || '',
-      seo_slug: r.seo_slug || '',
-      alt_text: r.alt_text || '',
-      product_description: r.product_description || '',
-      short_description: r.short_description || '',
-      focus_keywords: r.focus_keywords || [],
-      product_tags: r.product_tags || [],
+      productName: safeString(r.productName),
+      productNameLower: safeString(r.productName).toLowerCase(),
+      category: safeString(r.category),
+      lang: safeString(r.lang || 'en'),
+      meta_title: safeString(r.meta_title),
+      meta_description: safeString(r.meta_description),
+      seo_slug: safeString(r.seo_slug),
+      alt_text: safeString(r.alt_text),
+      product_description: safeString(r.product_description),
+      short_description: safeString(r.short_description),
+      focus_keywords: Array.isArray(r.focus_keywords) ? r.focus_keywords : [],
+      product_tags: Array.isArray(r.product_tags) ? r.product_tags : [],
+      socialMedia: {
+        instagram: safeString(r.socialMedia?.instagram),
+        facebook: safeString(r.socialMedia?.facebook),
+        twitter: safeString(r.socialMedia?.twitter),
+        youtube: safeString(r.socialMedia?.youtube)
+      },
       imageThumb: imageThumbToSave || null,
-      versions: r.versions || [],
+      versions: Array.isArray(r.versions) ? r.versions : [],
       timestamp: r.timestamp,
       updatedAt: serverTimestamp(),
-      createdBy: fbUser.email
+      createdBy: fbUser?.email || 'Unknown'
     };
+
+    const undefinedFields = findUndefinedFields(payload);
+    if (undefinedFields.length) {
+      console.warn('Firestore save has undefined fields:', undefinedFields);
+    }
+    const cleanPayload = removeUndefined(payload);
+    console.log('Saving data:', payload);
+    console.log('Clean data:', cleanPayload);
 
     if (!snap.empty) {
       const existing = snap.docs[0];
       const existData = existing.data();
       const versions = existData.versions || [];
       versions.push({...existData, versions:undefined, savedAt:new Date().toISOString()});
-      await updateDoc(doc(db,'products',existing.id), {...payload, versions, createdAt:existData.createdAt, createdBy: existData.createdBy || payload.createdBy});
+      const updateData = removeUndefined({
+        ...payload,
+        versions,
+        createdAt: existData.createdAt,
+        createdBy: existData.createdBy || payload.createdBy
+      });
+      await updateDoc(doc(db,'products',existing.id), updateData);
     } else {
-      await addDoc(collection(db,'products'), {...payload, createdAt: serverTimestamp(), createdBy: payload.createdBy});
+      const addData = removeUndefined({
+        ...payload,
+        createdAt: serverTimestamp(),
+        createdBy: payload.createdBy
+      });
+      await addDoc(collection(db,'products'), addData);
     }
     document.getElementById('save-btn').disabled = false;
     showToast('✅ Saved to Firebase!');
@@ -1797,17 +2292,53 @@ async function saveToFirebase() {
 
 // ── FETCH FROM FIREBASE ──
 async function fetchProducts() {
-  if (!fbUser) return [];
+  if (!fbUser) { console.warn('fetchProducts: No user logged in'); return []; }
   try {
     const { db, collection, getDocs } = window._fb;
+    if (!db) { console.error('fetchProducts: Firebase db not initialized'); return []; }
+    
     // Return ALL products for authenticated users (shared company SEO database)
     const snap = await getDocs(collection(db,'products'));
-    const products = snap.docs.map(d => ({id:d.id,...d.data()}));
-    // Debug: log loaded image fields for verification
-    products.forEach(product => console.log('Loaded image:', product.imageThumb));
+    console.log('Firestore query returned', snap.docs.length, 'documents');
+    
+    const products = snap.docs.map((d, idx) => {
+      try {
+        const data = d.data();
+        console.log(`Processing product ${idx+1}:`, {id: d.id, hasProductName: !!data.productName, hasDescription: !!data.product_description});
+        // Normalize string fields from Firestore to prevent trim() errors
+        return {
+          id: d.id,
+          ...data,
+          productName: safeString(data.productName),
+          productNameLower: safeString(data.productNameLower),
+          category: safeString(data.category),
+          lang: safeString(data.lang || 'en'),
+          meta_title: safeString(data.meta_title),
+          meta_description: safeString(data.meta_description),
+          seo_slug: safeString(data.seo_slug),
+          alt_text: safeString(data.alt_text),
+          product_description: safeString(data.product_description),
+          short_description: safeString(data.short_description),
+          focus_keywords: Array.isArray(data.focus_keywords) ? data.focus_keywords : [],
+          product_tags: Array.isArray(data.product_tags) ? data.product_tags : []
+        };
+      } catch(mapErr) {
+        console.error(`Error processing product ${d.id}:`, mapErr);
+        return null;
+      }
+    }).filter(p => p !== null);
+    
+    console.log('Products loaded:', products.length, 'after normalization');
+    products.forEach(product => console.log('Loaded:', {name: product.productName, slug: product.seo_slug, timestamp: product.timestamp}));
+    
     // Sort by timestamp descending (client-side to avoid index requirement)
-    return products.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  } catch(e) { console.warn('fetchProducts:', e.message); return []; }
+    const sorted = products.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    console.log('Products sorted by timestamp. Ready to display:', sorted.length);
+    return sorted;
+  } catch(e) { 
+    console.error('fetchProducts ERROR:', e.message, e.stack);
+    return []; 
+  }
 }
 
 // ── HISTORY ──
@@ -1861,6 +2392,10 @@ function openHistModal(idx) {
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Keywords</span></div><div class="kw-wrap">${(h.focus_keywords||[]).map(k=>`<span class="kw-tag">${k}</span>`).join('')}</div></div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Tags</span></div><div class="kw-wrap">${(h.product_tags||[]).map(t=>`<span class="prod-tag">${t}</span>`).join('')}</div></div>
     <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Description</span></div><div class="seo-val" style="white-space:pre-wrap;max-height:140px;overflow-y:auto">${h.product_description||''}</div></div>
+    <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Instagram</span></div><div class="seo-val" style="white-space:pre-wrap;max-height:120px;overflow-y:auto">${h.socialMedia?.instagram||''}</div></div>
+    <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">Facebook</span></div><div class="seo-val" style="white-space:pre-wrap;max-height:120px;overflow-y:auto">${h.socialMedia?.facebook||''}</div></div>
+    <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">X (Twitter)</span></div><div class="seo-val" style="white-space:pre-wrap;max-height:120px;overflow-y:auto">${h.socialMedia?.twitter||''}</div></div>
+    <div class="seo-field"><div class="seo-field-head"><span class="seo-field-label">YouTube</span></div><div class="seo-val" style="white-space:pre-wrap;max-height:140px;overflow-y:auto">${h.socialMedia?.youtube||''}</div></div>
     ${(h.versions||[]).length>0?`<div style="margin-top:1rem"><p style="font-size:.75rem;font-weight:700;color:var(--text2);margin-bottom:.5rem;text-transform:uppercase">Previous Versions (${h.versions.length})</p>${(h.versions||[]).map((v,vi)=>`<div class="version-item"><div class="version-head"><span class="version-num">Version ${vi+1}</span><span class="version-date">${formatDate(v.savedAt||v.timestamp)}</span></div><div class="version-title">${v.meta_title||''}</div></div>`).join('')}</div>`:''}
     <div style="margin-top:1.25rem;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-accent btn-sm" onclick="loadHistItem(${idx})">Load & Edit</button>
@@ -1915,11 +2450,19 @@ async function exportHistory() {
 // ── STATS ──
 async function updateStats() {
   const products = await fetchProducts();
+  const userProducts = products.filter(x => x.uid === fbUser?.uid);
   document.getElementById('stat-total').textContent    = products.length;
   const wa = Date.now()-7*24*60*60*1000;
   document.getElementById('stat-week').textContent     = products.filter(x=>(x.timestamp||0)>wa).length;
   document.getElementById('stat-versions').textContent = products.reduce((a,x)=>a+(x.versions?.length||0),0);
   document.getElementById('stat-langs').textContent    = new Set(products.map(x=>x.lang).filter(Boolean)).size;
+  const generatedCount = userProducts.length;
+  const statGen = document.getElementById('stat-user-generated');
+  if (statGen) statGen.textContent = generatedCount;
+  const statSav = document.getElementById('stat-user-saved');
+  if (statSav) statSav.textContent = generatedCount;
+  const statLog = document.getElementById('stat-last-login');
+  if (statLog) statLog.textContent = formatDate(userDoc?.lastLogin) || 'Pending';
 }
 
 async function updateHistoryBadge() {
@@ -1988,7 +2531,43 @@ function copyTags() { navigator.clipboard.writeText(Array.from(document.querySel
 function copyAll() {
   if (!currentResults) return;
   const r=currentResults;
-  navigator.clipboard.writeText(`Product: ${r.productName}\n\nMeta Title:\n${r.meta_title}\n\nMeta Description:\n${r.meta_description}\n\nSEO Slug:\n${r.seo_slug}\n\nAlt Text:\n${r.alt_text}\n\nKeywords:\n${(r.focus_keywords||[]).join(', ')}\n\nTags:\n${(r.product_tags||[]).join(', ')}\n\nDescription:\n${r.product_description}\n\nShort:\n${r.short_description}`).then(()=>showToast('All copied ✓'));
+  navigator.clipboard.writeText(`Product: ${r.productName}
+
+Meta Title:
+${r.meta_title}
+
+Meta Description:
+${r.meta_description}
+
+SEO Slug:
+${r.seo_slug}
+
+Alt Text:
+${r.alt_text}
+
+Keywords:
+${(r.focus_keywords||[]).join(', ')}
+
+Tags:
+${(r.product_tags||[]).join(', ')}
+
+Description:
+${r.product_description}
+
+Short:
+${r.short_description}
+
+Instagram:
+${r.socialMedia?.instagram||''}
+
+Facebook:
+${r.socialMedia?.facebook||''}
+
+X (Twitter):
+${r.socialMedia?.twitter||''}
+
+YouTube:
+${r.socialMedia?.youtube||''}`).then(()=>showToast('All copied ✓'));
 }
 
 // ── MODAL ──
@@ -2042,12 +2621,12 @@ function showToast(msg) {
   window._toastHide = setTimeout(() => t.classList.remove('show'), 5000);
 }
 
-function startSeoToast() {
-  const msg = 'This AI is trained for only SEO generation, built by Sagar K.';
-  if (window._seoToastInterval) clearInterval(window._seoToastInterval);
-  showToast(msg);
-  window._seoToastInterval = setInterval(() => showToast(msg), 10000);
-}
+// function startSeoToast() {
+//   const msg = 'This AI is trained for only SEO generation, built by Sagar K.';
+//   if (window._seoToastInterval) clearInterval(window._seoToastInterval);
+//   showToast(msg);
+//   window._seoToastInterval = setInterval(() => showToast(msg), 100000);
+// }
 
 // ── UTILS ──
 function formatDate(ts) {
