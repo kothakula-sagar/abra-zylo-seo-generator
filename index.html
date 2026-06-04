@@ -352,6 +352,48 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .empty-state h3{font-size:.95rem;font-weight:700;margin-bottom:.375rem}
 .empty-state p{font-size:.83rem;color:var(--text2)}
 
+/* ── SEO AUDIT TOOL ── */
+.audit-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+.audit-score-ring-wrapper{position:relative;width:160px;height:160px;margin:0 auto}
+.audit-score-ring{transform:rotate(-90deg)}
+.audit-score-ring circle{fill:none;stroke-width:12;stroke-linecap:round}
+.audit-ring-bg{stroke:var(--border)}
+.audit-ring-fill{stroke:#10B981;stroke-dasharray:408;stroke-dashoffset:408;transition:stroke-dashoffset 1.4s ease-out,stroke 1.4s ease-out}
+.audit-score-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.audit-score-val{font-size:2.8rem;font-weight:800;color:var(--brand);line-height:1}
+.audit-score-max{font-size:.85rem;color:var(--text2)}
+.audit-summary-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:1.25rem}
+.audit-summary-card{border-radius:var(--radius-sm);padding:.875rem;text-align:center;border:1px solid}
+.audit-summary-card .asc-val{font-size:1.8rem;font-weight:800;line-height:1.1}
+.audit-summary-card .asc-lbl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.asc-pass{background:var(--green-bg);border-color:#a7f3d0;color:var(--green)}
+.asc-warn{background:#fffbeb;border-color:#fde68a;color:#b45309}
+.asc-fail{background:var(--red-bg);border-color:#fecaca;color:var(--red)}
+.audit-checks-list{display:flex;flex-direction:column;gap:8px}
+.audit-check-row{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:.85rem}
+.audit-check-icon{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;flex-shrink:0}
+.audit-check-icon.pass{background:var(--green-bg);color:var(--green)}
+.audit-check-icon.warn{background:#fffbeb;color:#b45309}
+.audit-check-icon.fail{background:var(--red-bg);color:var(--red)}
+.audit-check-label{font-weight:600;color:var(--text)}
+.audit-check-detail{font-size:.76rem;color:var(--text2);margin-top:2px}
+.audit-check-badge{font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.badge-pass{background:var(--green-bg);color:var(--green)}
+.badge-warn{background:#fffbeb;color:#b45309}
+.badge-fail{background:var(--red-bg);color:var(--red)}
+.audit-rec-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.audit-rec-list li{display:flex;align-items:flex-start;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;font-size:.87rem;color:var(--text2);line-height:1.5}
+.audit-rec-list li::before{content:'→';color:var(--accent);font-weight:700;flex-shrink:0;margin-top:1px}
+.audit-history-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem 1.25rem;display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)}
+.audit-history-item:hover{border-color:var(--accent);box-shadow:var(--shadow-md)}
+.audit-score-pill{font-size:.78rem;font-weight:700;padding:3px 11px;border-radius:99px}
+.audit-score-good{background:var(--green-bg);color:var(--green)}
+.audit-score-ok{background:var(--blue-bg);color:var(--blue)}
+.audit-score-warn{background:#fffbeb;color:#b45309}
+.audit-score-bad{background:var(--red-bg);color:var(--red)}
+@media(max-width:1024px){.audit-grid{grid-template-columns:1fr}}
+@media(max-width:768px){.audit-summary-cards{grid-template-columns:repeat(3,1fr)}}
+
 /* MOBILE */
 .mobile-menu-btn{display:none;background:none;border:none;cursor:pointer;padding:8px;font-size:1.2rem}
 .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;display:none}
@@ -497,6 +539,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>History
         <span class="nav-badge" id="history-badge">0</span>
       </a>
+      <a class="nav-link" id="nav-seo-audit" onclick="switchTab('seo-audit')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>SEO Audit Tool
+      </a>
       <div class="nav-section-label" style="margin-top:.5rem">Account</div>
       <a class="nav-link admin-only" id="nav-accounts" onclick="switchTab('accounts')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>Accounts
@@ -548,13 +593,19 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           <div class="stat-card"><div class="stat-label">Products Saved</div><div class="stat-val" id="stat-user-saved">0</div><div class="stat-sub">Saved under your account</div></div>
           <div class="stat-card"><div class="stat-label">Last Login</div><div class="stat-val" id="stat-last-login">-</div><div class="stat-sub">Your last sign-in</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Total Audits</div><div class="stat-val" id="stat-total-audits">0</div><div class="stat-sub">SEO audits run</div></div>
+          <div class="stat-card"><div class="stat-label">Avg Audit Score</div><div class="stat-val" id="stat-avg-audit">-</div><div class="stat-sub">Average SEO score</div></div>
+        </div>
           <div class="card">
             <div class="card-header"><h3>Quick Start</h3></div>
             <div class="card-body">
               <p style="font-size:.85rem;color:var(--text2);line-height:1.75;margin-bottom:1rem">Upload a product image, enter name & category - get complete SEO content saved to Firebase cloud.</p>
               <button class="btn btn-accent" onclick="switchTab('generate')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generate SEO Content
+              </button>
+              <button class="btn btn-outline" style="margin-top:8px" onclick="switchTab('seo-audit')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Run SEO Audit
               </button>
             </div>
           </div>
@@ -733,6 +784,152 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
           <button class="btn btn-danger btn-sm admin-only" onclick="clearAllHistory()">Clear All</button>
         </div>
         <div class="history-list" id="history-list"></div>
+      </div>
+
+      <!-- SEO AUDIT TOOL -->
+      <div id="tab-seo-audit" style="display:none">
+
+        <!-- URL Input Card -->
+        <div class="card" style="margin-bottom:1.25rem">
+          <div class="card-header"><h3>🔍 SEO Audit Tool</h3></div>
+          <div class="card-body">
+            <p style="font-size:.84rem;color:var(--text2);margin-bottom:1rem;line-height:1.6">Enter your page URL (optional) and fill in the SEO content fields below, then click <strong>Run Audit</strong> to get a complete analysis.</p>
+            <div class="form-row" style="margin-bottom:.75rem">
+              <label>Website URL <span style="font-size:.7rem;color:var(--text3)">(optional — for reference only)</span></label>
+              <input type="url" id="audit-url" placeholder="https://yoursite.com/product-page" style="font-family:'JetBrains Mono',monospace;font-size:.82rem"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Form -->
+        <div class="card" style="margin-bottom:1.25rem">
+          <div class="card-header">
+            <h3>SEO Content Inputs</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <label>SEO Title <span style="font-size:.7rem;color:var(--text3)">(recommended: 50–70 chars)</span></label>
+              <input type="text" id="audit-title" placeholder="e.g. Buy Crimson Slim Fit T-Shirt Online | Best Price"/>
+            </div>
+            <div class="form-row">
+              <label>Meta Description <span style="font-size:.7rem;color:var(--text3)">(recommended: 140–160 chars)</span></label>
+              <textarea id="audit-meta-desc" rows="3" placeholder="e.g. Shop the Crimson Slim Fit T-Shirt online..." style="resize:vertical;font-size:.85rem;line-height:1.6;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:9px 11px;width:100%;font-family:inherit;color:var(--text)"></textarea>
+            </div>
+            <div class="form-row">
+              <label>Focus Keyword</label>
+              <input type="text" id="audit-keyword" placeholder="e.g. slim fit t-shirt"/>
+            </div>
+            <div class="form-row">
+              <label>Page Content <span style="font-size:.7rem;color:var(--text3)">(paste your full page text)</span></label>
+              <textarea id="audit-content" rows="8" placeholder="Paste your full page body content here for accurate analysis..." style="resize:vertical;font-size:.85rem;line-height:1.6;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:9px 11px;width:100%;font-family:inherit;color:var(--text)"></textarea>
+            </div>
+            <div id="audit-alert" class="alert alert-danger" style="margin-top:.5rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="audit-alert-msg"></span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.5rem">
+              <button class="btn btn-accent" id="audit-run-btn" onclick="runSeoAudit()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Run Audit
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="clearAuditForm()">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Results Dashboard (hidden until audit runs) -->
+        <div id="audit-results-section" style="display:none">
+
+          <!-- Score Overview -->
+          <div class="audit-grid" style="margin-bottom:1.25rem">
+            <div class="card">
+              <div class="card-header"><h3>Overall SEO Score</h3></div>
+              <div class="card-body" style="text-align:center">
+                <div class="audit-score-ring-wrapper">
+                  <svg class="audit-score-ring" viewBox="0 0 140 140" width="160" height="160">
+                    <circle class="audit-ring-bg" cx="70" cy="70" r="65"/>
+                    <circle class="audit-ring-fill" id="audit-ring-fill" cx="70" cy="70" r="65"/>
+                  </svg>
+                  <div class="audit-score-center">
+                    <div class="audit-score-val" id="audit-score-val">0</div>
+                    <div class="audit-score-max">/100</div>
+                  </div>
+                </div>
+                <div style="font-size:1rem;font-weight:700;margin-top:.75rem" id="audit-score-label">Calculating...</div>
+                <div class="audit-summary-cards">
+                  <div class="audit-summary-card asc-pass">
+                    <div class="asc-val" id="audit-pass-count">0</div>
+                    <div class="asc-lbl">✓ Pass</div>
+                  </div>
+                  <div class="audit-summary-card asc-warn">
+                    <div class="asc-val" id="audit-warn-count">0</div>
+                    <div class="asc-lbl">⚠ Warn</div>
+                  </div>
+                  <div class="audit-summary-card asc-fail">
+                    <div class="asc-val" id="audit-fail-count">0</div>
+                    <div class="asc-lbl">✗ Fail</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>Audit Summary</h3>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-outline btn-sm" onclick="copyAuditResults()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy
+                  </button>
+                  <button class="btn btn-accent btn-sm" onclick="exportAuditPdf()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PDF
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div id="audit-summary-details" style="font-size:.85rem;color:var(--text2);line-height:1.8"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEO Checks -->
+          <div class="card" style="margin-bottom:1.25rem">
+            <div class="card-header"><h3>SEO Checks</h3></div>
+            <div class="card-body">
+              <div class="audit-checks-list" id="audit-checks-list"></div>
+            </div>
+          </div>
+
+          <!-- Recommendations -->
+          <div class="card" style="margin-bottom:1.25rem">
+            <div class="card-header"><h3>Recommendations</h3></div>
+            <div class="card-body">
+              <ul class="audit-rec-list" id="audit-rec-list"></ul>
+            </div>
+          </div>
+
+          <!-- Save to Firebase -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem">
+            <button class="btn btn-primary" onclick="saveAuditToFirebase()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save Audit to Firebase
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="copyAuditResults()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Results
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="exportAuditPdf()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export as PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- SEO Audit History -->
+        <div class="card">
+          <div class="card-header">
+            <h3>SEO Audit History</h3>
+            <button class="btn btn-outline btn-sm admin-only" onclick="clearAuditHistory()">Clear All</button>
+          </div>
+          <div class="card-body">
+            <div id="audit-history-list"><p style="font-size:.83rem;color:var(--text3)">No audits saved yet. Run an audit and save it to see history here.</p></div>
+          </div>
+        </div>
+
       </div>
 
       <!-- SETTINGS -->
@@ -997,7 +1194,7 @@ function getAccessMessage() {
 
 function applyAccessControls() {
   const restricted = isAccessRestricted() && !isAdmin();
-  ['nav-generate','nav-history','nav-settings'].forEach(id => {
+  ['nav-generate','nav-history','nav-seo-audit','nav-settings'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = restricted ? 'none' : '';
   });
@@ -1109,8 +1306,17 @@ async function doForgotPassword() {
       throw { code: 'auth/invalid-email', message: 'Please enter a valid email address.' };
     }
     console.log('Password reset requested:', email);
+    const resetUrl = window.location.origin +
+      window.location.pathname.replace(/\/[^\/]*\.html$/, '/') +
+      'reset-password.html';
+    const actionCodeSettings = {
+      url: resetUrl,
+      handleCodeInApp: true
+    };
+    console.log('Reset URL:', resetUrl);
+    console.log('Action Code Settings:', actionCodeSettings);
     const { auth, sendPasswordResetEmail } = window._fb;
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
     closeForgotModal();
     showToast('Password reset email sent successfully.');
   } catch(err) {
@@ -1232,7 +1438,7 @@ function switchTab(tab) {
   if (tab === 'accounts' && !isAdmin()) tab = 'dashboard';
   const restricted = isAccessRestricted() && !isAdmin();
   if (restricted && tab !== 'dashboard') tab = 'dashboard';
-  ['dashboard','generate','history','settings','accounts'].forEach(t => {
+  ['dashboard','generate','history','seo-audit','settings','accounts'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     const nav = document.getElementById('nav-'+t);
     if (el) el.style.cssText = t===tab ? 'display:block !important' : 'display:none !important';
@@ -1242,6 +1448,7 @@ function switchTab(tab) {
     dashboard:'Dashboard',
     generate:'Generate SEO Content',
     history:'Generation History',
+    'seo-audit':'SEO Audit Tool',
     settings:'Settings',
     accounts:'Accounts'
   };
@@ -1250,6 +1457,7 @@ function switchTab(tab) {
   if (tab==='history') renderHistory();
   if (tab==='dashboard') { updateStats(); renderRecentActivity(); }
   if (tab==='accounts') renderAccounts();
+  if (tab==='seo-audit') renderAuditHistory();
   window.scrollTo(0,0);
   if (window.innerWidth <= 768) {
     document.querySelector('.sidebar')?.classList.remove('open');
@@ -2463,6 +2671,21 @@ async function updateStats() {
   if (statSav) statSav.textContent = generatedCount;
   const statLog = document.getElementById('stat-last-login');
   if (statLog) statLog.textContent = formatDate(userDoc?.lastLogin) || 'Pending';
+  // Audit stats
+  try {
+    const audits = await fetchAuditHistory();
+    const statAudits = document.getElementById('stat-total-audits');
+    if (statAudits) statAudits.textContent = audits.length;
+    const statAvg = document.getElementById('stat-avg-audit');
+    if (statAvg) {
+      if (audits.length) {
+        const avg = Math.round(audits.reduce((a, x) => a + (x.score || 0), 0) / audits.length);
+        statAvg.textContent = avg;
+      } else {
+        statAvg.textContent = '-';
+      }
+    }
+  } catch(e) { /* ignore audit stats error */ }
 }
 
 async function updateHistoryBadge() {
@@ -2621,12 +2844,12 @@ function showToast(msg) {
   window._toastHide = setTimeout(() => t.classList.remove('show'), 5000);
 }
 
-// function startSeoToast() {
-//   const msg = 'This AI is trained for only SEO generation, built by Sagar K.';
-//   if (window._seoToastInterval) clearInterval(window._seoToastInterval);
-//   showToast(msg);
-//   window._seoToastInterval = setInterval(() => showToast(msg), 100000);
-// }
+function startSeoToast() {
+  const msg = 'This AI is trained for only SEO generation, built by Sagar K.';
+  if (window._seoToastInterval) clearInterval(window._seoToastInterval);
+  showToast(msg);
+  window._seoToastInterval = setInterval(() => showToast(msg), 100000);
+}
 
 // ── UTILS ──
 function formatDate(ts) {
@@ -2636,6 +2859,439 @@ function formatDate(ts) {
 }
 function hardReset() { if(!confirm('Clear all local data and reload?'))return; localStorage.clear(); location.reload(); }
 
+
+// ══════════════════════════════════════════════════════════
+// ── SEO AUDIT TOOL ──
+// ══════════════════════════════════════════════════════════
+
+// State for current audit
+let currentAuditResult = null;
+
+// Run the full audit analysis
+function runSeoAudit() {
+  hideAlertEl('audit-alert');
+  const title   = (document.getElementById('audit-title').value || '').trim();
+  const desc    = (document.getElementById('audit-meta-desc').value || '').trim();
+  const keyword = (document.getElementById('audit-keyword').value || '').trim().toLowerCase();
+  const content = (document.getElementById('audit-content').value || '').trim();
+
+  if (!title && !desc && !keyword && !content) {
+    showAlertEl('audit-alert','audit-alert-msg','Please fill in at least one field to run the audit.');
+    return;
+  }
+
+  const checks = computeAuditChecks(title, desc, keyword, content);
+  const pass   = checks.filter(c => c.status === 'pass').length;
+  const warn   = checks.filter(c => c.status === 'warn').length;
+  const fail   = checks.filter(c => c.status === 'fail').length;
+
+  // Score: start at 100, deduct for warns and fails
+  let score = 100;
+  checks.forEach(c => {
+    if (c.status === 'fail') score -= c.weight || 10;
+    if (c.status === 'warn') score -= (c.weight || 10) / 2;
+  });
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  const recs = generateAuditRecommendations(checks, keyword);
+
+  currentAuditResult = {
+    score, pass, warn, fail, checks, recs,
+    title, desc, keyword,
+    url: (document.getElementById('audit-url').value || '').trim(),
+    timestamp: Date.now(),
+    uid: fbUser?.uid
+  };
+
+  renderAuditResults(currentAuditResult);
+  document.getElementById('audit-results-section').style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('audit-results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+  showToast(`Audit complete — Score: ${score}/100`);
+}
+
+// ── Compute all SEO checks ──
+function computeAuditChecks(title, desc, keyword, content) {
+  const kw = keyword.toLowerCase();
+  const titleLow = title.toLowerCase();
+  const descLow = desc.toLowerCase();
+  const contentLow = content.toLowerCase();
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const h1Count = (content.match(new RegExp('<h1[^>]*>', 'gi')) || []).length;
+  const h2Count = (content.match(new RegExp('<h2[^>]*>', 'gi')) || []).length;
+  const internalLinks = (content.match(new RegExp('<a\\s[^>]*href=["\'][^"\']*["\'][^>]*>', 'gi')) || []).length;
+  const imagesWithAlt = (content.match(new RegExp('<img[^>]+alt=["\'][^"\']+["\'][^>]*>', 'gi')) || []).length;
+
+  // Keyword density
+  let kwDensity = 0;
+  if (kw && wordCount > 0) {
+    const kwWords = kw.split(/\s+/).filter(Boolean);
+    const contentWords = contentLow.split(/\s+/).filter(Boolean);
+    let kwOccurrences = 0;
+    for (let i = 0; i <= contentWords.length - kwWords.length; i++) {
+      if (kwWords.every((w, j) => contentWords[i + j] === w)) kwOccurrences++;
+    }
+    kwDensity = wordCount > 0 ? parseFloat(((kwOccurrences / wordCount) * 100).toFixed(2)) : 0;
+  }
+
+  const checks = [
+    {
+      id: 'title-length',
+      label: 'Title Length',
+      detail: title ? `${title.length} characters` : 'No title entered',
+      status: !title ? 'fail' : (title.length >= 50 && title.length <= 70) ? 'pass' : (title.length >= 40 && title.length < 50) ? 'warn' : 'fail',
+      hint: !title ? 'Add a title.' : title.length < 40 ? 'Title is too short (< 40 chars). Target 50–70 chars.' : title.length > 70 ? 'Title is too long (> 70 chars). Keep it under 70.' : title.length < 50 ? 'Title is a bit short. Aim for 50–70 chars.' : 'Title length is optimal.',
+      weight: 12
+    },
+    {
+      id: 'meta-desc-length',
+      label: 'Meta Description Length',
+      detail: desc ? `${desc.length} characters` : 'No meta description',
+      status: !desc ? 'fail' : (desc.length >= 140 && desc.length <= 160) ? 'pass' : (desc.length >= 120 && desc.length < 140) ? 'warn' : 'fail',
+      hint: !desc ? 'Add a meta description.' : desc.length < 120 ? 'Too short — aim for 140–160 chars.' : desc.length > 160 ? 'Too long (> 160). It may be truncated in search results.' : desc.length < 140 ? 'Slightly short. Try to reach 140–160 chars.' : 'Meta description length is optimal.',
+      weight: 12
+    },
+    {
+      id: 'kw-in-title',
+      label: 'Focus Keyword in Title',
+      detail: kw ? (titleLow.includes(kw) ? 'Found' : 'Not found') : 'No keyword set',
+      status: !kw ? 'warn' : titleLow.includes(kw) ? 'pass' : 'fail',
+      hint: !kw ? 'Set a focus keyword to check title relevance.' : titleLow.includes(kw) ? 'Focus keyword is present in the title.' : 'Add the focus keyword to your title.',
+      weight: 10
+    },
+    {
+      id: 'kw-in-desc',
+      label: 'Focus Keyword in Meta Description',
+      detail: kw ? (descLow.includes(kw) ? 'Found' : 'Not found') : 'No keyword set',
+      status: !kw ? 'warn' : descLow.includes(kw) ? 'pass' : 'fail',
+      hint: !kw ? 'Set a focus keyword.' : descLow.includes(kw) ? 'Keyword found in meta description.' : 'Include the focus keyword in your meta description.',
+      weight: 8
+    },
+    {
+      id: 'kw-in-content',
+      label: 'Focus Keyword in Content',
+      detail: kw ? (contentLow.includes(kw) ? 'Found' : 'Not found') : 'No keyword set',
+      status: !kw || !content ? 'warn' : contentLow.includes(kw) ? 'pass' : 'fail',
+      hint: !kw ? 'Set a focus keyword.' : !content ? 'Add page content to check.' : contentLow.includes(kw) ? 'Keyword found in content.' : 'Include the focus keyword in your page content.',
+      weight: 10
+    },
+    {
+      id: 'content-length',
+      label: 'Content Length',
+      detail: content ? `${wordCount} words` : 'No content',
+      status: !content ? 'fail' : wordCount >= 300 ? 'pass' : wordCount >= 150 ? 'warn' : 'fail',
+      hint: !content ? 'Add page content for analysis.' : wordCount < 150 ? 'Very short content (< 150 words). Aim for 300+ words.' : wordCount < 300 ? 'Content is a bit thin. 300+ words is recommended.' : 'Content length is good.',
+      weight: 10
+    },
+    {
+      id: 'kw-density',
+      label: 'Keyword Density',
+      detail: kw && content ? `${kwDensity}%` : 'N/A',
+      status: !kw || !content ? 'warn' : (kwDensity >= 0.5 && kwDensity <= 2.5) ? 'pass' : (kwDensity > 2.5 && kwDensity <= 4) ? 'warn' : 'fail',
+      hint: !kw || !content ? 'Add keyword and content for density check.' : kwDensity < 0.5 ? 'Keyword density is too low (< 0.5%). Add more natural mentions.' : kwDensity > 4 ? 'Keyword stuffing detected (> 4%). Reduce keyword frequency.' : kwDensity > 2.5 ? 'Density is slightly high (> 2.5%). Consider reducing.' : 'Keyword density is in the optimal range (0.5–2.5%).',
+      weight: 8
+    },
+    {
+      id: 'h1-presence',
+      label: 'H1 Tag Presence',
+      detail: content ? `${h1Count} H1 tag(s) found` : 'No content',
+      status: !content ? 'warn' : h1Count === 1 ? 'pass' : h1Count === 0 ? 'fail' : 'warn',
+      hint: !content ? 'Add HTML content to check headings.' : h1Count === 0 ? 'No H1 tag found. Add exactly one H1 heading.' : h1Count === 1 ? 'One H1 tag found — perfect.' : 'Multiple H1 tags found. Use exactly one H1 per page.',
+      weight: 8
+    },
+    {
+      id: 'h2-presence',
+      label: 'H2 Tags Presence',
+      detail: content ? `${h2Count} H2 tag(s) found` : 'No content',
+      status: !content ? 'warn' : h2Count >= 2 ? 'pass' : h2Count === 1 ? 'warn' : 'fail',
+      hint: !content ? 'Add HTML content to check headings.' : h2Count === 0 ? 'No H2 tags found. Add at least 2 H2 subheadings.' : h2Count === 1 ? 'Only 1 H2 found. Add more subheadings for structure.' : 'Good use of H2 subheadings.',
+      weight: 6
+    },
+    {
+      id: 'internal-links',
+      label: 'Internal Links Count',
+      detail: content ? `${internalLinks} internal link(s)` : 'No content',
+      status: !content ? 'warn' : internalLinks >= 2 ? 'pass' : internalLinks === 1 ? 'warn' : 'fail',
+      hint: !content ? 'Add HTML content to check links.' : internalLinks === 0 ? 'No internal links found. Add at least 2 internal links.' : internalLinks === 1 ? 'Only 1 link. Add more internal links for SEO.' : 'Good number of internal links.',
+      weight: 8
+    },
+    {
+      id: 'img-alt',
+      label: 'Image Alt Text',
+      detail: content ? `${imagesWithAlt} image(s) with alt text` : 'No content',
+      status: !content ? 'warn' : imagesWithAlt >= 1 ? 'pass' : (content.match(new RegExp('<img', 'gi')) || []).length > 0 ? 'fail' : 'warn',
+      hint: !content ? 'Add HTML content to check images.' : (content.match(new RegExp('<img', 'gi')) || []).length === 0 ? 'No images detected in content. Consider adding images with alt text.' : imagesWithAlt === 0 ? 'Images found but none have alt text. Add descriptive alt attributes.' : 'Images have alt text — good.',
+      weight: 8
+    }
+  ];
+  return checks;
+}
+
+// ── Generate recommendations ──
+function generateAuditRecommendations(checks, keyword) {
+  const recs = [];
+  checks.forEach(c => {
+    if (c.status === 'fail' || c.status === 'warn') {
+      recs.push(c.hint);
+    }
+  });
+  if (!keyword) recs.push('Set a focus keyword so the audit can check keyword usage across all fields.');
+  if (!recs.length) recs.push('All checks passed. Your SEO content looks well-optimised!');
+  return recs;
+}
+
+// ── Render audit results ──
+function renderAuditResults(r) {
+  // Score ring
+  const circ = 2 * Math.PI * 65;
+  const offset = circ - (circ * r.score / 100);
+  const ring = document.getElementById('audit-ring-fill');
+  ring.style.strokeDasharray = circ;
+  ring.style.strokeDashoffset = circ;
+  const scoreColor = r.score >= 80 ? '#10b981' : r.score >= 60 ? '#3b82f6' : r.score >= 40 ? '#f59e0b' : '#ef4444';
+  ring.style.stroke = scoreColor;
+  setTimeout(() => { ring.style.strokeDashoffset = offset; }, 50);
+
+  // Animate score number
+  const scoreEl = document.getElementById('audit-score-val');
+  scoreEl.textContent = '0';
+  let curr = 0;
+  const step = Math.max(1, Math.ceil(r.score / 40));
+  const iv = setInterval(() => {
+    curr += step;
+    if (curr >= r.score) { curr = r.score; clearInterval(iv); }
+    scoreEl.textContent = curr;
+  }, 30);
+
+  // Score label
+  const label = r.score >= 80 ? '🏆 Great SEO' : r.score >= 60 ? '✅ Good SEO' : r.score >= 40 ? '⚠️ Needs Work' : '❌ Poor SEO';
+  const labelColor = r.score >= 80 ? '#10b981' : r.score >= 60 ? '#3b82f6' : r.score >= 40 ? '#b45309' : '#ef4444';
+  const labelEl = document.getElementById('audit-score-label');
+  labelEl.textContent = label;
+  labelEl.style.color = labelColor;
+
+  // Summary counts
+  document.getElementById('audit-pass-count').textContent = r.pass;
+  document.getElementById('audit-warn-count').textContent = r.warn;
+  document.getElementById('audit-fail-count').textContent = r.fail;
+
+  // Summary details
+  const url = r.url || 'N/A';
+  const rowStyle = 'display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:5px';
+  const rowStyleLast = 'display:flex;justify-content:space-between';
+  const labelStyle = 'color:var(--text3)';
+  document.getElementById('audit-summary-details').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:6px">' +
+    '<div style="' + rowStyle + '"><span style="' + labelStyle + '">URL</span><span style="font-family:\'JetBrains Mono\',monospace;font-size:.78rem;word-break:break-all;max-width:220px;text-align:right">' + url + '</span></div>' +
+    '<div style="' + rowStyle + '"><span style="' + labelStyle + '">Focus Keyword</span><span style="font-weight:700">' + (r.keyword || '—') + '</span></div>' +
+    '<div style="' + rowStyle + '"><span style="' + labelStyle + '">Total Checks</span><span style="font-weight:700">' + r.checks.length + '</span></div>' +
+    '<div style="' + rowStyle + '"><span style="' + labelStyle + '">Passed</span><span style="color:#10b981;font-weight:700">' + r.pass + '</span></div>' +
+    '<div style="' + rowStyle + '"><span style="' + labelStyle + '">Warnings</span><span style="color:#b45309;font-weight:700">' + r.warn + '</span></div>' +
+    '<div style="' + rowStyle + '"><span style="' + labelStyle + '">Failed</span><span style="color:#ef4444;font-weight:700">' + r.fail + '</span></div>' +
+    '<div style="' + rowStyleLast + '"><span style="' + labelStyle + '">Audit Date</span><span style="font-weight:700">' + formatDate(r.timestamp) + '</span></div>' +
+    '</div>';
+
+  // Checks list
+  document.getElementById('audit-checks-list').innerHTML = r.checks.map(c => {
+    const icon = c.status === 'pass' ? '✓' : c.status === 'warn' ? '!' : '✗';
+    const badgeLabel = c.status === 'pass' ? 'Pass' : c.status === 'warn' ? 'Warning' : 'Fail';
+    return '<div class="audit-check-row">' +
+      '<div class="audit-check-icon ' + c.status + '">' + icon + '</div>' +
+      '<div><div class="audit-check-label">' + c.label + '</div>' +
+      '<div class="audit-check-detail">' + c.detail + ' — ' + c.hint + '</div></div>' +
+      '<span class="audit-check-badge badge-' + c.status + '">' + badgeLabel + '</span>' +
+      '</div>';
+  }).join('');
+
+  // Recommendations
+  document.getElementById('audit-rec-list').innerHTML = r.recs.map(rec =>
+    `<li>${rec}</li>`
+  ).join('');
+}
+
+// ── Save audit to Firestore ──
+async function saveAuditToFirebase() {
+  if (!currentAuditResult || !fbUser) return;
+  if (isAccessRestricted() && !isAdmin()) { showToast(getAccessMessage()); return; }
+  try {
+    const { db, collection, addDoc, serverTimestamp } = window._fb;
+    const payload = {
+      uid: fbUser.uid,
+      score: currentAuditResult.score,
+      pass: currentAuditResult.pass,
+      warn: currentAuditResult.warn,
+      fail: currentAuditResult.fail,
+      title: currentAuditResult.title || '',
+      metaDesc: currentAuditResult.desc || '',
+      keyword: currentAuditResult.keyword || '',
+      url: currentAuditResult.url || '',
+      recommendations: currentAuditResult.recs || [],
+      checksSnapshot: currentAuditResult.checks.map(c => ({ id: c.id, label: c.label, status: c.status, detail: c.detail })),
+      timestamp: currentAuditResult.timestamp,
+      createdAt: serverTimestamp(),
+      createdBy: fbUser.email || ''
+    };
+    await addDoc(collection(db, 'seo_audits'), payload);
+    showToast('Audit saved to Firebase ✅');
+    renderAuditHistory();
+    updateStats();
+  } catch(e) {
+    showToast('Save failed: ' + e.message);
+    console.error(e);
+  }
+}
+
+// ── Fetch audit history from Firestore ──
+async function fetchAuditHistory() {
+  if (!fbUser) return [];
+  try {
+    const { db, collection, getDocs, query, where } = window._fb;
+    const snap = await getDocs(query(collection(db, 'seo_audits'), where('uid', '==', fbUser.uid)));
+    const audits = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return audits.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  } catch(e) { console.warn('fetchAuditHistory:', e.message); return []; }
+}
+
+// ── Render audit history ──
+async function renderAuditHistory() {
+  const listEl = document.getElementById('audit-history-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<p style="font-size:.83rem;color:var(--text3)">Loading...</p>';
+  const audits = await fetchAuditHistory();
+  if (!audits.length) {
+    listEl.innerHTML = '<p style="font-size:.83rem;color:var(--text3)">No audits saved yet. Run an audit and save it to see history here.</p>';
+    return;
+  }
+  listEl.innerHTML = audits.map((a, i) => {
+    const scorePillClass = a.score >= 80 ? 'audit-score-good' : a.score >= 60 ? 'audit-score-ok' : a.score >= 40 ? 'audit-score-warn' : 'audit-score-bad';
+    const kwPart = a.keyword ? ('Keyword: <strong>' + a.keyword + '</strong> &middot; ') : '';
+    const urlPart = a.url ? ('<span style="font-family:\'JetBrains Mono\',monospace;font-size:.7rem">' + a.url.substring(0,50) + (a.url.length > 50 ? '...' : '') + '</span> &middot; ') : '';
+    const deletBtn = isAdmin() ? ('<button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteAuditItem(\'' + a.id + '\')">Delete</button>') : '';
+    return '<div class="audit-history-item" onclick="loadAuditHistItem(' + i + ')">' +
+      '<div>' +
+      '<div style="font-size:.875rem;font-weight:700;margin-bottom:2px">' + (a.title || a.keyword || 'Untitled Audit') + '</div>' +
+      '<div style="font-size:.75rem;color:var(--text2)">' + kwPart + urlPart + formatDate(a.timestamp) + '</div>' +
+      '<div style="margin-top:4px;font-size:.72rem;color:var(--text3)">\u2713 ' + (a.pass || 0) + ' pass &middot; \u26a0 ' + (a.warn || 0) + ' warn &middot; \u2717 ' + (a.fail || 0) + ' fail</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">' +
+      '<span class="audit-score-pill ' + scorePillClass + '">' + a.score + '/100</span>' +
+      deletBtn +
+      '</div>' +
+      '</div>';
+  }).join('');
+  window._auditHistCache = audits;
+}
+
+// ── Load audit history item back into form ──
+function loadAuditHistItem(idx) {
+  const a = window._auditHistCache?.[idx];
+  if (!a) return;
+  document.getElementById('audit-url').value = a.url || '';
+  document.getElementById('audit-title').value = a.title || '';
+  document.getElementById('audit-meta-desc').value = a.metaDesc || '';
+  document.getElementById('audit-keyword').value = a.keyword || '';
+  document.getElementById('audit-content').value = '';
+  // Re-run audit with loaded data so results show
+  const checks = a.checksSnapshot ? a.checksSnapshot.map(c => ({...c, hint: '', weight: 10})) : [];
+  currentAuditResult = { ...a, checks, recs: a.recommendations || [] };
+  renderAuditResults(currentAuditResult);
+  document.getElementById('audit-results-section').style.display = 'block';
+  window.scrollTo(0, 0);
+  showToast('Audit loaded from history ✓');
+}
+
+// ── Delete a single audit ──
+async function deleteAuditItem(docId) {
+  if (!isAdmin()) return;
+  if (!confirm('Delete this audit record?')) return;
+  try {
+    const { db, doc, deleteDoc } = window._fb;
+    await deleteDoc(doc(db, 'seo_audits', docId));
+    renderAuditHistory();
+    updateStats();
+    showToast('Audit deleted ✓');
+  } catch(e) { showToast('Delete failed: ' + e.message); }
+}
+
+// ── Clear all audit history (admin only) ──
+async function clearAuditHistory() {
+  if (!isAdmin()) return;
+  if (!confirm('Delete ALL audit records? This cannot be undone.')) return;
+  try {
+    const { db, collection, getDocs, doc, deleteDoc, query, where } = window._fb;
+    const snap = await getDocs(query(collection(db, 'seo_audits'), where('uid', '==', fbUser.uid)));
+    for (const d of snap.docs) await deleteDoc(doc(db, 'seo_audits', d.id));
+    renderAuditHistory();
+    updateStats();
+    showToast('All audit records cleared ✓');
+  } catch(e) { showToast('Clear failed: ' + e.message); }
+}
+
+// ── Clear the audit form ──
+function clearAuditForm() {
+  document.getElementById('audit-url').value = '';
+  document.getElementById('audit-title').value = '';
+  document.getElementById('audit-meta-desc').value = '';
+  document.getElementById('audit-keyword').value = '';
+  document.getElementById('audit-content').value = '';
+  document.getElementById('audit-results-section').style.display = 'none';
+  hideAlertEl('audit-alert');
+  currentAuditResult = null;
+}
+
+// ── Copy audit results to clipboard ──
+function copyAuditResults() {
+  if (!currentAuditResult) { showToast('No audit results to copy.'); return; }
+  const r = currentAuditResult;
+  const lines = [
+    'SEO AUDIT REPORT — Abra Zylo',
+    '================================',
+    `Date: ${formatDate(r.timestamp)}`,
+    `URL: ${r.url || 'N/A'}`,
+    `Focus Keyword: ${r.keyword || '—'}`,
+    `Title: ${r.title || '—'}`,
+    '',
+    `OVERALL SCORE: ${r.score}/100`,
+    `Pass: ${r.pass}  |  Warnings: ${r.warn}  |  Failed: ${r.fail}`,
+    '',
+    'SEO CHECKS:',
+    ...r.checks.map(c => `  [${c.status.toUpperCase()}] ${c.label}: ${c.detail}`),
+    '',
+    'RECOMMENDATIONS:',
+    ...r.recs.map(rec => `  → ${rec}`)
+  ];
+  navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Audit results copied ✓'));
+}
+
+// ── Export audit as PDF (print-friendly) ──
+function exportAuditPdf() {
+  if (!currentAuditResult) { showToast('No audit results to export.'); return; }
+  const r = currentAuditResult;
+  const scoreColor = r.score >= 80 ? '#10b981' : r.score >= 60 ? '#3b82f6' : r.score >= 40 ? '#f59e0b' : '#ef4444';
+  const checksHtml = r.checks.map(c => {
+    const color = c.status === 'pass' ? '#10b981' : c.status === 'warn' ? '#b45309' : '#ef4444';
+    const icon = c.status === 'pass' ? '✓' : c.status === 'warn' ? '⚠' : '✗';
+    return `<tr><td style="padding:7px 10px;border-bottom:1px solid #e2e8f0"><strong>${c.label}</strong><br/><span style="font-size:.78rem;color:#475569">${c.detail}</span></td><td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;color:${color}">${icon} ${c.status.charAt(0).toUpperCase()+c.status.slice(1)}</td></tr>`;
+  }).join('');
+  const recsHtml = r.recs.map(rec => `<li style="margin-bottom:6px">${rec}</li>`).join('');
+  const win = window.open('', '_blank');
+  const styleBlock = 'body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#0f172a;line-height:1.6}h1{color:#0a1628}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f1f5f9;padding:8px 10px;text-align:left;font-size:.82rem}@media print{@page{margin:20mm}}';
+  const htmlContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SEO Audit Report</title><style>' + styleBlock + '</style></head><body>' +
+    '<h1>SEO Audit Report</h1>' +
+    '<p><strong>Abra Zylo AI SEO Portal</strong> \u00b7 ' + formatDate(r.timestamp) + '</p>' +
+    '<table><tr><th>URL</th><td>' + (r.url || 'N/A') + '</td></tr><tr><th>Title</th><td>' + (r.title || '\u2014') + '</td></tr><tr><th>Focus Keyword</th><td>' + (r.keyword || '\u2014') + '</td></tr></table>' +
+    '<h2 style="color:' + scoreColor + '">Overall Score: ' + r.score + '/100</h2>' +
+    '<p>\u2713 Pass: <strong>' + r.pass + '</strong> &nbsp; \u26a0 Warnings: <strong>' + r.warn + '</strong> &nbsp; \u2717 Failed: <strong>' + r.fail + '</strong></p>' +
+    '<h3>SEO Checks</h3><table><tr><th>Check</th><th>Status</th></tr>' + checksHtml + '</table>' +
+    '<h3>Recommendations</h3><ul>' + recsHtml + '</ul>' +
+    '<p style="font-size:.75rem;color:#94a3b8;margin-top:2rem">Generated by Abra Zylo AI SEO Portal \u00b7 Designed by Sagar K</p>' +
+    '<scr' + 'ipt>window.print();</scr' + 'ipt></body></html>';
+  win.document.write(htmlContent);
+  win.document.close();
+}
+
+// ── Keyboard & final event listener ──
 document.addEventListener('keydown', e => {
   if (e.key==='Enter' && document.getElementById('page-login')?.classList.contains('active')) doLogin();
 });
