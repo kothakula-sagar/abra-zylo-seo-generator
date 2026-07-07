@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1110,6 +1109,47 @@ function safeString(value) {
   return String(value);
 }
 
+// ── PRODUCT ATTRIBUTE EXTRACTION (NEW) ──
+// Pulls likely color / material / fit / pattern hints directly out of the product
+// name so the AI prompt has concrete details to anchor on instead of falling back
+// to generic filler phrases.
+const ATTRIBUTE_HINTS = {
+  colors: ['red','blue','green','yellow','black','white','pink','purple','orange','brown','grey','gray','beige','maroon','navy','teal','gold','silver','crimson','olive','mustard','lavender','turquoise','peach','coral','ivory','charcoal'],
+  materials: ['cotton','silk','linen','denim','leather','wool','polyester','velvet','satin','chiffon','georgette','rayon','nylon','suede','canvas','mesh'],
+  patterns: ['checked','striped','floral','printed','solid','embroidered','polka dot','tie-dye','geometric','plain','textured'],
+  fits: ['slim fit','regular fit','loose fit','oversized','fit & flare','a-line','bodycon','relaxed fit','tailored']
+};
+function extractProductAttributes(name) {
+  const lower = (name || '').toLowerCase();
+  const found = { colors: [], materials: [], patterns: [], fits: [] };
+  Object.keys(ATTRIBUTE_HINTS).forEach(key => {
+    ATTRIBUTE_HINTS[key].forEach(term => {
+      if (lower.includes(term)) found[key].push(term);
+    });
+  });
+  const parts = [];
+  if (found.colors.length) parts.push(`Color cues: ${found.colors.join(', ')}`);
+  if (found.materials.length) parts.push(`Material cues: ${found.materials.join(', ')}`);
+  if (found.patterns.length) parts.push(`Pattern cues: ${found.patterns.join(', ')}`);
+  if (found.fits.length) parts.push(`Fit cues: ${found.fits.join(', ')}`);
+  return parts.join(' | ');
+}
+
+// Shared "no template language" block injected into every generation/regeneration
+// prompt. This is the core fix for repetitive/duplicate-sounding descriptions.
+function buildAntiTemplateInstructions(name, cat, selectedStyle) {
+  const attrLine = extractProductAttributes(name);
+  return `
+CRITICAL - AVOID TEMPLATE LANGUAGE (follow strictly):
+- Never start the product description with "Elevate your wardrobe", "Introducing", "Discover", or any generic opener.
+- Never use stock phrases such as: "masterpiece of", "perfect blend of", "crafted with high-quality materials", "crafted from high-quality fabric", "ideal choice for various occasions", "showcases a beautiful", "exudes a sense of". These phrases are BANNED - do not use them or close paraphrases of them.
+- Write the copy so it genuinely reflects the "${selectedStyle}" style. The sentence structure, opening line, rhythm, and vocabulary must differ completely from a standard template - vary sentence length and structure noticeably.
+- Base the copy on the ACTUAL details of "${name}"${cat ? ' in the "' + cat + '" category' : ''}${attrLine ? ' (' + attrLine + ')' : ''}. Reference these specific details instead of generic filler wherever possible.
+- Every field (title, description, social captions) must read as if written by a different copywriter than a typical templated listing - avoid formulaic openings and closings.
+- Do not pad with vague claims like "for any occasion" or "makes a statement" unless tied to a specific detail from the product name.
+`;
+}
+
 // ── INIT ──
 window.addEventListener('load', async () => {
   await waitFB();
@@ -1724,6 +1764,7 @@ Product Name: ${name}
 Style: ${selectedStyle}
 ${cat ? 'Category: ' + cat + '\n' : ''}
 ${currentImageBase64 ? 'Product image provided - analyze for color, style, material details.\n' : ''}
+${buildAntiTemplateInstructions(name, cat, selectedStyle)}
 Generate premium SEO content for this product using the selected marketing angle.
 Also create production-ready social media copy for Instagram, Facebook, X, and YouTube.
 Important:
@@ -1860,6 +1901,7 @@ Style: ${selectedStyle}
 Regeneration Count: ${regenerationCount}
 ${cat ? 'Category: ' + cat + '\n' : ''}
 ${previousNote}
+${buildAntiTemplateInstructions(name, cat, selectedStyle)}
 Important:
 - Create a completely different version from previous generations.
 - Do not reuse previous titles.
@@ -2006,6 +2048,7 @@ async function optimizeFailedSections(fields, candidate, apiKey, name, cat, lang
 Product Name: ${name}
 ${cat ? 'Category: ' + cat + '\n' : ''}
 ${currentValues}
+${buildAntiTemplateInstructions(name, cat, 'refined')}
 
 Improve only the following fields: ${failedLabels}.
 Do not change any other content.
@@ -2057,6 +2100,7 @@ async function regenerateField(field) {
 Product Name: ${name}
 ${cat ? 'Category: ' + cat + '\n' : ''}
 Current ${meta.label}: ${currentValue}
+${buildAntiTemplateInstructions(name, cat, 'refined')}
 
 Update ONLY the ${meta.label}. Do not change any other fields.
 The new ${meta.label} must be ${meta.requirement}
