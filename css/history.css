@@ -1,0 +1,28 @@
+/* ═══════════════════════════════
+   HISTORY
+   ═══════════════════════════════ */
+
+.history-toolbar{display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center}
+.history-toolbar input{flex:1;min-width:180px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:.875rem;color:var(--text);background:var(--surface);outline:none}
+.history-toolbar input:focus{border-color:var(--accent)}
+.history-toolbar select{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:.875rem;color:var(--text);background:var(--surface);outline:none}
+
+.history-list{display:flex;flex-direction:column;gap:.75rem}
+.history-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;display:grid;grid-template-columns:52px 1fr auto;gap:1rem;align-items:center;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)}
+.history-item:hover{border-color:var(--accent);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.history-thumb{width:52px;height:52px;border-radius:9px;background:var(--surface2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.history-thumb img{width:100%;height:100%;object-fit:cover}
+.history-info h4{font-size:.875rem;font-weight:700;margin-bottom:2px}
+.history-info p{font-size:.75rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+.history-meta{text-align:right;flex-shrink:0}
+.history-date{font-size:.7rem;color:var(--text3);white-space:nowrap}
+.history-badges{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap;justify-content:flex-end}
+.versions-badge{background:var(--purple-bg);color:var(--purple);padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700}
+
+/* VERSION HISTORY */
+.version-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;margin-bottom:.5rem;cursor:pointer;transition:all .15s}
+.version-item:hover{border-color:var(--accent)}
+.version-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.version-num{font-size:.75rem;font-weight:700;color:var(--text2)}
+.version-date{font-size:.7rem;color:var(--text3)}
+.version-title{font-size:.83rem;font-weight:600}

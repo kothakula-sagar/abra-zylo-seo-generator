@@ -1,0 +1,33 @@
+/* ═══════════════════════════════
+   SETTINGS & ACCOUNTS
+   ═══════════════════════════════ */
+
+.settings-section{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:1.25rem;overflow:hidden;box-shadow:var(--shadow)}
+.settings-head{padding:1rem 1.5rem;border-bottom:1px solid var(--border)}
+.settings-head h3{font-size:.9rem;font-weight:700;margin:0}
+.settings-head p{font-size:.78rem;color:var(--text2);margin-top:2px}
+.settings-body{padding:1.5rem}
+
+.api-row{display:flex;gap:.5rem;align-items:center}
+.api-row input{flex:1;font-family:'JetBrains Mono',monospace;font-size:.82rem;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);outline:none}
+.api-row input:focus{border-color:var(--accent)}
+
+.theme-row{display:flex;gap:.5rem}
+.theme-opt{padding:8px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);cursor:pointer;font-size:.83rem;font-weight:600;font-family:'Outfit',sans-serif;background:var(--surface);color:var(--text2);transition:all .15s}
+.theme-opt.active{border-color:var(--accent);background:rgba(245,158,11,.08);color:var(--brand)}
+
+.provider-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.provider-opt{padding:8px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);cursor:pointer;font-size:.83rem;font-weight:600;font-family:'Outfit',sans-serif;background:var(--surface);color:var(--text2);transition:all .15s;display:flex;align-items:center;gap:.4rem}
+.provider-opt.active{border-color:var(--accent);background:rgba(245,158,11,.08);color:var(--brand)}
+
+/* ACCOUNTS */
+.acct-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem}
+.account-row{display:flex;align-items:center;gap:.75rem;padding:1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);flex-wrap:wrap;margin-bottom:.5rem}
+.account-details{flex:1;min-width:0}
+.account-name{font-weight:700;margin:0 0 .2rem}
+.account-meta{font-size:.78rem;color:var(--text2);margin:0}
+.account-actions{display:flex;flex-wrap:wrap;gap:.4rem}
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:.3rem .7rem;border-radius:999px;font-size:.72rem;font-weight:700}
+.sb-pending{background:#fef3c7;color:#92400e}
+.sb-approved{background:#d1fae5;color:#065f46}
+.sb-blocked{background:#fee2e2;color:#991b1b}
