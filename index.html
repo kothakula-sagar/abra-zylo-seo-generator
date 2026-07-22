@@ -330,28 +330,79 @@
 
       <!-- SEO AUDIT -->
       <section id="tab-audit" class="tab-section">
-        <div class="card" style="margin-bottom:1.25rem">
-          <div class="card-header"><h3>SEO Audit Tool</h3></div>
-          <div class="card-body">
-            <div class="form-row"><label>Page URL (optional)</label><input type="url" id="audit-url" placeholder="https://yoursite.com/product"/></div>
-            <div class="form-row"><label>SEO Title</label><input type="text" id="audit-title" placeholder="Your page title"/></div>
-            <div class="form-row"><label>Meta Description</label><textarea id="audit-meta" rows="3" placeholder="Your meta description..."></textarea></div>
-            <div class="form-row"><label>Focus Keyword</label><input type="text" id="audit-kw" placeholder="e.g. slim fit t-shirt"/></div>
-            <div class="form-row"><label>Page Content (paste full text)</label><textarea id="audit-content" rows="8" placeholder="Paste page body content here..."></textarea></div>
-            <div id="audit-alert" class="alert alert-danger" style="display:none"></div>
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
-              <button class="btn btn-accent" id="audit-btn" onclick="window.Audit.run()">Run Audit</button>
-              <button class="btn btn-outline btn-sm" onclick="window.Audit.clear()">Clear</button>
+        <!-- Audit Tab Navigation -->
+        <div class="audit-tabs">
+          <button class="audit-tab-btn active" data-tab="seo" onclick="window.Audit.switchAuditTab('seo')">SEO Audit</button>
+          <button class="audit-tab-btn" data-tab="performance" onclick="window.Audit.switchAuditTab('performance')">Performance</button>
+        </div>
+
+        <!-- SEO Audit Tab Content -->
+        <div id="audit-tab-seo" class="audit-tab-content active">
+          <div class="card" style="margin-bottom:1.25rem">
+            <div class="card-header"><h3>SEO Audit Tool</h3></div>
+            <div class="card-body">
+              <div class="form-row"><label>Page URL (optional)</label><input type="url" id="audit-url" placeholder="https://yoursite.com/product"/></div>
+              <div class="form-row"><label>SEO Title</label><input type="text" id="audit-title" placeholder="Your page title"/></div>
+              <div class="form-row"><label>Meta Description</label><textarea id="audit-meta" rows="3" placeholder="Your meta description..."></textarea></div>
+              <div class="form-row"><label>Focus Keyword</label><input type="text" id="audit-kw" placeholder="e.g. slim fit t-shirt"/></div>
+              <div class="form-row"><label>Page Content (paste full text)</label><textarea id="audit-content" rows="8" placeholder="Paste page body content here..."></textarea></div>
+              <div id="audit-alert" class="alert alert-danger" style="display:none"></div>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+                <button class="btn btn-accent" id="audit-btn" onclick="window.Audit.run()">Run Audit</button>
+                <button class="btn btn-outline btn-sm" onclick="window.Audit.clear()">Clear</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div id="audit-results" style="display:none"></div>
-        <div class="card">
-          <div class="card-header">
-            <h3>Audit History</h3>
-            <button class="btn btn-outline btn-sm admin-only" onclick="window.Audit.clearHistory()">Clear All</button>
+          <div id="audit-results" style="display:none"></div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Audit History</h3>
+              <button class="btn btn-outline btn-sm admin-only" onclick="window.Audit.clearHistory()">Clear All</button>
+            </div>
+            <div class="card-body" id="audit-history-list"><p class="empty-msg">No audits saved yet.</p></div>
           </div>
-          <div class="card-body" id="audit-history-list"><p class="empty-msg">No audits saved yet.</p></div>
+        </div>
+
+        <!-- Performance Audit Tab Content -->
+        <div id="audit-tab-performance" class="audit-tab-content">
+          <div class="card" style="margin-bottom:1.25rem">
+            <div class="card-header"><h3>Real-Time Performance Audit</h3></div>
+            <div class="card-body">
+              <div class="info-box info-box-green" style="margin-bottom:1rem">
+                <strong>Google PageSpeed Insights Integration</strong><br/>
+                Analyze any website using Google's Lighthouse engine. Get real-time performance, accessibility, best practices, and SEO scores along with Core Web Vitals metrics.
+              </div>
+              <div class="form-row">
+                <label>Website URL</label>
+                <input type="url" id="perf-url" placeholder="https://example.com"/>
+              </div>
+              <div class="form-row">
+                <label>Strategy</label>
+                <div style="display:flex;gap:1rem;align-items:center">
+                  <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                    <input type="radio" name="perf-strategy" value="mobile" checked/>
+                    <span>Mobile</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                    <input type="radio" name="perf-strategy" value="desktop"/>
+                    <span>Desktop</span>
+                  </label>
+                </div>
+              </div>
+              <div id="perf-alert" class="alert alert-danger" style="display:none"></div>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+                <button class="btn btn-accent" id="perf-btn" onclick="window.Audit.runPerformanceAudit()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  Analyze Performance
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="window.Audit.clearPerformance()">Clear</button>
+              </div>
+            </div>
+          </div>
+          <div id="perf-results" style="display:none"></div>
         </div>
       </section>
 

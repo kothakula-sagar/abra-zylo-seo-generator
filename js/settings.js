@@ -3,21 +3,40 @@
  */
 
 import { FB } from './firebase.js';
-import { getUser, getUserDoc, updateUserField, getApiKey } from './auth.js';
+import { getUser, getUserDoc, updateUserField, getApiKey, isAdmin } from './auth.js';
 import { validateKey } from './ai.js';
-import { safeStr } from './utils.js';
+import { safeStr, formatDate } from './utils.js';
 import { showToast, applyTheme } from './ui.js';
+import { getPageSpeedApiKey, savePageSpeedApiKey, validateApiKey } from './pagespeed.js';
 
 // ── RENDER SETTINGS PAGE ──────────────────────────────────────
-export function render() {
+export async function render() {
   const container = document.getElementById('settings-container');
   if (!container) return;
   const ud = getUserDoc() || {};
+  
+  // Fetch PageSpeed API key for admin users
+  let pageSpeedKey = '';
+  let lastUpdated = '';
+  if (isAdmin()) {
+    try {
+      const docRef = FB.docRef('settings', 'global');
+      const snap = await FB.getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        pageSpeedKey = data.pageSpeedApiKey || '';
+        lastUpdated = data.updatedAt ? formatDate(data.updatedAt.toMillis ? data.updatedAt.toMillis() : data.updatedAt) : '';
+      }
+    } catch (e) {
+      console.warn('[Settings] Failed to fetch PageSpeed key:', e.message);
+    }
+  }
 
   container.innerHTML = `
     ${_sectionGroq(ud)}
     ${_sectionGemini(ud)}
     ${_sectionOpenRouter(ud)}
+    ${isAdmin() ? _sectionGoogleApis(pageSpeedKey, lastUpdated) : ''}
     ${_sectionPreferences(ud)}
     ${_sectionProfile(ud)}
     ${_sectionFirebase()}
@@ -97,6 +116,66 @@ function _sectionOpenRouter(ud) {
         </div>
       </div>
       <button class="btn btn-primary" onclick="window.Settings.saveKey('openrouter')">Save OpenRouter Key</button>
+    </div>
+  </div>`;
+}
+
+// ── GOOGLE APIS (ADMIN ONLY) ──────────────────────────────────
+function _sectionGoogleApis(pageSpeedKey, lastUpdated) {
+  const maskedKey = pageSpeedKey 
+    ? '*'.repeat(Math.max(0, pageSpeedKey.length - 4)) + pageSpeedKey.slice(-4)
+    : '';
+  const isConnected = pageSpeedKey.length > 0;
+  
+  return `
+  <div class="settings-section admin-only">
+    <div class="settings-head">
+      <h3>Google APIs <span class="badge-admin">ADMIN ONLY</span></h3>
+      <p>Configure Google services for advanced features</p>
+    </div>
+    <div class="settings-body">
+      <div class="info-box info-box-orange">
+        <strong>Administrator Configuration</strong><br/>
+        Only administrators can configure these API keys. Regular users can use the features once configured.
+      </div>
+      
+      <h4 style="margin-top:1.5rem;margin-bottom:.75rem">Google PageSpeed Insights API Key</h4>
+      <div class="info-box info-box-green">
+        <strong>How to get your PageSpeed API key:</strong><br/>
+        1. Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#065f46;font-weight:700">Google Cloud Console</a><br/>
+        2. Create a new project or select an existing one<br/>
+        3. Enable the PageSpeed Insights API<br/>
+        4. Create credentials (API Key)<br/>
+        5. Copy the key and paste below
+      </div>
+      
+      <div id="ps-alert" class="alert alert-danger" style="display:none"></div>
+      <div id="ps-ok" class="alert alert-success" style="display:none"></div>
+      
+      <div class="form-row">
+        <label>Google PageSpeed Insights API Key</label>
+        <div class="api-row">
+          <input type="password" id="s-ps-key" placeholder="AIza..." value="${safeStr(pageSpeedKey)}"/>
+          <button class="btn btn-outline btn-sm" onclick="window.Settings.toggleKey('s-ps-key', this)">
+            ${pageSpeedKey ? 'Show' : 'Show'}
+          </button>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:.75rem;margin-top:.75rem;margin-bottom:.75rem">
+        <button class="btn btn-primary" onclick="window.Settings.savePageSpeedKey()">Save API Key</button>
+        ${pageSpeedKey ? `<button class="btn btn-outline btn-sm" onclick="window.Settings.testPageSpeedKey()">Test Connection</button>` : ''}
+      </div>
+      
+      <div class="ps-status-row" style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;margin-top:.5rem">
+        <span style="font-weight:600">Status:</span>
+        <span style="display:flex;align-items:center;gap:.25rem">
+          ${isConnected 
+            ? '<span style="color:#10b981">●</span> <span style="color:#10b981">Connected</span>' 
+            : '<span style="color:#94a3b8">●</span> <span style="color:#94a3b8">Not Configured</span>'}
+        </span>
+        ${lastUpdated ? `<span style="color:var(--text3)">• Last Updated: ${lastUpdated}</span>` : ''}
+      </div>
     </div>
   </div>`;
 }
@@ -277,4 +356,57 @@ export async function saveProfile() {
   document.getElementById('sidebar-name').textContent = name;
   document.getElementById('sidebar-av').textContent   = name[0].toUpperCase();
   showToast('Profile updated.');
+}
+
+// ── PAGESPEED API KEY (ADMIN ONLY) ───────────────────────────
+export async function savePageSpeedKey() {
+  if (!isAdmin()) {
+    showToast('Only administrators can save the PageSpeed API key.');
+    return;
+  }
+
+  const key = (document.getElementById('s-ps-key')?.value || '').trim();
+  const aEl = document.getElementById('ps-alert');
+  const oEl = document.getElementById('ps-ok');
+  if (aEl) aEl.style.display = 'none';
+  if (oEl) oEl.style.display = 'none';
+
+  if (!key) {
+    if (aEl) { aEl.textContent = 'Please enter an API key.'; aEl.style.display = 'block'; }
+    return;
+  }
+
+  // Validate the key first
+  const validation = await validateApiKey(key);
+  if (!validation.valid) {
+    if (aEl) { aEl.textContent = validation.error; aEl.style.display = 'block'; }
+    return;
+  }
+
+  // Save to Firestore
+  const saved = await savePageSpeedApiKey(key);
+  if (saved) {
+    if (oEl) { oEl.textContent = 'PageSpeed API key saved and validated!'; oEl.style.display = 'block'; }
+    showToast('PageSpeed API key saved successfully.');
+    setTimeout(() => { if (oEl) oEl.style.display = 'none'; render(); }, 2000);
+  } else {
+    if (aEl) { aEl.textContent = 'Failed to save API key.'; aEl.style.display = 'block'; }
+  }
+}
+
+export async function testPageSpeedKey() {
+  const key = await getPageSpeedApiKey();
+  if (!key) {
+    showToast('No API key configured.');
+    return;
+  }
+
+  showToast('Testing PageSpeed API key...');
+  const validation = await validateApiKey(key);
+  
+  if (validation.valid) {
+    showToast('✓ PageSpeed API key is valid and working!');
+  } else {
+    showToast('✗ API key test failed: ' + validation.error);
+  }
 }

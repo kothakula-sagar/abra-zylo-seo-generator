@@ -1,7 +1,18 @@
 /* ═══════════════════════════════
-   SEO AUDIT
+   SEO AUDIT + PERFORMANCE AUDIT
    ═══════════════════════════════ */
 
+/* Audit Tab Navigation */
+.audit-tabs{display:flex;gap:.5rem;margin-bottom:1.25rem;border-bottom:2px solid var(--border);padding-bottom:0}
+.audit-tab-btn{background:none;border:none;padding:.75rem 1.5rem;font-size:.9rem;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.audit-tab-btn:hover{color:var(--text);background:var(--surface)}
+.audit-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Audit Tab Content */
+.audit-tab-content{display:none}
+.audit-tab-content.active{display:block}
+
+/* SEO Audit Styles */
 .audit-results-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
 
 .audit-score-wrap{position:relative;width:160px;height:160px;margin:0 auto}
@@ -46,3 +57,46 @@
 .asp-good{background:var(--blue-bg);color:var(--blue)}
 .asp-ok{background:#fffbeb;color:#b45309}
 .asp-poor{background:var(--red-bg);color:var(--red)}
+
+/* ═══════════════════════════════
+   PERFORMANCE AUDIT STYLES
+   ═══════════════════════════════ */
+
+/* Performance Score Cards */
+.perf-scores-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:1rem}
+.perf-score-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;text-align:center;box-shadow:var(--shadow)}
+.perf-score-label{font-size:.8rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}
+.perf-score-circle{width:80px;height:80px;margin:0 auto;position:relative;display:flex;align-items:center;justify-content:center;border-radius:50%;background:conic-gradient(var(--color) calc(var(--score) * 3.6deg), var(--border) 0deg);padding:5px}
+.perf-score-circle::before{content:"";position:absolute;inset:5px;background:var(--bg);border-radius:50%}
+.perf-score-val{position:relative;z-index:1;font-size:1.8rem;font-weight:800;color:var(--text)}
+.perf-score-status{font-size:.75rem;font-weight:600;margin-top:.5rem}
+
+/* Core Web Vitals */
+.cwv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+.cwv-item{background:var(--surface);border:1px solid var(--border);border-left:3px solid;border-radius:var(--radius-sm);padding:.875rem 1rem}
+.cwv-title{font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem}
+.cwv-value{font-size:1.4rem;font-weight:700}
+
+/* Performance Items (Opportunities & Diagnostics) */
+.perf-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.875rem 1rem;margin-bottom:.5rem}
+.perf-item-title{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.25rem}
+.perf-item-desc{font-size:.78rem;color:var(--text2);line-height:1.5;margin-bottom:.25rem}
+.perf-item-value{font-size:.75rem;font-weight:600;color:var(--accent);margin-top:.25rem}
+
+/* Passed Audits Grid */
+.perf-passed-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.perf-passed-item{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem}
+
+/* Responsive for Performance */
+@media(max-width:768px){
+  .perf-scores-grid{grid-template-columns:repeat(2,1fr)}
+  .cwv-grid{grid-template-columns:1fr}
+  .perf-passed-grid{grid-template-columns:1fr}
+}
+
+/* ═══════════════════════════════
+   SETTINGS - GOOGLE APIS
+   ═══════════════════════════════ */
+
+.badge-admin{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:99px;background:#fef3c7;color:#92400e;margin-left:.5rem}
+.ps-status-row{padding:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:.75rem}

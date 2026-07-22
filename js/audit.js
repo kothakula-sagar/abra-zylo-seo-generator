@@ -1,13 +1,15 @@
 /**
- * audit.js - SEO Audit Tool
+ * audit.js - SEO Audit Tool + Performance Audit (PageSpeed Insights)
  */
 
 import { FB } from './firebase.js';
 import { getUser, isAdmin } from './auth.js';
 import { safeStr, formatDate } from './utils.js';
-import { showAlert, hideAlert, showToast, animateScoreRing } from './ui.js';
+import { showAlert, hideAlert, showToast, animateScoreRing, showLoading, completeStep, hideLoading } from './ui.js';
+import { runPageSpeedAudit, saveAuditToFirestore } from './pagespeed.js';
 
 let _currentAudit = null;
+let _currentPerformanceAudit = null;
 
 // ── RUN AUDIT ─────────────────────────────────────────────────
 export function run() {
@@ -43,6 +45,281 @@ export function run() {
   document.getElementById('audit-results').style.display = 'block';
   setTimeout(() => document.getElementById('audit-results')?.scrollIntoView({ behavior: 'smooth' }), 100);
   showToast(`Audit complete - Score: ${score}/100`);
+}
+
+// ── SWITCH TAB ────────────────────────────────────────────────
+export function switchAuditTab(tab) {
+  // Update tab buttons
+  document.querySelectorAll('.audit-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  
+  // Update tab content
+  document.querySelectorAll('.audit-tab-content').forEach(content => {
+    content.classList.toggle('active', content.id === `audit-tab-${tab}`);
+  });
+}
+
+// ── RUN PERFORMANCE AUDIT ─────────────────────────────────────
+export async function runPerformanceAudit() {
+  hideAlert('perf-alert');
+  
+  const url = (document.getElementById('perf-url')?.value || '').trim();
+  const strategyEl = document.querySelector('input[name="perf-strategy"]:checked');
+  const strategy = strategyEl ? strategyEl.value : 'mobile';
+  
+  if (!url) {
+    showAlert('perf-alert', 'Please enter a website URL.');
+    return;
+  }
+  
+  // Basic URL validation
+  try {
+    new URL(url);
+  } catch {
+    showAlert('perf-alert', 'Please enter a valid URL (including http:// or https://).');
+    return;
+  }
+  
+  // Show loading overlay with steps
+  showLoading('Running Performance Audit', [
+    'Connecting to Google PageSpeed API',
+    'Running Lighthouse Analysis',
+    'Collecting Performance Metrics',
+    'Generating Report'
+  ]);
+  
+  const btn = document.getElementById('perf-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing...'; }
+  
+  try {
+    // Step 1: Connecting
+    completeStep(0, 25, 'Connecting to Google PageSpeed API...');
+    await new Promise(r => setTimeout(r, 500));
+    
+    // Step 2: Running Lighthouse
+    completeStep(1, 40, 'Running Lighthouse Analysis...');
+    const auditData = await runPageSpeedAudit(url, strategy);
+    
+    // Step 3: Collecting Metrics
+    completeStep(2, 75, 'Collecting Performance Metrics...');
+    await new Promise(r => setTimeout(r, 300));
+    
+    // Step 4: Generating Report
+    completeStep(3, 100, 'Generating Report...');
+    await new Promise(r => setTimeout(r, 300));
+    
+    hideLoading();
+    
+    // Store and render
+    _currentPerformanceAudit = auditData;
+    _renderPerformanceResults(auditData);
+    document.getElementById('perf-results').style.display = 'block';
+    setTimeout(() => document.getElementById('perf-results')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    showToast('Performance audit complete!');
+    
+  } catch (e) {
+    hideLoading();
+    showAlert('perf-alert', e.message);
+    console.error('[Audit] Performance audit error:', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Analyze Performance'; }
+  }
+}
+
+// ── RENDER PERFORMANCE RESULTS ────────────────────────────────
+function _renderPerformanceResults(data) {
+  const { scores, coreWebVitals, opportunities, diagnostics, passed, url, strategy } = data;
+  
+  // Score card colors
+  const getScoreColor = (score) => {
+    if (score >= 90) return '#10b981';
+    if (score >= 50) return '#f59e0b';
+    return '#ef4444';
+  };
+  
+  const getScoreLabel = (score) => {
+    if (score >= 90) return 'Good';
+    if (score >= 50) return 'Needs Improvement';
+    return 'Poor';
+  };
+  
+  // Main score cards
+  const scoresHtml = `
+    <div class="perf-scores-grid">
+      <div class="perf-score-card">
+        <div class="perf-score-label">Performance</div>
+        <div class="perf-score-circle" style="--score: ${scores.performance}; --color: ${getScoreColor(scores.performance)}">
+          <span class="perf-score-val">${scores.performance}</span>
+        </div>
+        <div class="perf-score-status" style="color: ${getScoreColor(scores.performance)}">${getScoreLabel(scores.performance)}</div>
+      </div>
+      <div class="perf-score-card">
+        <div class="perf-score-label">Accessibility</div>
+        <div class="perf-score-circle" style="--score: ${scores.accessibility}; --color: ${getScoreColor(scores.accessibility)}">
+          <span class="perf-score-val">${scores.accessibility}</span>
+        </div>
+        <div class="perf-score-status" style="color: ${getScoreColor(scores.accessibility)}">${getScoreLabel(scores.accessibility)}</div>
+      </div>
+      <div class="perf-score-card">
+        <div class="perf-score-label">Best Practices</div>
+        <div class="perf-score-circle" style="--score: ${scores.bestPractices}; --color: ${getScoreColor(scores.bestPractices)}">
+          <span class="perf-score-val">${scores.bestPractices}</span>
+        </div>
+        <div class="perf-score-status" style="color: ${getScoreColor(scores.bestPractices)}">${getScoreLabel(scores.bestPractices)}</div>
+      </div>
+      <div class="perf-score-card">
+        <div class="perf-score-label">SEO</div>
+        <div class="perf-score-circle" style="--score: ${scores.seo}; --color: ${getScoreColor(scores.seo)}">
+          <span class="perf-score-val">${scores.seo}</span>
+        </div>
+        <div class="perf-score-status" style="color: ${getScoreColor(scores.seo)}">${getScoreLabel(scores.seo)}</div>
+      </div>
+    </div>
+  `;
+  
+  // Core Web Vitals
+  const cwvHtml = Object.entries(coreWebVitals).map(([key, metric]) => {
+    const color = metric.score >= 0.9 ? '#10b981' : metric.score >= 0.5 ? '#f59e0b' : '#ef4444';
+    return `
+      <div class="cwv-item" style="border-left-color: ${color}">
+        <div class="cwv-title">${metric.title}</div>
+        <div class="cwv-value" style="color: ${color}">${metric.displayValue}</div>
+      </div>
+    `;
+  }).join('');
+  
+  // Opportunities
+  const oppHtml = opportunities.length > 0 
+    ? opportunities.slice(0, 10).map(opp => `
+        <div class="perf-item">
+          <div class="perf-item-title">${opp.title}</div>
+          <div class="perf-item-desc">${opp.description}</div>
+          ${opp.displayValue ? `<div class="perf-item-value">${opp.displayValue}</div>` : ''}
+        </div>
+      `).join('')
+    : '<p class="empty-msg">No optimization opportunities found. Great job!</p>';
+  
+  // Diagnostics
+  const diagHtml = diagnostics.length > 0
+    ? diagnostics.slice(0, 10).map(diag => `
+        <div class="perf-item">
+          <div class="perf-item-title">${diag.title}</div>
+          <div class="perf-item-desc">${diag.description}</div>
+          ${diag.displayValue ? `<div class="perf-item-value">${diag.displayValue}</div>` : ''}
+        </div>
+      `).join('')
+    : '<p class="empty-msg">No diagnostic information available.</p>';
+  
+  // Passed audits
+  const passedHtml = passed.length > 0
+    ? `<div class="perf-passed-grid">${passed.slice(0, 20).map(p => `
+        <div class="perf-passed-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>${p.title}</span>
+        </div>
+      `).join('')}</div>`
+    : '<p class="empty-msg">No passed audits.</p>';
+  
+  // Render complete results
+  document.getElementById('perf-results').innerHTML = `
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header">
+        <h3>Performance Report</h3>
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-outline btn-sm" onclick="window.Audit.copyPerformanceReport()">Copy</button>
+          <button class="btn btn-primary btn-sm" onclick="window.Audit.savePerformanceAudit()">Save to Firebase</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.85rem;color:var(--text2);margin-bottom:1rem">
+          <div><strong>URL:</strong> ${url}</div>
+          <div><strong>Strategy:</strong> ${strategy.charAt(0).toUpperCase() + strategy.slice(1)}</div>
+          <div><strong>Date:</strong> ${formatDate(data.timestamp)}</div>
+        </div>
+        ${scoresHtml}
+      </div>
+    </div>
+    
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>Core Web Vitals</h3></div>
+      <div class="card-body">
+        <div class="cwv-grid">${cwvHtml}</div>
+      </div>
+    </div>
+    
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>Opportunities</h3></div>
+      <div class="card-body">${oppHtml}</div>
+    </div>
+    
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>Diagnostics</h3></div>
+      <div class="card-body">${diagHtml}</div>
+    </div>
+    
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>Passed Audits</h3></div>
+      <div class="card-body">${passedHtml}</div>
+    </div>
+  `;
+}
+
+// ── SAVE PERFORMANCE AUDIT ────────────────────────────────────
+export async function savePerformanceAudit() {
+  if (!_currentPerformanceAudit) {
+    showToast('No performance audit to save.');
+    return;
+  }
+  
+  try {
+    await saveAuditToFirestore(_currentPerformanceAudit);
+  } catch (e) {
+    showToast('Save failed: ' + e.message);
+  }
+}
+
+// ── COPY PERFORMANCE REPORT ───────────────────────────────────
+export function copyPerformanceReport() {
+  if (!_currentPerformanceAudit) {
+    showToast('No performance audit to copy.');
+    return;
+  }
+  
+  const data = _currentPerformanceAudit;
+  const lines = [
+    'PERFORMANCE AUDIT REPORT - Abra Zylo',
+    `Date: ${formatDate(data.timestamp)}`,
+    `URL: ${data.url}`,
+    `Strategy: ${data.strategy}`,
+    '',
+    'SCORES:',
+    `  Performance: ${data.scores.performance}/100`,
+    `  Accessibility: ${data.scores.accessibility}/100`,
+    `  Best Practices: ${data.scores.bestPractices}/100`,
+    `  SEO: ${data.scores.seo}/100`,
+    '',
+    'CORE WEB VITALS:',
+    ...Object.entries(data.coreWebVitals).map(([key, m]) => `  ${m.title}: ${m.displayValue}`),
+    '',
+    'OPPORTUNITIES:',
+    ...data.opportunities.slice(0, 10).map(o => `  • ${o.title}: ${o.displayValue || 'N/A'}`),
+    '',
+    'DIAGNOSTICS:',
+    ...data.diagnostics.slice(0, 10).map(d => `  • ${d.title}: ${d.displayValue || 'N/A'}`)
+  ];
+  
+  navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Report copied!'));
+}
+
+// ── CLEAR PERFORMANCE ─────────────────────────────────────────
+export function clearPerformance() {
+  document.getElementById('perf-url').value = '';
+  document.getElementById('perf-results').style.display = 'none';
+  hideAlert('perf-alert');
+  _currentPerformanceAudit = null;
 }
 
 // ── RENDER ────────────────────────────────────────────────────
