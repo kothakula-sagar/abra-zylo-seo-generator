@@ -92,6 +92,7 @@ const TAB_TITLES = {
   generate:  'Generate SEO Content',
   history:   'Generation History',
   audit:     'SEO Audit Tool',
+  auditHistory: 'Audit History',
   settings:  'Settings',
   accounts:  'Accounts'
 };

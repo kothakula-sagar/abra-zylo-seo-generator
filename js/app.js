@@ -23,6 +23,7 @@ import * as History   from './history.js';
 import * as Audit     from './audit.js';
 import * as Settings  from './settings.js';
 import * as Accounts  from './accounts.js';
+import * as AuditHistory from './audit-history.js';
 
 // ── EXPOSE MODULES TO window (required by HTML onclick attrs) ─
 window.Auth      = Auth;
@@ -33,6 +34,7 @@ window.History   = History;
 window.Audit     = Audit;
 window.Settings  = Settings;
 window.Accounts  = Accounts;
+window.AuditHistory = AuditHistory;
 
 // ── APP CONTROLLER ────────────────────────────────────────────
 const App = {
@@ -63,6 +65,7 @@ const App = {
     if (tab === 'dashboard') Dashboard.loadStats();
     if (tab === 'history')   History.render();
     if (tab === 'audit')     Audit.renderHistory();
+    if (tab === 'auditHistory') AuditHistory.render();
     if (tab === 'settings')  Settings.render();
     if (tab === 'accounts')  Accounts.render();
     if (tab === 'generate')  Generator.checkForm();

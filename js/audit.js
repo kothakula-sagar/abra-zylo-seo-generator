@@ -1,15 +1,18 @@
 /**
- * audit.js - SEO Audit Tool + Performance Audit (PageSpeed Insights)
+ * audit.js - SEO Audit Tool + Performance Audit (PageSpeed Insights) + AI Analysis
  */
 
 import { FB } from './firebase.js';
 import { getUser, isAdmin } from './auth.js';
 import { safeStr, formatDate } from './utils.js';
-import { showAlert, hideAlert, showToast, animateScoreRing, showLoading, completeStep, hideLoading } from './ui.js';
+import { showAlert, hideAlert, showToast, animateScoreRing, showLoading, completeStep, hideLoading, setLoadingProgress } from './ui.js';
 import { runPageSpeedAudit, saveAuditToFirestore } from './pagespeed.js';
+import { analyzePerformanceWithAI, generateFallbackAnalysis } from './performance-ai.js';
+import { saveReport } from './audit-history.js';
 
 let _currentAudit = null;
 let _currentPerformanceAudit = null;
+let _currentAIAnalysis = null;
 
 // ── RUN AUDIT ─────────────────────────────────────────────────
 export function run() {
@@ -67,6 +70,7 @@ export async function runPerformanceAudit() {
   const url = (document.getElementById('perf-url')?.value || '').trim();
   const strategyEl = document.querySelector('input[name="perf-strategy"]:checked');
   const strategy = strategyEl ? strategyEl.value : 'mobile';
+  const aiAnalysisEnabled = document.getElementById('perf-ai-enabled')?.checked || false;
   
   if (!url) {
     showAlert('perf-alert', 'Please enter a website URL.');
@@ -82,41 +86,70 @@ export async function runPerformanceAudit() {
   }
   
   // Show loading overlay with steps
-  showLoading('Running Performance Audit', [
-    'Connecting to Google PageSpeed API',
-    'Running Lighthouse Analysis',
-    'Collecting Performance Metrics',
-    'Generating Report'
-  ]);
+  const steps = aiAnalysisEnabled 
+    ? [
+        'Connecting to Google PageSpeed API',
+        'Running Lighthouse Analysis',
+        'Collecting Performance Metrics',
+        'Analyzing with AI Expert',
+        'Generating Recommendations'
+      ]
+    : [
+        'Connecting to Google PageSpeed API',
+        'Running Lighthouse Analysis',
+        'Collecting Performance Metrics',
+        'Generating Report'
+      ];
+  
+  showLoading('Running Performance Audit', steps);
   
   const btn = document.getElementById('perf-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Analyzing...'; }
   
   try {
     // Step 1: Connecting
-    completeStep(0, 25, 'Connecting to Google PageSpeed API...');
+    completeStep(0, 20, 'Connecting to Google PageSpeed API...');
     await new Promise(r => setTimeout(r, 500));
     
     // Step 2: Running Lighthouse
-    completeStep(1, 40, 'Running Lighthouse Analysis...');
+    completeStep(1, 35, 'Running Lighthouse Analysis...');
     const auditData = await runPageSpeedAudit(url, strategy);
     
     // Step 3: Collecting Metrics
-    completeStep(2, 75, 'Collecting Performance Metrics...');
+    completeStep(2, 60, 'Collecting Performance Metrics...');
     await new Promise(r => setTimeout(r, 300));
     
-    // Step 4: Generating Report
-    completeStep(3, 100, 'Generating Report...');
-    await new Promise(r => setTimeout(r, 300));
+    // Store audit data
+    _currentPerformanceAudit = auditData;
+    
+    // Step 4 & 5: AI Analysis (if enabled)
+    if (aiAnalysisEnabled) {
+      try {
+        completeStep(3, 75, 'Analyzing with AI Expert...');
+        _currentAIAnalysis = await analyzePerformanceWithAI(auditData);
+        
+        completeStep(4, 100, 'Generating Recommendations...');
+        await new Promise(r => setTimeout(r, 300));
+      } catch (aiError) {
+        console.warn('[Audit] AI analysis failed, using fallback:', aiError);
+        setLoadingProgress(75, 'AI analysis unavailable, generating basic recommendations...');
+        _currentAIAnalysis = generateFallbackAnalysis(auditData);
+        await new Promise(r => setTimeout(r, 500));
+        completeStep(4, 100, 'Recommendations ready');
+      }
+    } else {
+      completeStep(3, 100, 'Generating Report...');
+      await new Promise(r => setTimeout(r, 300));
+      _currentAIAnalysis = null;
+    }
     
     hideLoading();
     
-    // Store and render
-    _currentPerformanceAudit = auditData;
-    _renderPerformanceResults(auditData);
+    // Render results
+    _renderPerformanceResults(auditData, _currentAIAnalysis);
     document.getElementById('perf-results').style.display = 'block';
     setTimeout(() => document.getElementById('perf-results')?.scrollIntoView({ behavior: 'smooth' }), 100);
-    showToast('Performance audit complete!');
+    showToast(aiAnalysisEnabled ? 'Performance audit with AI analysis complete!' : 'Performance audit complete!');
     
   } catch (e) {
     hideLoading();
@@ -128,7 +161,7 @@ export async function runPerformanceAudit() {
 }
 
 // ── RENDER PERFORMANCE RESULTS ────────────────────────────────
-function _renderPerformanceResults(data) {
+function _renderPerformanceResults(data, aiAnalysis) {
   const { scores, coreWebVitals, opportunities, diagnostics, passed, url, strategy } = data;
   
   // Score card colors
@@ -177,6 +210,12 @@ function _renderPerformanceResults(data) {
       </div>
     </div>
   `;
+  
+  // AI Analysis Section (if available)
+  let aiSectionHtml = '';
+  if (aiAnalysis) {
+    aiSectionHtml = _renderAIAnalysis(aiAnalysis);
+  }
   
   // Core Web Vitals
   const cwvHtml = Object.entries(coreWebVitals).map(([key, metric]) => {
@@ -230,6 +269,7 @@ function _renderPerformanceResults(data) {
         <h3>Performance Report</h3>
         <div style="display:flex;gap:.4rem">
           <button class="btn btn-outline btn-sm" onclick="window.Audit.copyPerformanceReport()">Copy</button>
+          ${aiAnalysis ? '<button class="btn btn-outline btn-sm" onclick="window.Audit.copyAIAnalysis()">Copy AI Analysis</button>' : ''}
           <button class="btn btn-primary btn-sm" onclick="window.Audit.savePerformanceAudit()">Save to Firebase</button>
         </div>
       </div>
@@ -242,6 +282,8 @@ function _renderPerformanceResults(data) {
         ${scoresHtml}
       </div>
     </div>
+    
+    ${aiSectionHtml}
     
     <div class="card" style="margin-bottom:1.25rem">
       <div class="card-header"><h3>Core Web Vitals</h3></div>
@@ -267,6 +309,155 @@ function _renderPerformanceResults(data) {
   `;
 }
 
+// ── RENDER AI ANALYSIS ─────────────────────────────────────────
+function _renderAIAnalysis(analysis) {
+  const { executiveSummary, criticalIssues, highPriorityFixes, quickWins, performanceRoadmap } = analysis;
+  
+  // Executive Summary
+  const summaryHtml = `
+    <div class="ai-summary">
+      <div class="ai-summary-header">
+        <div class="ai-summary-scores">
+          <div class="ai-score-box">
+            <div class="ai-score-label">Current Score</div>
+            <div class="ai-score-value">${executiveSummary.currentScore}</div>
+          </div>
+          <div class="ai-score-arrow">→</div>
+          <div class="ai-score-box ai-score-projected">
+            <div class="ai-score-label">Projected Score</div>
+            <div class="ai-score-value">${executiveSummary.projectedScore}</div>
+          </div>
+        </div>
+        <div class="ai-summary-meta">
+          <div><strong>Priority:</strong> <span class="priority-badge priority-${executiveSummary.priorityLevel?.toLowerCase()}">${executiveSummary.priorityLevel}</span></div>
+          <div><strong>Est. Time:</strong> ${executiveSummary.estimatedTimeToFix}</div>
+        </div>
+      </div>
+      <div class="ai-key-issues">
+        <strong>Key Issues:</strong>
+        <ul>${executiveSummary.keyIssues?.map(issue => `<li>${issue}</li>`).join('') || '<li>No major issues detected</li>'}</ul>
+      </div>
+    </div>
+  `;
+  
+  // Critical Issues
+  const criticalHtml = criticalIssues && criticalIssues.length > 0 
+    ? criticalIssues.map(issue => `
+        <div class="ai-issue critical">
+          <div class="ai-issue-header">
+            <h4>${issue.title}</h4>
+            <div class="ai-issue-badges">
+              <span class="difficulty-badge ${issue.difficulty?.toLowerCase()}">${issue.difficulty}</span>
+              <span class="time-badge">${issue.timeRequired}</span>
+              <span class="improvement-badge">${issue.expectedImprovement}</span>
+            </div>
+          </div>
+          <div class="ai-issue-body">
+            <p><strong>Issue:</strong> ${issue.description}</p>
+            <p><strong>Impact:</strong> ${issue.impact}</p>
+            <p><strong>Root Cause:</strong> ${issue.rootCause}</p>
+            <p><strong>Solution:</strong> ${issue.solution}</p>
+            ${issue.codeExample ? `<pre class="code-example"><code>${escapeHtml(issue.codeExample)}</code></pre>` : ''}
+            ${issue.affectedMetrics?.length > 0 ? `<div class="affected-metrics"><strong>Affects:</strong> ${issue.affectedMetrics.join(', ')}</div>` : ''}
+          </div>
+        </div>
+      `).join('')
+    : '<p class="empty-msg">No critical issues detected!</p>';
+  
+  // High Priority Fixes
+  const highPriorityHtml = highPriorityFixes && highPriorityFixes.length > 0
+    ? highPriorityFixes.slice(0, 5).map(fix => `
+        <div class="ai-fix">
+          <div class="ai-fix-title">${fix.title}</div>
+          <div class="ai-fix-desc">${fix.description}</div>
+          <div class="ai-fix-meta">
+            <span class="difficulty-badge ${fix.difficulty?.toLowerCase()}">${fix.difficulty}</span>
+            <span class="time-badge">${fix.timeRequired}</span>
+            <span class="improvement-badge">${fix.expectedImprovement}</span>
+          </div>
+        </div>
+      `).join('')
+    : '<p class="empty-msg">No high priority fixes needed.</p>';
+  
+  // Quick Wins
+  const quickWinsHtml = quickWins && quickWins.length > 0
+    ? quickWins.map(win => `
+        <div class="ai-quick-win">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <div>
+            <div class="ai-qw-title">${win.title}</div>
+            <div class="ai-qw-desc">${win.description}</div>
+            <div class="ai-qw-meta">${win.timeRequired} • ${win.expectedImprovement}</div>
+          </div>
+        </div>
+      `).join('')
+    : '<p class="empty-msg">No quick wins available.</p>';
+  
+  // Performance Roadmap
+  const roadmapHtml = performanceRoadmap ? `
+    <div class="ai-roadmap">
+      <div class="ai-roadmap-phase">
+        <h5>${performanceRoadmap.phase1?.title || 'Phase 1'}</h5>
+        <p class="ai-phase-duration">${performanceRoadmap.phase1?.duration}</p>
+        <ul>${performanceRoadmap.phase1?.tasks?.map(task => `<li>${task}</li>`).join('') || '<li>No tasks</li>'}</ul>
+      </div>
+      <div class="ai-roadmap-phase">
+        <h5>${performanceRoadmap.phase2?.title || 'Phase 2'}</h5>
+        <p class="ai-phase-duration">${performanceRoadmap.phase2?.duration}</p>
+        <ul>${performanceRoadmap.phase2?.tasks?.map(task => `<li>${task}</li>`).join('') || '<li>No tasks</li>'}</ul>
+      </div>
+      <div class="ai-roadmap-phase">
+        <h5>${performanceRoadmap.phase3?.title || 'Phase 3'}</h5>
+        <p class="ai-phase-duration">${performanceRoadmap.phase3?.duration}</p>
+        <ul>${performanceRoadmap.phase3?.tasks?.map(task => `<li>${task}</li>`).join('') || '<li>No tasks</li>'}</ul>
+      </div>
+    </div>
+  ` : '';
+  
+  return `
+    <div class="card ai-analysis-card" style="margin-bottom:1.25rem;border:2px solid var(--accent)">
+      <div class="card-header">
+        <h3>🤖 AI Performance Analysis</h3>
+      </div>
+      <div class="card-body">
+        ${summaryHtml}
+      </div>
+    </div>
+    
+    ${criticalIssues && criticalIssues.length > 0 ? `
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>🚨 Critical Issues</h3></div>
+      <div class="card-body">${criticalHtml}</div>
+    </div>` : ''}
+    
+    ${highPriorityFixes && highPriorityFixes.length > 0 ? `
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>⚡ High Priority Fixes</h3></div>
+      <div class="card-body">${highPriorityHtml}</div>
+    </div>` : ''}
+    
+    ${quickWins && quickWins.length > 0 ? `
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>⚡ Quick Wins (< 30 min)</h3></div>
+      <div class="card-body">${quickWinsHtml}</div>
+    </div>` : ''}
+    
+    ${roadmapHtml ? `
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-header"><h3>🗺️ Performance Improvement Roadmap</h3></div>
+      <div class="card-body">${roadmapHtml}</div>
+    </div>` : ''}
+  `;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ── SAVE PERFORMANCE AUDIT ────────────────────────────────────
 export async function savePerformanceAudit() {
   if (!_currentPerformanceAudit) {
@@ -275,7 +466,8 @@ export async function savePerformanceAudit() {
   }
   
   try {
-    await saveAuditToFirestore(_currentPerformanceAudit);
+    const reportId = await saveReport(_currentPerformanceAudit, _currentAIAnalysis);
+    showToast('Performance report saved to history!');
   } catch (e) {
     showToast('Save failed: ' + e.message);
   }
@@ -312,6 +504,77 @@ export function copyPerformanceReport() {
   ];
   
   navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Report copied!'));
+}
+
+// ── COPY AI ANALYSIS ──────────────────────────────────────────
+export function copyAIAnalysis() {
+  if (!_currentAIAnalysis) {
+    showToast('No AI analysis to copy.');
+    return;
+  }
+  
+  const analysis = _currentAIAnalysis;
+  const lines = [
+    'AI PERFORMANCE ANALYSIS - Abra Zylo',
+    '',
+    '=== EXECUTIVE SUMMARY ===',
+    `Current Score: ${analysis.executiveSummary.currentScore}`,
+    `Projected Score: ${analysis.executiveSummary.projectedScore}`,
+    `Priority Level: ${analysis.executiveSummary.priorityLevel}`,
+    `Estimated Time: ${analysis.executiveSummary.estimatedTimeToFix}`,
+    '',
+    'Key Issues:',
+    ...analysis.executiveSummary.keyIssues.map(issue => `  • ${issue}`),
+    '',
+  ];
+  
+  if (analysis.criticalIssues && analysis.criticalIssues.length > 0) {
+    lines.push('=== CRITICAL ISSUES ===');
+    analysis.criticalIssues.forEach((issue, idx) => {
+      lines.push(
+        ``,
+        `${idx + 1}. ${issue.title}`,
+        `   Issue: ${issue.description}`,
+        `   Impact: ${issue.impact}`,
+        `   Root Cause: ${issue.rootCause}`,
+        `   Solution: ${issue.solution}`,
+        `   Difficulty: ${issue.difficulty} | Time: ${issue.timeRequired} | Improvement: ${issue.expectedImprovement}`
+      );
+      if (issue.codeExample) {
+        lines.push(`   Code Example:\n${issue.codeExample}`);
+      }
+    });
+    lines.push('');
+  }
+  
+  if (analysis.quickWins && analysis.quickWins.length > 0) {
+    lines.push('=== QUICK WINS (<30 min) ===');
+    analysis.quickWins.forEach((win, idx) => {
+      lines.push(`${idx + 1}. ${win.title} - ${win.timeRequired} - ${win.expectedImprovement}`);
+    });
+    lines.push('');
+  }
+  
+  if (analysis.performanceRoadmap) {
+    lines.push('=== PERFORMANCE ROADMAP ===');
+    const { phase1, phase2, phase3 } = analysis.performanceRoadmap;
+    if (phase1) {
+      lines.push(`Phase 1: ${phase1.title} (${phase1.duration})`);
+      phase1.tasks?.forEach(task => lines.push(`  • ${task}`));
+      lines.push('');
+    }
+    if (phase2) {
+      lines.push(`Phase 2: ${phase2.title} (${phase2.duration})`);
+      phase2.tasks?.forEach(task => lines.push(`  • ${task}`));
+      lines.push('');
+    }
+    if (phase3) {
+      lines.push(`Phase 3: ${phase3.title} (${phase3.duration})`);
+      phase3.tasks?.forEach(task => lines.push(`  • ${task}`));
+    }
+  }
+  
+  navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('AI Analysis copied!'));
 }
 
 // ── CLEAR PERFORMANCE ─────────────────────────────────────────

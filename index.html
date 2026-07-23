@@ -155,6 +155,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         SEO Audit
       </a>
+      <a class="nav-item" id="nav-audit-history" onclick="window.App.go('auditHistory')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Audit History
+        <span class="nav-badge" id="audit-history-badge">0</span>
+      </a>
       <span class="nav-label" style="margin-top:.5rem">Account</span>
       <a class="nav-item admin-only" id="nav-accounts" onclick="window.App.go('accounts')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -389,6 +394,13 @@
                   </label>
                 </div>
               </div>
+              <div class="form-row">
+                <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                  <input type="checkbox" id="perf-ai-enabled" checked/>
+                  <span style="font-weight:600">🤖 Enable AI Performance Analysis <span style="font-size:.75rem;color:var(--text3);font-weight:400">(Powered by Groq/Gemini/OpenRouter)</span></span>
+                </label>
+                <div class="field-hint">Get expert recommendations, actionable fixes, and step-by-step solutions from AI</div>
+              </div>
               <div id="perf-alert" class="alert alert-danger" style="display:none"></div>
               <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
                 <button class="btn btn-accent" id="perf-btn" onclick="window.Audit.runPerformanceAudit()">
@@ -404,6 +416,11 @@
           </div>
           <div id="perf-results" style="display:none"></div>
         </div>
+      </section>
+
+      <!-- AUDIT HISTORY -->
+      <section id="tab-auditHistory" class="tab-section">
+        <div id="audit-history-container"></div>
       </section>
 
       <!-- SETTINGS -->
@@ -430,6 +447,32 @@
       </button>
     </div>
     <div class="modal-body" id="hm-body"></div>
+  </div>
+</div>
+
+<!-- AUDIT REPORT MODAL -->
+<div class="overlay" id="audit-report-modal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="audit-report-modal-title">Performance Report</h3>
+      <button class="modal-close" onclick="window.UI.closeModal('audit-report-modal')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="audit-report-modal-body" style="max-height:70vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- COMPARISON MODAL -->
+<div class="overlay" id="comparison-modal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="comparison-modal-title">Performance Report Comparison</h3>
+      <button class="modal-close" onclick="window.UI.closeModal('comparison-modal')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="comparison-modal-body" style="max-height:70vh;overflow-y:auto"></div>
   </div>
 </div>
 
