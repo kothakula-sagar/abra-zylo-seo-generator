@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/history.css"/>
 <link rel="stylesheet" href="css/audit.css"/>
 <link rel="stylesheet" href="css/settings.css"/>
+<link rel="stylesheet" href="css/marketing.css"/>
 <link rel="stylesheet" href="css/responsive.css"/>
 </head>
 <body>
@@ -160,6 +161,17 @@
         Audit History
         <span class="nav-badge" id="audit-history-badge">0</span>
       </a>
+      <span class="nav-label" style="margin-top:.5rem">AI Marketing</span>
+      <a class="nav-item" id="nav-products" onclick="window.App.go('products')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+        Products
+        <span class="nav-badge" id="products-badge">0</span>
+      </a>
+      <a class="nav-item admin-only" id="nav-campaigns" onclick="window.App.go('campaigns')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg>
+        Sale Campaigns
+        <span class="nav-badge" id="campaigns-badge">0</span>
+      </a>
       <span class="nav-label" style="margin-top:.5rem">Account</span>
       <a class="nav-item admin-only" id="nav-accounts" onclick="window.App.go('accounts')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -293,6 +305,31 @@
                     <option value="openrouter">OpenRouter</option>
                   </select>
                 </div>
+
+                <!-- Pricing Fields for Reference Only -->
+                <div class="pricing-section">
+                  <h4 style="margin: 1.5rem 0 0.5rem 0; color: var(--text2); font-size: 0.875rem; font-weight: 600;">Pricing (For Reference Only)</h4>
+                  <div class="form-row">
+                    <label>MRP</label>
+                    <input type="number" id="prod-mrp" placeholder="999" min="1" step="0.01" oninput="window.Generator.calculateDiscount()"/>
+                    <div class="field-hint">Maximum Retail Price</div>
+                  </div>
+                  <div class="form-row">
+                    <label>Selling Price</label>
+                    <input type="number" id="prod-selling-price" placeholder="699" min="1" step="0.01" oninput="window.Generator.calculateDiscount()"/>
+                    <div class="field-hint">Actual selling price</div>
+                  </div>
+                  <div class="form-row">
+                    <label>Discount %</label>
+                    <input type="text" id="prod-discount" readonly class="readonly-field" placeholder="Auto-calculated"/>
+                    <div class="field-hint">Automatically calculated from MRP and selling price</div>
+                  </div>
+                  <div class="form-row">
+                    <label>You Save</label>
+                    <input type="text" id="prod-you-save" readonly class="readonly-field" placeholder="Auto-calculated"/>
+                    <div class="field-hint">Amount saved from MRP</div>
+                  </div>
+                </div>
                 <div id="gen-alert" class="alert alert-danger" style="display:none;white-space:pre-line"></div>
                 <button class="btn btn-accent btn-full" id="gen-btn"
                         onclick="window.Generator.generate()" disabled
@@ -321,8 +358,14 @@
 
       <!-- HISTORY -->
       <section id="tab-history" class="tab-section">
+        <div class="page-header">
+          <div>
+            <h1>Generation History</h1>
+            <p class="text-muted">Track each product and its SEO generations in one structured view.</p>
+          </div>
+        </div>
         <div class="history-toolbar">
-          <input type="text" id="hist-search" placeholder="Search products..." oninput="window.History.render()"/>
+          <input type="text" id="hist-search" placeholder="Search products or languages..." oninput="window.History.render()"/>
           <select id="hist-lang" onchange="window.History.render()">
             <option value="">All Languages</option>
             <option value="en">English</option><option value="hi">Hindi</option><option value="te">Telugu</option>
@@ -335,41 +378,19 @@
 
       <!-- SEO AUDIT -->
       <section id="tab-audit" class="tab-section">
-        <!-- Audit Tab Navigation -->
+        <div class="page-header">
+          <div>
+            <h1>SEO Audit Tool</h1>
+            <p class="text-muted">Check on-page SEO strength and run a live performance audit for any site.</p>
+          </div>
+        </div>
+
         <div class="audit-tabs">
-          <button class="audit-tab-btn active" data-tab="seo" onclick="window.Audit.switchAuditTab('seo')">SEO Audit</button>
-          <button class="audit-tab-btn" data-tab="performance" onclick="window.Audit.switchAuditTab('performance')">Performance</button>
+          <button class="audit-tab-btn active" data-tab="performance" onclick="window.Audit.switchAuditTab('performance')">Performance</button>
+          <button class="audit-tab-btn" data-tab="seo" onclick="window.Audit.switchAuditTab('seo')">SEO Checker</button>
         </div>
 
-        <!-- SEO Audit Tab Content -->
-        <div id="audit-tab-seo" class="audit-tab-content active">
-          <div class="card" style="margin-bottom:1.25rem">
-            <div class="card-header"><h3>SEO Audit Tool</h3></div>
-            <div class="card-body">
-              <div class="form-row"><label>Page URL (optional)</label><input type="url" id="audit-url" placeholder="https://yoursite.com/product"/></div>
-              <div class="form-row"><label>SEO Title</label><input type="text" id="audit-title" placeholder="Your page title"/></div>
-              <div class="form-row"><label>Meta Description</label><textarea id="audit-meta" rows="3" placeholder="Your meta description..."></textarea></div>
-              <div class="form-row"><label>Focus Keyword</label><input type="text" id="audit-kw" placeholder="e.g. slim fit t-shirt"/></div>
-              <div class="form-row"><label>Page Content (paste full text)</label><textarea id="audit-content" rows="8" placeholder="Paste page body content here..."></textarea></div>
-              <div id="audit-alert" class="alert alert-danger" style="display:none"></div>
-              <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
-                <button class="btn btn-accent" id="audit-btn" onclick="window.Audit.run()">Run Audit</button>
-                <button class="btn btn-outline btn-sm" onclick="window.Audit.clear()">Clear</button>
-              </div>
-            </div>
-          </div>
-          <div id="audit-results" style="display:none"></div>
-          <div class="card">
-            <div class="card-header">
-              <h3>Audit History</h3>
-              <button class="btn btn-outline btn-sm admin-only" onclick="window.Audit.clearHistory()">Clear All</button>
-            </div>
-            <div class="card-body" id="audit-history-list"><p class="empty-msg">No audits saved yet.</p></div>
-          </div>
-        </div>
-
-        <!-- Performance Audit Tab Content -->
-        <div id="audit-tab-performance" class="audit-tab-content">
+        <div id="audit-tab-performance" class="audit-tab-content active">
           <div class="card" style="margin-bottom:1.25rem">
             <div class="card-header"><h3>Real-Time Performance Audit</h3></div>
             <div class="card-body">
@@ -416,11 +437,52 @@
           </div>
           <div id="perf-results" style="display:none"></div>
         </div>
+
+        <div id="audit-tab-seo" class="audit-tab-content">
+          <div class="card" style="margin-bottom:1.25rem">
+            <div class="card-header"><h3>Quick SEO Checker</h3></div>
+            <div class="card-body">
+              <div class="form-row">
+                <label>Page Title</label>
+                <input type="text" id="audit-title" placeholder="Enter page title"/>
+              </div>
+              <div class="form-row">
+                <label>Meta Description</label>
+                <textarea id="audit-meta" rows="3" placeholder="Enter meta description"></textarea>
+              </div>
+              <div class="form-row">
+                <label>Focus Keyword</label>
+                <input type="text" id="audit-kw" placeholder="e.g. premium t shirt"/>
+              </div>
+              <div class="form-row">
+                <label>Page Content</label>
+                <textarea id="audit-content" rows="6" placeholder="Paste your page content here"></textarea>
+              </div>
+              <div class="form-row">
+                <label>Page URL</label>
+                <input type="url" id="audit-url" placeholder="https://example.com/page"/>
+              </div>
+              <div id="audit-alert" class="alert alert-danger" style="display:none"></div>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                <button class="btn btn-accent" onclick="window.Audit.run()">Run SEO Audit</button>
+                <button class="btn btn-outline btn-sm" onclick="window.Audit.clear()">Clear</button>
+                <button class="btn btn-primary btn-sm" onclick="window.Audit.saveToFirebase()">Save Result</button>
+              </div>
+            </div>
+          </div>
+          <div id="audit-results" style="display:none"></div>
+        </div>
       </section>
 
       <!-- AUDIT HISTORY -->
       <section id="tab-auditHistory" class="tab-section">
-        <div id="audit-history-container"></div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Audit History</h3>
+            <button class="btn btn-outline btn-sm admin-only" onclick="window.Audit.clearHistory()">Clear All</button>
+          </div>
+          <div class="card-body" id="audit-history-list"><p class="empty-msg">No audits saved yet.</p></div>
+        </div>
       </section>
 
       <!-- SETTINGS -->
@@ -431,6 +493,95 @@
       <!-- ACCOUNTS (admin only) -->
       <section id="tab-accounts" class="tab-section">
         <div id="accounts-container"></div>
+      </section>
+
+      <!-- PRODUCTS (AI Marketing) -->
+      <section id="tab-products" class="tab-section">
+        <div class="page-header">
+          <h1>Products</h1>
+          <button class="btn btn-accent" onclick="window.Marketing.showAddProduct()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Product
+          </button>
+        </div>
+        <div class="products-toolbar">
+          <input type="text" id="products-search" placeholder="Search products..." oninput="window.Marketing.renderProducts()"/>
+          <button class="btn btn-outline btn-sm" id="product-compare-btn" onclick="window.Marketing.compareSelectedProducts()" style="margin-left:0.5rem" disabled>Compare Selected</button>
+        </div>
+        <div id="products-grid" class="products-grid"></div>
+      </section>
+
+      <!-- SALE CAMPAIGNS (admin only) -->
+      <section id="tab-campaigns" class="tab-section admin-only">
+        <div class="page-header">
+          <h1>Sale Campaigns</h1>
+          <button class="btn btn-accent" onclick="window.Marketing.showCreateCampaign()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Create Campaign
+          </button>
+        </div>
+        <div class="campaigns-toolbar">
+          <input type="text" id="campaigns-search" placeholder="Search campaigns..." oninput="window.Marketing.renderCampaigns()"/>
+        </div>
+        <div id="campaigns-grid" class="campaigns-grid"></div>
+      </section>
+
+      <!-- CAMPAIGN DETAILS -->
+      <section id="tab-campaign-detail" class="tab-section">
+        <div class="campaign-detail-header">
+          <button class="btn btn-ghost" onclick="window.App.go('campaigns')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Campaigns
+          </button>
+          <div class="campaign-detail-info">
+            <h1 id="campaign-detail-name">Campaign Name</h1>
+            <p id="campaign-detail-prompt" class="text-muted">Campaign prompt will appear here</p>
+          </div>
+        </div>
+        
+        <!-- Product Selection (shown before campaign starts) -->
+        <div id="product-selection" class="product-selection" style="display:none">
+          <div class="card">
+            <div class="card-header">
+              <h3>Select Products for Campaign</h3>
+              <label class="checkbox-label">
+                <input type="checkbox" id="select-all-products" onchange="window.Marketing.toggleSelectAll()"/>
+                <span>Select All</span>
+              </label>
+            </div>
+            <div class="card-body">
+              <div class="products-toolbar">
+                <input type="text" id="campaign-products-search" placeholder="Search products..." oninput="window.Marketing.renderCampaignProducts()"/>
+              </div>
+              <div id="campaign-products-list" class="campaign-products-list"></div>
+              <div class="product-selection-actions">
+                <button class="btn btn-accent" onclick="window.Marketing.startCampaign()">Start Campaign</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campaign Tabs -->
+        <div id="campaign-tabs" class="campaign-tabs" style="display:none">
+          <button class="campaign-tab-btn active" data-status="pending" onclick="window.Marketing.switchCampaignTab('pending')">
+            Pending <span class="tab-count" id="pending-count">0</span>
+          </button>
+          <button class="campaign-tab-btn" data-status="generating" onclick="window.Marketing.switchCampaignTab('generating')">
+            Generating <span class="tab-count" id="generating-count">0</span>
+          </button>
+          <button class="campaign-tab-btn" data-status="completed" onclick="window.Marketing.switchCampaignTab('completed')">
+            Completed <span class="tab-count" id="completed-count">0</span>
+          </button>
+        </div>
+
+        <!-- Campaign Items Grid -->
+        <div id="campaign-items-grid" class="campaign-items-grid" style="display:none"></div>
       </section>
 
     </div><!-- /page-body -->
@@ -496,6 +647,161 @@
 
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
+
+<!-- AI MARKETING MODALS -->
+
+<!-- ADD/EDIT PRODUCT MODAL -->
+<div class="overlay" id="product-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="product-modal-title">Add Product</h3>
+      <button class="modal-close" onclick="window.Marketing.hideProductModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="product-form">
+        <div class="form-row">
+          <label>Product Image <span style="color:var(--red)">*</span></label>
+          <div class="product-image-upload" id="product-image-upload" onclick="document.getElementById('product-file-inp').click()">
+            <input type="file" id="product-file-inp" accept="image/*" onchange="window.Marketing.onProductImageSelect(event)" style="display:none"/>
+            <img id="product-img-preview" alt="preview" style="display:none"/>
+            <div id="product-upload-placeholder">
+              <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <p>Click to upload product image</p>
+              <span>JPG, PNG, WEBP - Max 10MB</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <label>Product Name <span style="color:var(--red)">*</span></label>
+          <input type="text" id="product-name" placeholder="e.g. Premium Cotton T-Shirt" required/>
+        </div>
+        
+        <div class="form-row">
+          <label>MRP <span style="color:var(--red)">*</span></label>
+          <input type="number" id="product-mrp" placeholder="999" min="1" step="0.01" required oninput="window.Marketing.calculateDiscount()"/>
+        </div>
+        
+        <div class="form-row">
+          <label>Selling Price <span style="color:var(--red)">*</span></label>
+          <input type="number" id="product-selling-price" placeholder="699" min="1" step="0.01" required oninput="window.Marketing.calculateDiscount()"/>
+        </div>
+        
+        <div class="form-row">
+          <label>Discount %</label>
+          <input type="text" id="product-discount" readonly class="readonly-field"/>
+        </div>
+        
+        <div class="form-row">
+          <label>You Save</label>
+          <input type="text" id="product-you-save" readonly class="readonly-field"/>
+        </div>
+        
+        <div id="product-alert" class="alert alert-danger" style="display:none"></div>
+        
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-accent">Save Product</button>
+          <button type="button" class="btn btn-outline" onclick="window.Marketing.hideProductModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE CAMPAIGN MODAL -->
+<div class="overlay" id="campaign-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="campaign-modal-title">Create Sale Campaign</h3>
+      <button class="modal-close" onclick="window.Marketing.hideCampaignModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="campaign-form">
+        <div class="form-row">
+          <label>Sale Name <span style="color:var(--red)">*</span></label>
+          <input type="text" id="campaign-name" placeholder="e.g. Summer Sale 2024" required/>
+        </div>
+        
+        <div class="form-row">
+          <label>Prompt <span style="color:var(--red)">*</span></label>
+          <textarea id="campaign-prompt" rows="8" required placeholder="Create a premium e-commerce promotional poster for {{PRODUCT_NAME}} with the following details:
+
+MRP: ₹{{MRP}}
+Sale Price: ₹{{SALE_PRICE}}
+Discount: {{DISCOUNT}}%
+You Save: ₹{{YOU_SAVE}}
+
+Make it visually appealing with modern design elements."></textarea>
+          <div class="field-hint">
+            Use placeholders: {{MRP}}, {{SALE_PRICE}}, {{DISCOUNT}}, {{YOU_SAVE}}
+          </div>
+        </div>
+        
+        <div id="campaign-alert" class="alert alert-danger" style="display:none"></div>
+        
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-accent">Create Campaign</button>
+          <button type="button" class="btn btn-outline" onclick="window.Marketing.hideCampaignModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- CAMPAIGN ITEM DETAIL MODAL -->
+<div class="overlay" id="campaign-item-modal" style="display:none">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="campaign-item-modal-title">Campaign Item Details</h3>
+      <button class="modal-close" onclick="window.Marketing.hideCampaignItemModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="campaign-item-detail">
+        <div class="campaign-item-image">
+          <img id="campaign-item-image" alt="Product"/>
+        </div>
+        <div class="campaign-item-info">
+          <h3 id="campaign-item-product-name">Product Name</h3>
+          <div class="campaign-item-status">
+            <span class="status-badge" id="campaign-item-status">pending</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <label>Generated Prompt</label>
+        <textarea id="campaign-item-prompt" rows="10"></textarea>
+      </div>
+      
+      <div id="campaign-item-alert" class="alert alert-danger" style="display:none"></div>
+      
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="window.Marketing.copyPrompt()">Copy Prompt</button>
+        <button class="btn btn-accent" id="mark-generating-btn" onclick="window.Marketing.markGenerating()" style="display:none">
+          Mark Generating
+        </button>
+        <button class="btn btn-accent" id="mark-completed-btn" onclick="window.Marketing.markCompleted()" style="display:none">
+          Mark Completed
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- FIREBASE (module - loads first) -->
 <script type="module" src="js/firebase.js"></script>

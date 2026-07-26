@@ -14,7 +14,6 @@
  *   body[data-app-ready] .page-app.active { display: flex }
  * ensures the app shell is NEVER visible until this attribute is set.
  */
-
 import * as Auth      from './auth.js';
 import * as UI        from './ui.js';
 import * as Dashboard from './dashboard.js';
@@ -24,6 +23,7 @@ import * as Audit     from './audit.js';
 import * as Settings  from './settings.js';
 import * as Accounts  from './accounts.js';
 import * as AuditHistory from './audit-history.js';
+import * as Marketing from './marketing.js';
 
 // ── EXPOSE MODULES TO window (required by HTML onclick attrs) ─
 window.Auth      = Auth;
@@ -35,6 +35,7 @@ window.Audit     = Audit;
 window.Settings  = Settings;
 window.Accounts  = Accounts;
 window.AuditHistory = AuditHistory;
+window.Marketing = Marketing;
 
 // ── APP CONTROLLER ────────────────────────────────────────────
 const App = {
@@ -58,6 +59,10 @@ const App = {
 
     // Accounts tab is admin-only
     if (tab === 'accounts' && !Auth.isAdmin()) return;
+    
+    // Campaigns tab is admin-only
+    if (tab === 'campaigns' && !Auth.isAdmin()) return;
+    if (tab === 'campaign-detail' && !Auth.isAdmin()) return;
 
     UI.switchTab(tab);
 
@@ -68,7 +73,13 @@ const App = {
     if (tab === 'auditHistory') AuditHistory.render();
     if (tab === 'settings')  Settings.render();
     if (tab === 'accounts')  Accounts.render();
-    if (tab === 'generate')  Generator.checkForm();
+    if (tab === 'generate')  { 
+      Generator.checkForm(); 
+      Generator.initSeoGenerator();
+    }
+    if (tab === 'products')  Marketing.renderProducts();
+    if (tab === 'campaigns') Marketing.renderCampaigns();
+    if (tab === 'campaign-detail') Marketing.renderCampaignDetail();
   },
 
   setLang(lang) {
@@ -133,11 +144,13 @@ async function _enterApp() {
   // ── Reveal the app shell ──
   // Setting this attribute is the only place the CSS allows .page-app to display.
   document.body.setAttribute('data-app-ready', 'true');
+  document.body.classList.add('app-ready');
 
   const authPage = document.getElementById('page-auth');
   const appPage  = document.getElementById('page-app');
   if (authPage) { authPage.classList.remove('active'); authPage.style.display = 'none'; }
   if (appPage)  appPage.classList.add('active');
+  if (appPage)  appPage.style.display = 'flex';
 
   // ── Dismiss init screen ──
   _dismissInitScreen();
@@ -175,6 +188,7 @@ function _showAuthPage() {
   if (appPage) { appPage.classList.remove('active'); appPage.style.display = 'none'; }
   // Remove app-ready guard so CSS cannot accidentally show the app
   document.body.removeAttribute('data-app-ready');
+  document.body.classList.remove('app-ready');
 
   const authPage = document.getElementById('page-auth');
   if (authPage) authPage.classList.add('active');

@@ -2,7 +2,7 @@
    AUTH PAGES
    ═══════════════════════════════ */
 
-.page-auth{min-height:100vh}
+.page-auth{min-height:100vh;display:flex;align-items:stretch;justify-content:center}
 .auth-view{display:none;min-height:100vh}
 .auth-view.active{display:block}
 

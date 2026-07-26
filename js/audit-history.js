@@ -83,6 +83,56 @@ export async function saveReport(auditData, aiAnalysis) {
   }
 }
 
+// ── GET LATEST REPORT FOR A PRODUCT ─────────────────────────
+export async function getLatestReportForProduct(product) {
+  try {
+    // Fetch recent reports for the current user
+    const user = getUser();
+    if (!user) return null;
+
+    const q = FB.query(
+      FB.col('seo_audit_history'),
+      FB.where('userId', '==', user.uid),
+      FB.orderBy('timestamp', 'desc'),
+      FB.limit(100)
+    );
+
+    const snap = await FB.getDocs(q);
+    const reports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const slug = (product.seo_slug || '').toLowerCase();
+    const name = (product.productName || '').toLowerCase();
+
+    // Try to find by slug first, then by name, then by exact URL match
+    for (const r of reports) {
+      const url = (r.websiteUrl || '').toLowerCase();
+      if (slug && url.includes(slug)) return r;
+    }
+    for (const r of reports) {
+      const url = (r.websiteUrl || '').toLowerCase();
+      if (name && url.includes(name)) return r;
+    }
+    return null;
+  } catch (e) {
+    console.error('[AuditHistory] getLatestReportForProduct error:', e);
+    return null;
+  }
+}
+
+// ── OPEN COMPARISON MODAL FOR TWO REPORT OBJECTS ─────────────
+export function openComparisonModalForReports(reportA, reportB) {
+  try {
+    const modalTitle = document.getElementById('comparison-modal-title');
+    const modalBody = document.getElementById('comparison-modal-body');
+    if (!modalTitle || !modalBody) return;
+    modalTitle.textContent = 'Product Performance Comparison';
+    modalBody.innerHTML = _renderComparison(reportA, reportB);
+    openModal('comparison-modal');
+  } catch (e) {
+    console.error('[AuditHistory] openComparisonModalForReports error:', e);
+  }
+}
+
 // ── EXTRACT PAGE TITLE FROM URL ───────────────────────────────
 function _extractPageTitle(url) {
   try {
@@ -115,6 +165,7 @@ export async function render() {
   container.innerHTML = '<p class="empty-msg" style="text-align:center;padding:2rem">Loading reports from Firebase...</p>';
   
   const reports = await _fetchAllReports();
+  console.log('[AuditHistory] render: fetched reports count =', reports?.length || 0);
   _cache = reports;
   
   if (!reports.length) {
@@ -648,7 +699,9 @@ async function _fetchAllReports() {
       FB.orderBy('timestamp', 'desc')
     );
     const snap = await FB.getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const reports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    console.log('[AuditHistory] _fetchAllReports: user=', user?.email || user?.uid, 'count=', reports.length, 'ids=', reports.map(r => r.id));
+    return reports;
   } catch (error) {
     console.error('[AuditHistory] Fetch error:', error);
     return [];

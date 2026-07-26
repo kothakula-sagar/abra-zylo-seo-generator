@@ -64,6 +64,7 @@ export function formatDate(ts) {
     const d = typeof ts === 'number'
       ? new Date(ts)
       : (ts.toDate ? ts.toDate() : new Date(ts));
+    if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   } catch { return ''; }
 }

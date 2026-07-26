@@ -12,9 +12,10 @@
 import { callAI, friendlyError, validateKey } from './ai.js';
 import { getUser, getUserDoc, getApiKey, isAccessRestricted, getAccessMessage } from './auth.js';
 import { FB } from './firebase.js';
+import { uploadImage, getResponsive, getThumbnail, isFirebaseStorageUrl } from './cloudinary.js';
 import {
   safeStr, generateSlug, validateSlug, computeSeoScore,
-  compressImage, compressDataUrl, parseJsonSafe, sanitiseForFirestore, formatDate
+  compressImage, compressDataUrl, parseJsonSafe, formatDate, escapeHtml
 } from './utils.js';
 import {
   showAlert, hideAlert, showLoading, setLoadingProgress,
@@ -25,6 +26,7 @@ import {
 // ── MODULE STATE ─────────────────────────────────────────────
 let _imageBase64   = null;   // base64 of the compressed product image
 let _imageMime     = 'image/jpeg';
+let _productId     = null;   // Products document ID used by SEO_History
 let _currentResult = null;   // live working copy of the SEO result
 let _busy          = false;  // prevents concurrent AI calls
 
@@ -128,6 +130,28 @@ export async function onFileSelect(event) {
   }
 }
 
+// ── PRICING CALCULATION ──────────────────────────────────────
+
+/**
+ * Calculate discount percentage and savings amount
+ */
+export function calculateDiscount() {
+  const mrp = parseFloat(document.getElementById('prod-mrp')?.value || '0');
+  const sellingPrice = parseFloat(document.getElementById('prod-selling-price')?.value || '0');
+  const discountEl = document.getElementById('prod-discount');
+  const youSaveEl = document.getElementById('prod-you-save');
+
+  if (mrp > 0 && sellingPrice > 0 && sellingPrice <= mrp) {
+    const discount = Math.round(((mrp - sellingPrice) / mrp) * 100);
+    const youSave = mrp - sellingPrice;
+    if (discountEl) discountEl.value = `${discount}%`;
+    if (youSaveEl) youSaveEl.value = `₹${youSave.toFixed(2)}`;
+  } else {
+    if (discountEl) discountEl.value = '';
+    if (youSaveEl) youSaveEl.value = '';
+  }
+}
+
 export function initDragDrop() {
   const box = document.getElementById('upload-box');
   if (!box) return;
@@ -157,6 +181,7 @@ export function initDragDrop() {
 export function startNewProduct() {
   _imageBase64   = null;
   _imageMime     = 'image/jpeg';
+  _productId     = null;
   _currentResult = null;
   _busy          = false;
 
@@ -167,6 +192,16 @@ export function startNewProduct() {
   if (nameEl) nameEl.value = '';
   if (catEl)  catEl.value  = '';
   if (langEl) langEl.value = 'en';
+
+  // Reset pricing fields
+  const mrpEl = document.getElementById('prod-mrp');
+  const sellingPriceEl = document.getElementById('prod-selling-price');
+  const discountEl = document.getElementById('prod-discount');
+  const youSaveEl = document.getElementById('prod-you-save');
+  if (mrpEl) mrpEl.value = '';
+  if (sellingPriceEl) sellingPriceEl.value = '';
+  if (discountEl) discountEl.value = '';
+  if (youSaveEl) youSaveEl.value = '';
 
   // Reset file input and preview
   const fileInp = document.getElementById('file-inp');
@@ -242,6 +277,11 @@ export async function generate() {
   if (_busy) return;
   hideAlert('gen-alert');
 
+  if (!document.getElementById('prod-name') || !document.getElementById('prod-cat')) {
+    showAlert('gen-alert', 'The generator form is not ready yet. Please refresh the page and try again.');
+    return;
+  }
+
   if (isAccessRestricted()) { showAlert('gen-alert', getAccessMessage()); return; }
 
   // ── Mandatory field validation ──────────────────────────────
@@ -271,27 +311,81 @@ export async function generate() {
 
   showLoading('AI SEO Engine', [
     'Validating inputs...',
+    'Processing product data...',
     'Analysing product image...',
     'Generating SEO content...',
     'Computing SEO score...',
-    'Checking auto-save...'
+    'Saving product...'
   ]);
 
   try {
-    // Step 0 — duplicate check
-    const isDup = await _checkDuplicateName(name);
-    completeStep(0, 15);
-    if (isDup) {
-      hideLoading(); _busy = false;
-      if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
-      showAlert('gen-alert', `"${name}" already exists. Please use a unique product name.`);
-      return;
+    // Step 0 — Handle product creation/selection
+    completeStep(0, 10);
+    if (!_imageBase64) {
+      throw new Error('Product image is required');
     }
+
+    completeStep(1, 25, 'Uploading image to Cloudinary...');
+    
+    // Convert base64 to file for upload
+    const response = await fetch(`data:${_imageMime};base64,${_imageBase64}`);
+    const blob = await response.blob();
+    const file = new File([blob], `product_${Date.now()}.jpg`, { type: _imageMime });
+    
+    let productId = _productId;
+    let imageUrl = '';
+    
+    try {
+      const uploadResult = await uploadImage(file, 'products', {
+        publicId: `product_${getUser()?.uid}_${Date.now()}`
+      });
+      
+      imageUrl = uploadResult.secure_url;
+      
+      // Products contains product data only. SEO_History stores only the
+      // generated SEO document and references this product by ID.
+      const productData = {
+        productName: name,
+        imageUrl: imageUrl,
+        publicId: uploadResult.public_id,
+        category: cat,
+        createdBy: getUser()?.uid,
+        createdAt: FB.serverTimestamp(),
+        updatedAt: FB.serverTimestamp()
+      };
+      
+      // Get pricing data from form (reference only)
+      const mrp = parseFloat(document.getElementById('prod-mrp')?.value || '0');
+      const sellingPrice = parseFloat(document.getElementById('prod-selling-price')?.value || '0');
+      if (mrp > 0) productData.mrp = mrp;
+      if (sellingPrice > 0) productData.sellingPrice = sellingPrice;
+      if (mrp > 0 && sellingPrice > 0) {
+        productData.discount = Math.round(((mrp - sellingPrice) / mrp) * 100);
+        productData.youSave = mrp - sellingPrice;
+      }
+      
+      if (productId) {
+        await FB.updateDoc(FB.docRef('products', productId), productData);
+      } else {
+        const productDoc = await FB.addDoc(FB.col('products'), productData);
+        productId = productDoc.id;
+      }
+      _productId = productId;
+      
+      showToast('Product created and image uploaded successfully');
+      
+    } catch (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw new Error(`Image upload failed: ${uploadError.message}`);
+    }
+
+    // Step 2 — SEO_History is upserted later by product ID + language.
+    completeStep(2, 35);
 
     const style = SEO_STYLES[Math.floor(Math.random() * SEO_STYLES.length)];
 
-    // Step 1 — AI call with image (vision) + prompt
-    completeStep(1, 35, 'Analysing image with AI...');
+    // Step 3 — AI call with image (vision) + prompt
+    completeStep(3, 55, 'Analysing image with AI...');
     const text = await callAI(
       [{ role: 'user', content: _buildFullPrompt(name, cat, lang, style) }],
       apiKey, provider,
@@ -303,16 +397,18 @@ export async function generate() {
         imageMime:    _imageMime
       }
     );
-    completeStep(2, 60, 'Parsing response...');
+    completeStep(4, 75, 'Parsing response...');
 
     const parsed = parseJsonSafe(text);
     if (!parsed) throw new Error('AI returned an unparseable response. Please try again.');
+    console.info('[Generator] AI response:', parsed);
 
     parsed.seo_slug    = generateSlug(parsed.seo_slug || name);
     parsed.socialMedia = parsed.socialMedia || { instagram: '', facebook: '', twitter: '', youtube: '' };
 
     _currentResult = {
       ...parsed,
+      productId,       // Store product ID for single source of truth
       productName:    name,
       category:       cat,
       lang,
@@ -324,13 +420,13 @@ export async function generate() {
       versions:       []
     };
 
-    // Step 3 — Score (computed locally, never from AI output)
-    completeStep(3, 82, 'Scoring...');
+    // Step 4 — Score (computed locally, never from AI output)
+    completeStep(5, 90, 'Scoring...');
     const sd = computeSeoScore(_currentResult);
     _currentResult._scoreData = sd;
 
-    // Step 4 — auto-save gate
-    completeStep(4, 100, 'Done.');
+    // Step 5 — auto-save gate
+    completeStep(6, 100, 'Done.');
     await new Promise(r => setTimeout(r, 350));
     hideLoading();
     if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
@@ -561,8 +657,10 @@ export async function improveFailedItems() {
 
 // ── AUTO-SAVE LOGIC ───────────────────────────────────────────
 async function _handleAutoSave(score) {
+  // Every completed generation must be persisted. The score only controls
+  // the existing banner wording; it must not decide whether SEO exists.
+  await _saveToFirestore(_currentResult);
   if (score >= 98) {
-    await _saveToFirestore(_currentResult);
     showToast(`Score ${score}/100 reached — Auto-saved to Firebase!`);
     _updateAutoSaveBanner(score, true);
   } else {
@@ -763,7 +861,11 @@ export function renderResult(r, sd) {
   if (empty)   empty.style.display   = 'none';
   if (content) { content.style.display = 'block'; content.innerHTML = _buildResultHTML(r, sd); }
 
-  setTimeout(() => animateScoreRing(sd.score, sd.cat.color, 'score-ring-fill', 'score-val'), 100);
+  const ring = document.getElementById('score-ring-fill');
+  const valEl = document.getElementById('score-val');
+  if (ring && valEl) {
+    setTimeout(() => animateScoreRing(sd.score, sd.cat.color, 'score-ring-fill', 'score-val'), 100);
+  }
 
   content?.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchResultTab(btn.dataset.tab, content));
@@ -1115,71 +1217,81 @@ Generated: ${formatDate(r.timestamp)}`;
 async function _saveToFirestore(r) {
   if (!getUser()) return;
   try {
-    let imageThumb = r.imageThumb || null;
-    if (imageThumb?.startsWith('data:')) {
-      const b64 = imageThumb.split(',')[1] || '';
-      if (Math.ceil(b64.length * 3 / 4) > 900000) {
-        try { imageThumb = await compressDataUrl(imageThumb, 300, 0.7); } catch { imageThumb = null; }
+    const productId = r.productId || _productId;
+    if (!productId) throw new Error('Cannot save SEO content without a product reference.');
+    const language = safeStr(r.lang || 'en');
+    const historyId = `seo_${productId}_${language}`;
+
+    // SEO_History contains SEO content and generation metadata only. Product
+    // fields are resolved from Products when history is displayed.
+    const seoPayload = {
+      historyId,
+      productId,
+      language,
+      generatedBy: getUser().uid,
+      generatedAt: FB.serverTimestamp(),
+      aiModel: safeStr(r.provider),
+      seoChecklist: {
+        metaTitle: safeStr(r.meta_title),
+        metaDescription: safeStr(r.meta_description),
+        focusKeywords: Array.isArray(r.focus_keywords) ? r.focus_keywords : [],
+        productDescription: safeStr(r.product_description),
+        seoSlug: safeStr(r.seo_slug),
+        productTags: Array.isArray(r.product_tags) ? r.product_tags : [],
+        socialMedia: {
+          instagram: safeStr(r.socialMedia?.instagram || ''),
+          facebook: safeStr(r.socialMedia?.facebook || ''),
+          twitter: safeStr(r.socialMedia?.twitter || ''),
+          youtube: safeStr(r.socialMedia?.youtube || '')
+        }
       }
+    };
+
+    // Deterministic ID makes generation for the same product/language an upsert.
+    const historyRef = FB.docRef('SEO_History', historyId);
+    // Replace the document so legacy duplicated fields cannot remain on an
+    // existing product-language record.
+    await FB.setDoc(historyRef, seoPayload);
+    const savedHistoryDoc = await FB.getDoc(historyRef);
+    if (!savedHistoryDoc.exists()) {
+      throw new Error('SEO_History save could not be verified.');
     }
-
-    const payload = sanitiseForFirestore({
-      uid:              getUser().uid,
-      productName:      safeStr(r.productName),
-      productNameLower: safeStr(r.productName).toLowerCase(),
-      category:         safeStr(r.category),
-      lang:             safeStr(r.lang || 'en'),
-      provider:         safeStr(r.provider),
-      meta_title:       safeStr(r.meta_title),
-      meta_description: safeStr(r.meta_description),
-      seo_slug:         safeStr(r.seo_slug),
-      alt_text:         safeStr(r.alt_text),
-      product_description:  safeStr(r.product_description),
-      short_description:    safeStr(r.short_description),
-      focus_keywords:  Array.isArray(r.focus_keywords) ? r.focus_keywords : [],
-      product_tags:    Array.isArray(r.product_tags)   ? r.product_tags   : [],
-      socialMedia:     r.socialMedia || {},
-      seoScore:        r._scoreData?.score || 0,
-      imageThumb,
-      versions:        Array.isArray(r.versions) ? r.versions : [],
-      timestamp:       r.timestamp || Date.now(),
-      updatedAt:       FB.serverTimestamp(),
-      createdBy:       getUser().email || ''
-    });
-
-    const q    = FB.query(FB.col('products'),
-      FB.where('uid',              '==', getUser().uid),
-      FB.where('productNameLower', '==', payload.productNameLower),
-      FB.where('lang',             '==', payload.lang)
+    const savedHistory = savedHistoryDoc.data();
+    const requiredHistoryFields = [
+      'historyId', 'productId', 'language', 'generatedBy',
+      'generatedAt', 'aiModel', 'seoChecklist'
+    ];
+    const missingHistoryFields = requiredHistoryFields.filter(field =>
+      savedHistory[field] === undefined || savedHistory[field] === null
     );
-    const snap = await FB.getDocs(q);
-
-    if (!snap.empty) {
-      const existing = snap.docs[0];
-      const prev     = existing.data().versions || [];
-      // Push old version before overwriting
-      prev.push({ ...existing.data(), versions: undefined, savedAt: new Date().toISOString() });
-      await FB.updateDoc(FB.docRef('products', existing.id), { ...payload, versions: prev });
-    } else {
-      await FB.addDoc(FB.col('products'), { ...payload, createdAt: FB.serverTimestamp() });
+    if (missingHistoryFields.length) {
+      throw new Error(`SEO_History is missing: ${missingHistoryFields.join(', ')}`);
     }
+    console.info('[Generator] Firestore save result:', savedHistory);
+    console.info('[Generator] Saved document ID:', savedHistoryDoc.id);
+    console.info('[Generator] Saved productId:', savedHistory.productId);
+    if (savedHistory.productId !== productId) {
+      throw new Error('Saved SEO_History productId does not match the Product.');
+    }
+    await FB.updateDoc(FB.docRef('products', productId), {
+      generationStatus: 'Completed',
+      updatedAt: FB.serverTimestamp()
+    });
+    const savedProductDoc = await FB.getDoc(FB.docRef('products', productId));
+    console.info('[Generator] Reloaded product after SEO save:', {
+      id: savedProductDoc.id,
+      productId: savedProductDoc.id,
+      exists: savedProductDoc.exists()
+    });
+    
+    console.log(`[Generator] SEO content upserted for product ${productId} (${language})`);
+    showToast('SEO content generated and saved successfully!');
+    
   } catch (e) {
     console.error('[Generator] _saveToFirestore:', e);
     showToast('Save failed: ' + e.message);
+    throw e;
   }
-}
-
-// ── DUPLICATE CHECK ───────────────────────────────────────────
-async function _checkDuplicateName(name) {
-  if (!getUser()) return false;
-  try {
-    const q    = FB.query(FB.col('products'),
-      FB.where('uid',              '==', getUser().uid),
-      FB.where('productNameLower', '==', name.toLowerCase())
-    );
-    const snap = await FB.getDocs(q);
-    return !snap.empty;
-  } catch { return false; }
 }
 
 // ── COPY HELPERS ─────────────────────────────────────────────
@@ -1210,8 +1322,12 @@ export async function saveAnyway() {
 
 // ── PUBLIC ACCESSORS ──────────────────────────────────────────
 export function getCurrentResult() { return _currentResult; }
+export function setProductContext(product) {
+  _productId = product?.id || product?.productId || null;
+}
 export function setCurrentResult(r) {
   _currentResult = r;
+  _productId = r?.productId || _productId;
   if (r) {
     const sd = computeSeoScore(r);
     _currentResult._scoreData = sd;
@@ -1223,3 +1339,14 @@ export function setCurrentResult(r) {
  * Called from HTML oninput/onchange attributes and by app.js after tab switch.
  */
 export function checkForm() { _updateButtonState(); }
+
+/**
+ * Initialize the SEO generator
+ */
+export async function initSeoGenerator() {
+  try {
+    _updateButtonState();
+  } catch (error) {
+    console.error('Error initializing SEO generator:', error);
+  }
+}

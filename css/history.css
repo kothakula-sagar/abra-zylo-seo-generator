@@ -19,6 +19,27 @@
 .history-badges{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap;justify-content:flex-end}
 .versions-badge{background:var(--purple-bg);color:var(--purple);padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700}
 
+.history-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.95rem;box-shadow:var(--shadow);cursor:pointer;transition:all .15s}
+.history-card:hover{border-color:var(--accent);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.history-card-head{display:flex;gap:.85rem;align-items:flex-start}
+.history-card-info{flex:1;min-width:0}
+.history-card-title-row{display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start}
+.history-card-title-row h4{font-size:.95rem;font-weight:700;margin:0}
+.history-card-subtitle{margin:.25rem 0 .4rem;font-size:.78rem;color:var(--text2)}
+.history-card-meta{display:flex;gap:.75rem;flex-wrap:wrap;font-size:.72rem;color:var(--text3)}
+.history-generation-list{display:flex;flex-direction:column;gap:.55rem;border-top:1px solid var(--border);padding-top:.7rem}
+.history-generation-header{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text2)}
+.generation-item{border:1px solid var(--border);border-radius:10px;padding:.7rem .8rem;background:var(--surface2);display:flex;flex-direction:column;gap:.25rem;transition:all .15s}
+.generation-item:hover{border-color:var(--accent)}
+.generation-item.empty-generation{color:var(--text3);font-size:.8rem;justify-content:center}
+.generation-item-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.generation-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:var(--purple-bg);color:var(--purple);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.generation-date{font-size:.68rem;color:var(--text3)}
+.generation-title{font-size:.82rem;font-weight:600;color:var(--text1)}
+.generation-meta{font-size:.7rem;color:var(--text3)}
+.history-modal-section{display:flex;flex-direction:column;gap:.8rem}
+.history-modal-section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2)}
+
 /* VERSION HISTORY */
 .version-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;margin-bottom:.5rem;cursor:pointer;transition:all .15s}
 .version-item:hover{border-color:var(--accent)}

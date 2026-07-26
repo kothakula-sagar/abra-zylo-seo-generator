@@ -107,6 +107,7 @@ export async function login() {
   try {
     await FB.signIn(email, pass);
     if (remember) localStorage.setItem('az-remember-email', email);
+    else localStorage.removeItem('az-remember-email');
     // onAuthChanged will call the app callback
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }

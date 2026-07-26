@@ -14,6 +14,12 @@ export function showToast(msg, duration = 4000) {
   _toastTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
+export function focusFirstInput(container = document) {
+  const root = container && typeof container.querySelector === 'function' ? container : document;
+  const priority = root.querySelector('input:not([type="hidden"]), select, textarea');
+  if (priority) priority.focus();
+}
+
 // ── ALERTS ───────────────────────────────────────────────────
 export function showAlert(id, msg, type = 'danger') {
   const el = document.getElementById(id);
@@ -94,7 +100,10 @@ const TAB_TITLES = {
   audit:     'SEO Audit Tool',
   auditHistory: 'Audit History',
   settings:  'Settings',
-  accounts:  'Accounts'
+  accounts:  'Accounts',
+  products:  'Products',
+  campaigns: 'Sale Campaigns',
+  'campaign-detail': 'Campaign Details'
 };
 
 export function switchTab(name) {

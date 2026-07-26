@@ -63,6 +63,7 @@ body{
 .page.active { display: block !important; }
 /* Auth page is the only one that can be active before auth check */
 .page-auth.active { display: block !important; }
+.page-app.active { display: flex !important; }
 
 /* ── INIT LOADING SCREEN ─────────────────────────────────────── */
 /* Shown while Firebase Auth initialises. Prevents any flash of protected UI. */

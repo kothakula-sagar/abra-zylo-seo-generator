@@ -579,10 +579,13 @@ export function copyAIAnalysis() {
 
 // ── CLEAR PERFORMANCE ─────────────────────────────────────────
 export function clearPerformance() {
-  document.getElementById('perf-url').value = '';
-  document.getElementById('perf-results').style.display = 'none';
+  const urlEl = document.getElementById('perf-url');
+  if (urlEl) urlEl.value = '';
+  const resultsEl = document.getElementById('perf-results');
+  if (resultsEl) resultsEl.style.display = 'none';
   hideAlert('perf-alert');
   _currentPerformanceAudit = null;
+  _currentAIAnalysis = null;
 }
 
 // ── RENDER ────────────────────────────────────────────────────
@@ -668,14 +671,18 @@ export function clear() {
   ['audit-url','audit-title','audit-meta','audit-kw','audit-content'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('audit-results').style.display = 'none';
+  const resultsEl = document.getElementById('audit-results');
+  if (resultsEl) resultsEl.style.display = 'none';
   hideAlert('audit-alert');
   _currentAudit = null;
 }
 
 // ── SAVE TO FIREBASE ──────────────────────────────────────────
 export async function saveToFirebase() {
-  if (!_currentAudit || !getUser()) return;
+  if (!_currentAudit || !getUser()) {
+    showToast('Run an SEO audit first to save it.');
+    return;
+  }
   try {
     await FB.addDoc(FB.col('seo_audits'), {
       uid:            getUser().uid,

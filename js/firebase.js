@@ -12,8 +12,11 @@ import {
 import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
   query, where, orderBy, deleteDoc, updateDoc, addDoc,
-  serverTimestamp, limit
+  serverTimestamp, limit, writeBatch, documentId
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {
+  getStorage, ref, uploadBytes, getDownloadURL
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 const FIREBASE_CONFIG = {
   apiKey:            'AIzaSyDTDGJTzXFTGSZyu_O-SSdS3Mis1u0_e0g',
@@ -27,10 +30,11 @@ const FIREBASE_CONFIG = {
 const app  = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db   = getFirestore(app);
+const storage = getStorage(app);
 
 /** Central Firebase API - import this object everywhere */
 export const FB = {
-  auth, db,
+  auth, db, storage,
   // Auth helpers
   createUserWithEmailAndPassword: (e, p) => createUserWithEmailAndPassword(auth, e, p),
   signIn:         (e, p) => signInWithEmailAndPassword(auth, e, p),
@@ -42,8 +46,12 @@ export const FB = {
   col:             (path)    => collection(db, path),
   docRef:          (path, id) => doc(db, path, id),
   setDoc, getDoc, getDocs, updateDoc, deleteDoc, addDoc,
-  query, where, orderBy, limit,
-  serverTimestamp
+  query, where, orderBy, limit, writeBatch: () => writeBatch(db),
+  serverTimestamp, documentId,
+  // Storage helpers
+  ref:            (path) => ref(storage, path),
+  uploadBytes,
+  getDownloadURL
 };
 
 // Signal readiness for any non-module scripts that may poll
