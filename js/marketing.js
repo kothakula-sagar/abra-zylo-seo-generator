@@ -19,8 +19,178 @@ let _selectedProductIds = new Set();
 let _currentEditingProduct = null;
 let _currentCampaignItem = null;
 let _currentActiveTab = 'pending';
+let _campaignProductSelectionMode = 'start';
+let _productsFilterState = new Set();
+let _productsSortMode = 'newest';
+let _productUserCache = {};
 
 // ── PRODUCTS MODULE ──────────────────────────────────────────
+
+function getProductTimestampValue(ts) {
+  if (!ts) return 0;
+  if (typeof ts === 'number') return ts;
+  if (ts?.toDate) return ts.toDate().getTime();
+  const parsed = new Date(ts);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function formatProductDateTime(ts) {
+  if (!ts) return '';
+  const date = typeof ts === 'number'
+    ? new Date(ts)
+    : (ts?.toDate ? ts.toDate() : new Date(ts));
+  if (Number.isNaN(date.getTime())) return '';
+  const datePart = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const timePart = date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart} • ${timePart}`;
+}
+
+function formatProductShortDate(ts) {
+  if (!ts) return '';
+  const date = typeof ts === 'number'
+    ? new Date(ts)
+    : (ts?.toDate ? ts.toDate() : new Date(ts));
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatProductLongDateTime(ts) {
+  if (!ts) return '';
+  const date = typeof ts === 'number'
+    ? new Date(ts)
+    : (ts?.toDate ? ts.toDate() : new Date(ts));
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}\n${date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
+}
+
+function isNewProduct(createdAt) {
+  if (!createdAt) return false;
+  const created = typeof createdAt === 'number'
+    ? new Date(createdAt)
+    : (createdAt?.toDate ? createdAt.toDate() : new Date(createdAt));
+  if (Number.isNaN(created.getTime())) return false;
+  return Date.now() - created.getTime() <= 24 * 60 * 60 * 1000;
+}
+
+function getUserDisplayName(userData, fallback = 'Unknown User') {
+  return userData?.displayName || userData?.name || userData?.fullName || fallback;
+}
+
+async function resolveCreatorLabel(product) {
+  if (!product) return 'Unknown User';
+
+  if (product.createdByName) {
+    return product.createdByName;
+  }
+
+  const uid = product.createdBy;
+  if (!uid) {
+    return product.createdByEmail || 'Unknown User';
+  }
+
+  if (_productUserCache[uid]) {
+    return _productUserCache[uid];
+  }
+
+  try {
+    const userDoc = await FB.getDoc(FB.docRef('users', uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data() || {};
+      const resolved = getUserDisplayName(userData, product.createdByEmail || 'Unknown User');
+      _productUserCache[uid] = resolved;
+      return resolved;
+    }
+  } catch (error) {
+    console.error('Error resolving creator label:', error);
+  }
+
+  const fallback = product.createdByEmail || 'Unknown User';
+  _productUserCache[uid] = fallback;
+  return fallback;
+}
+
+function getProductsSortMode() {
+  const select = document.getElementById('products-sort');
+  return select?.value || _productsSortMode || 'newest';
+}
+
+function applyProductsSort(products) {
+  const sortMode = getProductsSortMode();
+  const list = [...products];
+
+  switch (sortMode) {
+    case 'oldest':
+      return list.sort((a, b) => getProductTimestampValue(a.createdAt) - getProductTimestampValue(b.createdAt));
+    case 'recently-updated':
+      return list.sort((a, b) => getProductTimestampValue(b.updatedAt || b.createdAt) - getProductTimestampValue(a.updatedAt || a.createdAt));
+    case 'name-az':
+      return list.sort((a, b) => (a.productName || '').localeCompare(b.productName || '', undefined, { sensitivity: 'base' }));
+    case 'name-za':
+      return list.sort((a, b) => (b.productName || '').localeCompare(a.productName || '', undefined, { sensitivity: 'base' }));
+    case 'newest':
+    default:
+      return list.sort((a, b) => getProductTimestampValue(b.createdAt) - getProductTimestampValue(a.createdAt));
+  }
+}
+
+function isSameDay(value, targetDate = new Date()) {
+  if (!value) return false;
+  const date = typeof value === 'number'
+    ? new Date(value)
+    : (value?.toDate ? value.toDate() : new Date(value));
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getFullYear() === targetDate.getFullYear()
+    && date.getMonth() === targetDate.getMonth()
+    && date.getDate() === targetDate.getDate();
+}
+
+function toggleProductsFilter(filterKey) {
+  if (_productsFilterState.has(filterKey)) {
+    _productsFilterState.delete(filterKey);
+  } else {
+    _productsFilterState.add(filterKey);
+  }
+  updateProductsFilterButtons();
+  renderProducts();
+}
+
+function clearProductFilters() {
+  _productsFilterState.clear();
+  updateProductsFilterButtons();
+  renderProducts();
+}
+
+function updateProductsFilterButtons() {
+  document.querySelectorAll('.products-filter-chip').forEach(btn => {
+    const isActive = _productsFilterState.has(btn.dataset.filter);
+    btn.classList.toggle('active', isActive);
+  });
+
+  const clearButton = document.getElementById('products-clear-filters');
+  if (clearButton) {
+    clearButton.style.display = _productsFilterState.size > 0 ? 'inline-flex' : 'none';
+  }
+}
+
+async function loadProductsCatalog() {
+  try {
+    const q = FB.query(
+      FB.col('products'),
+      FB.orderBy('createdAt', 'desc')
+    );
+    const snapshot = await FB.getDocs(q);
+
+    _products = [];
+    snapshot.forEach(doc => {
+      _products.push({ id: doc.id, ...doc.data() });
+    });
+
+    return _products;
+  } catch (error) {
+    console.error('Error loading products catalog:', error);
+    throw error;
+  }
+}
 
 /**
  * Load and render products list
@@ -30,28 +200,34 @@ async function renderProducts() {
   if (!container) return;
   
   try {
-    // Load products from Firestore
-    const q = FB.query(
-      FB.col('products'),
-      FB.orderBy('createdAt', 'desc')
-    );
-    const snapshot = await FB.getDocs(q);
-    
-    _products = [];
-    snapshot.forEach(doc => {
-      const product = { id: doc.id, ...doc.data() };
-      _products.push(product);
+    await loadProductsCatalog();
+
+    const searchTerm = document.getElementById('products-search')?.value?.trim().toLowerCase() || '';
+    const currentUser = getUser();
+    const currentUserId = currentUser?.uid || '';
+
+    const creatorLabels = {};
+    await Promise.all(_products.map(async product => {
+      creatorLabels[product.id] = await resolveCreatorLabel(product);
+    }));
+
+    let filteredProducts = _products.filter(product => {
+      const creatorLabel = creatorLabels[product.id] || '';
+      const searchableText = [product.productName, creatorLabel, product.createdByEmail].join(' ').toLowerCase();
+      const matchesSearch = !searchTerm || searchableText.includes(searchTerm);
+      const matchesAddedByMe = !_productsFilterState.has('added-by-me') || (currentUserId && product.createdBy === currentUserId);
+      const matchesAddedToday = !_productsFilterState.has('added-today') || isSameDay(product.createdAt);
+      const matchesUpdatedToday = !_productsFilterState.has('updated-today') || isSameDay(product.updatedAt);
+      return matchesSearch && matchesAddedByMe && matchesAddedToday && matchesUpdatedToday;
     });
-    
-    // Apply search filter
-    const searchTerm = document.getElementById('products-search')?.value?.toLowerCase() || '';
-    const filteredProducts = _products.filter(product =>
-      product.productName?.toLowerCase().includes(searchTerm)
-    );
+
+    filteredProducts = applyProductsSort(filteredProducts);
     
     // Update badge count
     const badge = document.getElementById('products-badge');
     if (badge) badge.textContent = _products.length;
+
+    updateProductsFilterButtons();
     
     // Render products
     if (filteredProducts.length === 0) {
@@ -63,8 +239,8 @@ async function renderProducts() {
             <line x1="8" y1="2" x2="8" y2="6"/>
           </svg>
           <h3>No Products Found</h3>
-          <p>${searchTerm ? 'No products match your search.' : 'Get started by adding your first product.'}</p>
-          ${!searchTerm ? '<button class="btn btn-accent" onclick="window.Marketing.showAddProduct()">Add Product</button>' : ''}
+          <p>${searchTerm || _productsFilterState.size ? 'No products match your current search or filters.' : 'Get started by adding your first product.'}</p>
+          ${!searchTerm && !_productsFilterState.size ? '<button class="btn btn-accent" onclick="window.Marketing.showAddProduct()">Add Product</button>' : ''}
         </div>`;
       return;
     }
@@ -78,15 +254,21 @@ async function renderProducts() {
         // Legacy field fallback
         imageSrc = getResponsive(product.image, 280);
       }
+      const isNew = isNewProduct(product.createdAt);
+      const addedByLabel = escapeHtml(creatorLabels[product.id] || 'Unknown User');
+      const createdDateLabel = escapeHtml(formatProductShortDate(product.createdAt));
+      const canEdit = canEditProduct(product);
+      const canDelete = canDeleteProduct(product);
       
       return `
       <div class="product-card">
-          <div class="product-compare">
-            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
-              <input type="checkbox" ${_compareProductSelection.includes(product.id) ? 'checked' : ''} onclick="event.stopPropagation(); window.Marketing.toggleProductCompare('${product.id}')" />
-              <span style="font-size:.75rem">Compare</span>
-            </label>
-          </div>
+        <div class="product-card-top">
+          <label class="product-compare-pill" onclick="event.stopPropagation();">
+            <input type="checkbox" ${_compareProductSelection.includes(product.id) ? 'checked' : ''} onclick="event.stopPropagation(); window.Marketing.toggleProductCompare('${product.id}')" />
+            <span>Compare</span>
+          </label>
+          ${isNew ? '<span class="product-new-badge">🟢 NEW</span>' : ''}
+        </div>
         <div class="product-image ${!imageSrc ? 'empty' : ''}">
           ${imageSrc 
             ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='No Image';"/>`
@@ -102,20 +284,22 @@ async function renderProducts() {
             <span class="discount-badge">${product.discount || 0}% OFF</span>
           </div>
         </div>
-        <div class="product-meta">
-          <div class="product-date">${formatDate(product.createdAt)}</div>
+        <div class="product-card-meta">
+          <div class="product-meta-main">
+            <span class="product-meta-user">👤 ${addedByLabel}</span>
+            <span class="product-meta-date">🗓 ${createdDateLabel}</span>
+          </div>
           <div class="product-actions">
-            ${canEditProduct(product) ? `
-              <button class="btn btn-outline btn-sm" onclick="window.Marketing.editProduct('${product.id}')">
-                Edit
+            ${canEdit ? `
+              <button class="product-action-btn" title="Edit Product" onclick="event.stopPropagation(); window.Marketing.editProduct('${product.id}')">
+                ✏️
               </button>
             ` : ''}
-            ${canDeleteProduct(product) ? `
-              <button class="btn btn-danger btn-sm" onclick="window.Marketing.deleteProduct('${product.id}')">
-                Delete
+            ${canDelete ? `
+              <button class="product-action-btn product-action-btn-delete" title="Delete Product" onclick="event.stopPropagation(); window.Marketing.deleteProduct('${product.id}')">
+                🗑️
               </button>
             ` : ''}
-            
           </div>
         </div>
       </div>`;
@@ -194,6 +378,8 @@ function showAddProduct() {
   document.getElementById('product-upload-placeholder').style.display = 'flex';
   document.getElementById('product-discount').value = '';
   document.getElementById('product-you-save').value = '';
+  const historyBlock = document.getElementById('product-history-block');
+  if (historyBlock) historyBlock.style.display = 'none';
   hideAlert('product-alert');
   openModal('product-modal');
 }
@@ -219,6 +405,26 @@ async function editProduct(productId) {
     document.getElementById('product-name').value = product.productName || '';
     document.getElementById('product-mrp').value = product.mrp || '';
     document.getElementById('product-selling-price').value = product.sellingPrice || '';
+    const historyBlock = document.getElementById('product-history-block');
+    const createdByEl = document.getElementById('product-created-by');
+    const createdOnEl = document.getElementById('product-created-on');
+    const updatedByEl = document.getElementById('product-updated-by');
+    const updatedOnEl = document.getElementById('product-updated-on');
+    if (historyBlock) {
+      historyBlock.style.display = 'block';
+    }
+    if (createdByEl) {
+      createdByEl.textContent = await resolveCreatorLabel(product);
+    }
+    if (createdOnEl) {
+      createdOnEl.textContent = formatProductLongDateTime(product.createdAt) || '—';
+    }
+    if (updatedByEl) {
+      updatedByEl.textContent = product.updatedByName || product.updatedBy || 'Never';
+    }
+    if (updatedOnEl) {
+      updatedOnEl.textContent = product.updatedAt ? formatProductLongDateTime(product.updatedAt) : 'Never';
+    }
     
     // Show image if exists
     const preview = document.getElementById('product-img-preview');
@@ -405,19 +611,30 @@ async function handleProductSubmit(event) {
       mrp: mrp || 0,
       sellingPrice: sellingPrice || 0,
       discount,
-      youSave,
-      createdBy: _currentEditingProduct?.createdBy || user.uid, // FIX: Preserve original product owner when editing
-      updatedAt: FB.serverTimestamp()
+      youSave
     };
-    
+
     if (_currentEditingProduct) {
-      // Update existing product - this will automatically update all references
-      await FB.updateDoc(FB.docRef('products', _currentEditingProduct.id), productData);
+      const updatePayload = {
+        ...productData,
+        updatedBy: user.uid,
+        updatedByName: user.displayName || user.email || 'Unknown User',
+        updatedAt: FB.serverTimestamp()
+      };
+      await FB.updateDoc(FB.docRef('products', _currentEditingProduct.id), updatePayload);
       showToast('Product updated successfully');
     } else {
-      // Create new product
-      productData.createdAt = FB.serverTimestamp();
-      await FB.addDoc(FB.col('products'), productData);
+      const createPayload = {
+        ...productData,
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || 'Unknown User',
+        createdByEmail: user.email || '',
+        createdAt: FB.serverTimestamp(),
+        updatedBy: user.uid,
+        updatedByName: user.displayName || user.email || 'Unknown User',
+        updatedAt: FB.serverTimestamp()
+      };
+      await FB.addDoc(FB.col('products'), createPayload);
       showToast('Product added successfully');
     }
     
@@ -787,13 +1004,21 @@ async function openCampaign(campaignId) {
       FB.where('campaignId', '==', campaignId)
     );
     const itemsSnapshot = await FB.getDocs(itemsQuery);
+    const hasItems = !itemsSnapshot.empty;
+
+    const addProductsBtn = document.getElementById('campaign-add-products-btn');
+    if (addProductsBtn) {
+      addProductsBtn.style.display = hasItems ? 'inline-flex' : 'none';
+    }
     
-    if (itemsSnapshot.empty) {
+    if (!hasItems) {
       // Show product selection
       document.getElementById('product-selection').style.display = 'block';
       document.getElementById('campaign-tabs').style.display = 'none';
       document.getElementById('campaign-items-grid').style.display = 'none';
-      renderCampaignProducts();
+      _campaignProductSelectionMode = 'start';
+      updateCampaignSelectionUi();
+      await renderCampaignProducts();
     } else {
       // Show campaign tabs and items
       document.getElementById('product-selection').style.display = 'none';
@@ -811,23 +1036,66 @@ async function openCampaign(campaignId) {
   }
 }
 
+function updateCampaignSelectionUi() {
+  const selectionTitle = document.getElementById('campaign-selection-title');
+  if (selectionTitle) {
+    selectionTitle.textContent = _campaignProductSelectionMode === 'add'
+      ? 'Add Products to Campaign'
+      : 'Select Products for Campaign';
+  }
+
+  const submitBtn = document.getElementById('campaign-selection-submit-btn');
+  if (submitBtn) {
+    submitBtn.textContent = _campaignProductSelectionMode === 'add' ? 'Add Products' : 'Start Campaign';
+  }
+}
+
+async function showCampaignProductSelector(mode = 'start') {
+  if (!_currentCampaign) return;
+
+  _campaignProductSelectionMode = mode;
+  _selectedProductIds.clear();
+  updateCampaignSelectionUi();
+
+  document.getElementById('product-selection').style.display = 'block';
+  document.getElementById('campaign-tabs').style.display = 'flex';
+  document.getElementById('campaign-items-grid').style.display = 'grid';
+
+  await loadCampaignItems();
+  await renderCampaignProducts();
+}
+
 /**
  * Render products for campaign selection
  */
 async function renderCampaignProducts() {
   const container = document.getElementById('campaign-products-list');
   if (!container) return;
+
+  try {
+    await loadProductsCatalog();
+  } catch (error) {
+    container.innerHTML = '<div class="empty-state"><p>Failed to load products.</p></div>';
+    return;
+  }
+
+  updateCampaignSelectionUi();
+
+  const existingProductIds = new Set(_campaignItems.map(item => item.productId));
   
   // Apply search filter
   const searchTerm = document.getElementById('campaign-products-search')?.value?.toLowerCase() || '';
-  const filteredProducts = _products.filter(product =>
-    product.productName?.toLowerCase().includes(searchTerm)
-  );
+  const filteredProducts = _products.filter(product => {
+    if (_campaignProductSelectionMode === 'add' && existingProductIds.has(product.id)) {
+      return false;
+    }
+    return product.productName?.toLowerCase().includes(searchTerm);
+  });
   
   if (filteredProducts.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <p>${searchTerm ? 'No products match your search.' : 'No products available.'}</p>
+        <p>${searchTerm ? 'No products match your search.' : 'No products available to add.'}</p>
       </div>`;
     return;
   }
@@ -915,10 +1183,18 @@ async function startCampaign() {
       const latestProduct = await getLatestProductData(id);
       return latestProduct || _products.find(p => p.id === id);
     }));
+
+    const existingProductIds = new Set(_campaignItems.map(item => item.productId));
+    const newProducts = selectedProducts.filter(product => product && !existingProductIds.has(product.id));
+
+    if (newProducts.length === 0) {
+      showToast('All selected products are already in this campaign');
+      return;
+    }
     
-    showToast('Starting campaign...');
+    showToast(_campaignProductSelectionMode === 'add' ? 'Adding products...' : 'Starting campaign...');
     
-    for (const product of selectedProducts) {
+    for (const product of newProducts) {
       if (!product) continue;
       const generatedPrompt = buildGeneratedPrompt(_currentCampaign.prompt || '', product); // FIX: Prompt placeholder generation
       const campaignItemData = {
@@ -943,7 +1219,7 @@ async function startCampaign() {
     
     // Clear selection and reload
     _selectedProductIds.clear();
-    showToast('Campaign started successfully');
+    showToast(_campaignProductSelectionMode === 'add' ? 'Products added to campaign' : 'Campaign started successfully');
     
     // Switch to campaign view
     document.getElementById('product-selection').style.display = 'none';
@@ -1120,6 +1396,10 @@ async function renderCampaignItems() {
     
     return `
       <div class="campaign-item-card" onclick="window.Marketing.openCampaignItem('${item.id}')">
+        <div class="campaign-item-card-header">
+          <div class="campaign-item-name">${escapeHtml(item.productName || 'Untitled Product')}</div>
+          <button class="campaign-item-delete-btn" onclick="event.stopPropagation(); window.Marketing.deleteCampaignItem('${item.id}')" aria-label="Delete campaign item">🗑️</button>
+        </div>
         <div class="campaign-item-image">
           ${imageSrc 
 ? `
@@ -1132,7 +1412,6 @@ async function renderCampaignItems() {
 `            : '<div style="display:flex;align-items:center;justify-content:center;color:var(--text3)">No Image</div>'
           }
         </div>
-        <div class="campaign-item-name">${escapeHtml(item.productName || 'Untitled Product')}</div>
         <div class="campaign-item-status">
           <span class="status-badge ${item.status}">${item.status.toUpperCase()}</span>
         </div>
@@ -1191,6 +1470,40 @@ async function renderCampaignDetail() {
   if (_currentCampaign) {
     await loadCampaignItems(); // FIX: Wait for items to refresh before switching tabs
     switchCampaignTab(_currentActiveTab);
+  }
+}
+
+/**
+ * Delete a single campaign item without removing the product
+ */
+async function deleteCampaignItem(itemId) {
+  const item = _campaignItems.find(i => i.id === itemId);
+  if (!item) {
+    showToast('Campaign item not found');
+    return;
+  }
+
+  let confirmationMessage = 'Remove this product from the campaign?';
+  if (item.status === 'generating') {
+    confirmationMessage = 'This campaign item is currently generating. Remove it from the campaign?';
+  } else if (item.status === 'completed') {
+    confirmationMessage = 'This completed campaign item will be removed from the campaign. Continue?';
+  }
+
+  if (!confirm(confirmationMessage)) return;
+
+  if (item.status === 'completed' && !confirm('Completed items require an additional confirmation before removal. Continue?')) {
+    return;
+  }
+
+  try {
+    await FB.deleteDoc(FB.docRef('campaignItems', itemId));
+    showToast('Campaign item removed');
+    await loadCampaignItems();
+    switchCampaignTab(_currentActiveTab);
+  } catch (error) {
+    console.error('Error deleting campaign item:', error);
+    showToast('Failed to remove campaign item');
   }
 }
 
@@ -1411,6 +1724,8 @@ export {
   showAddProduct,
   editProduct,
   deleteProduct,
+  toggleProductsFilter,
+  clearProductFilters,
   onProductImageSelect,
   calculateDiscount,
   hideProductModal,
@@ -1420,10 +1735,12 @@ export {
   editCampaign,
   openCampaign,
   renderCampaignProducts,
+  showCampaignProductSelector,
   toggleProductSelection,
   toggleSelectAll,
   toggleProductCompare,
   startCampaign,
+  deleteCampaignItem,
   switchCampaignTab,
   renderCampaignDetail,
   openCampaignItem,

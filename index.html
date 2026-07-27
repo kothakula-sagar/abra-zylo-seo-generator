@@ -507,7 +507,20 @@
           </button>
         </div>
         <div class="products-toolbar">
-          <input type="text" id="products-search" placeholder="Search products..." oninput="window.Marketing.renderProducts()"/>
+          <input type="text" id="products-search" placeholder="Search products or added by..." oninput="window.Marketing.renderProducts()"/>
+          <select id="products-sort" class="products-sort-select" onchange="window.Marketing.renderProducts()">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="recently-updated">Recently Updated</option>
+            <option value="name-az">Name A–Z</option>
+            <option value="name-za">Name Z–A</option>
+          </select>
+          <div class="products-filters">
+            <button type="button" class="btn btn-outline btn-sm products-filter-chip" data-filter="added-by-me" onclick="window.Marketing.toggleProductsFilter('added-by-me')">Added by Me</button>
+            <button type="button" class="btn btn-outline btn-sm products-filter-chip" data-filter="added-today" onclick="window.Marketing.toggleProductsFilter('added-today')">Added Today</button>
+            <button type="button" class="btn btn-outline btn-sm products-filter-chip" data-filter="updated-today" onclick="window.Marketing.toggleProductsFilter('updated-today')">Updated Today</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="window.Marketing.clearProductFilters()" style="display:none" id="products-clear-filters">Clear</button>
+          </div>
           <button class="btn btn-outline btn-sm" id="product-compare-btn" onclick="window.Marketing.compareSelectedProducts()" style="margin-left:0.5rem" disabled>Compare Selected</button>
         </div>
         <div id="products-grid" class="products-grid"></div>
@@ -543,13 +556,19 @@
             <h1 id="campaign-detail-name">Campaign Name</h1>
             <p id="campaign-detail-prompt" class="text-muted">Campaign prompt will appear here</p>
           </div>
+          <button id="campaign-add-products-btn" class="btn btn-accent" onclick="window.Marketing.showCampaignProductSelector('add')" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Products
+          </button>
         </div>
         
         <!-- Product Selection (shown before campaign starts) -->
         <div id="product-selection" class="product-selection" style="display:none">
           <div class="card">
             <div class="card-header">
-              <h3>Select Products for Campaign</h3>
+              <h3 id="campaign-selection-title">Select Products for Campaign</h3>
               <label class="checkbox-label">
                 <input type="checkbox" id="select-all-products" onchange="window.Marketing.toggleSelectAll()"/>
                 <span>Select All</span>
@@ -561,7 +580,7 @@
               </div>
               <div id="campaign-products-list" class="campaign-products-list"></div>
               <div class="product-selection-actions">
-                <button class="btn btn-accent" onclick="window.Marketing.startCampaign()">Start Campaign</button>
+                <button id="campaign-selection-submit-btn" class="btn btn-accent" onclick="window.Marketing.startCampaign()">Start Campaign</button>
               </div>
             </div>
           </div>
@@ -702,6 +721,27 @@
         <div class="form-row">
           <label>You Save</label>
           <input type="text" id="product-you-save" readonly class="readonly-field"/>
+        </div>
+
+        <div class="product-history-block" id="product-history-block" style="display:none">
+          <div class="product-history-divider"></div>
+          <h4>Product History</h4>
+          <div class="product-history-item">
+            <div class="product-history-label">👤 Created By</div>
+            <div class="product-history-value" id="product-created-by">-</div>
+          </div>
+          <div class="product-history-item">
+            <div class="product-history-label">📅 Created On</div>
+            <div class="product-history-value" id="product-created-on">-</div>
+          </div>
+          <div class="product-history-item">
+            <div class="product-history-label">✏️ Last Updated By</div>
+            <div class="product-history-value" id="product-updated-by">Never</div>
+          </div>
+          <div class="product-history-item">
+            <div class="product-history-label">📅 Last Updated On</div>
+            <div class="product-history-value" id="product-updated-on">Never</div>
+          </div>
         </div>
         
         <div id="product-alert" class="alert alert-danger" style="display:none"></div>
