@@ -1,6 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
+  <link rel="icon" href="abra-zylo-seo-portal.png" type="image/x-icon"/>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Abra Zylo - AI SEO Portal</title>
@@ -16,7 +17,6 @@
 <link rel="stylesheet" href="css/settings.css"/>
 <link rel="stylesheet" href="css/marketing.css"/>
 <link rel="stylesheet" href="css/responsive.css"/>
-<link rel="logo" href="abra-zylo-seo-portal.png"/>
 </head>
 <body>
 
@@ -27,10 +27,7 @@
 ════════════════════════════════════════════════════════ -->
 <div id="init-screen">
   <div class="init-logo">
-    <div class="init-logo-icon">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-    </div>
-    <div class="init-logo-text">Abra Zylo<span>AI SEO Portal</span></div>
+    <img src="./abra-zylo-seo-portal.png" alt="Abra Zylo AI SEO Portal" decoding="async"/>
   </div>
   <div class="init-spinner"></div>
   <div class="init-message" id="init-message">Initialising secure session...</div>
@@ -47,10 +44,7 @@
     <div class="auth-shell">
       <div class="auth-left">
         <div class="auth-logo">
-          <div class="auth-logo-icon">
-            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </div>
-          <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal by Sagar K</span></div>
+          <img src="./abra-zylo-seo-portal.png" alt="Abra Zylo AI SEO Portal" decoding="async"/>
         </div>
         <h1>SEO that scores<br/><em>100 out of 100.</em></h1>
         <p>AI-powered SEO for every product on your OpenCart store.</p>
@@ -83,8 +77,7 @@
     <div class="auth-shell">
       <div class="auth-left">
         <div class="auth-logo">
-          <div class="auth-logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-          <div class="auth-logo-name">Abra Zylo<span>AI SEO Portal</span></div>
+          <img src="./abra-zylo-seo-portal.png" alt="Abra Zylo AI SEO Portal" decoding="async"/>
         </div>
         <h1>Create your<br/><em>SEO workspace.</em></h1>
         <p>Set up in 60 seconds. All data saved to Firebase cloud.</p>
@@ -134,8 +127,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">
-        <div class="sidebar-logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-        <div class="sidebar-logo-text">Abra Zylo<span>AI SEO Portal</span></div>
+        <img src="./abra-zylo-seo-portal.png" alt="Abra Zylo AI SEO Portal" decoding="async"/>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -172,6 +164,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg>
         Sale Campaigns
         <span class="nav-badge" id="campaigns-badge">0</span>
+      </a>
+      <a class="nav-item admin-only" id="nav-meta-catalog" onclick="window.App.go('meta-catalog')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h4"/><path d="M7 14h6"/><path d="M15 10h2"/><path d="M15 14h2"/></svg>
+        Meta Product Catalog
       </a>
       <span class="nav-label" style="margin-top:.5rem">Account</span>
       <a class="nav-item admin-only" id="nav-accounts" onclick="window.App.go('accounts')">
@@ -235,19 +231,37 @@
       <!-- DASHBOARD -->
       <section id="tab-dashboard" class="tab-section active">
         <div class="stats-grid" id="dash-stats"></div>
-        <div class="dash-bottom">
-          <div class="card" id="recent-card">
-            <div class="card-header"><h3>Recent Activity</h3></div>
-            <div class="card-body" id="recent-list"><p class="empty-msg">No activity yet.</p></div>
-          </div>
-          <div class="card">
-            <div class="card-header"><h3>Quick Start</h3></div>
-            <div class="card-body">
-              <p class="text-muted" style="margin-bottom:1rem">Upload a product image and enter details to get complete SEO content saved to Firebase.</p>
-              <button class="btn btn-accent" onclick="window.App.go('generate')">Generate SEO Content</button>
-              <button class="btn btn-outline" style="margin-top:.5rem" onclick="window.App.go('audit')">Run SEO Audit</button>
+        <div class="dashboard-overview-grid">
+          <section class="dashboard-panel card" aria-labelledby="attention-title">
+            <div class="card-header"><h2 id="attention-title">🚨 Needs Attention</h2></div>
+            <div class="card-body attention-list" id="dashboard-attention-list"></div>
+          </section>
+          <section class="dashboard-panel card" aria-labelledby="readiness-title">
+            <div class="card-header"><h2 id="readiness-title">📘 Meta Catalog Readiness</h2></div>
+            <div class="card-body" id="meta-readiness-content"><p class="empty-msg">Loading catalog readiness...</p></div>
+            <div class="dashboard-panel-footer"><button class="btn btn-outline btn-sm" onclick="window.App.go('meta-catalog')">View Meta Catalog →</button></div>
+          </section>
+        </div>
+        <section class="dashboard-panel card dashboard-campaign-panel" aria-labelledby="campaign-progress-title">
+          <div class="card-header"><h2 id="campaign-progress-title">🛍️ Campaign Progress</h2><button class="btn btn-outline btn-sm" onclick="window.App.go('campaigns')">View All Campaigns →</button></div>
+          <div class="card-body" id="dashboard-campaign-progress"><p class="empty-msg">Loading campaign progress...</p></div>
+        </section>
+        <div class="dashboard-bottom-grid">
+          <section class="dashboard-panel card" aria-labelledby="quick-actions-title">
+            <div class="card-header"><h2 id="quick-actions-title">⚡ Quick Actions</h2></div>
+            <div class="card-body quick-actions-grid">
+              <button class="quick-action" onclick="window.App.go('products');setTimeout(() => window.Marketing.showAddProduct(), 0)"><b>＋</b><span>Add Product</span></button>
+              <button class="quick-action" onclick="window.App.go('generate')"><b>✨</b><span>Generate SEO</span></button>
+              <button class="quick-action" onclick="window.App.go('campaigns');setTimeout(() => window.Marketing.showCreateCampaign(), 0)"><b>＋</b><span>Create Campaign</span></button>
+              <button class="quick-action" onclick="window.App.go('campaigns')"><b>🖼️</b><span>Continue Generation</span></button>
+              <button class="quick-action" onclick="window.App.go('meta-catalog')"><b>📘</b><span>Meta Catalog</span></button>
+              <button class="quick-action" onclick="window.App.go('audit')"><b>🔍</b><span>Run SEO Audit</span></button>
             </div>
-          </div>
+          </section>
+          <section class="dashboard-panel card" id="recent-card" aria-labelledby="recent-title">
+            <div class="card-header"><h2 id="recent-title">🕐 Recent Activity</h2></div>
+            <div class="card-body" id="recent-list"><p class="empty-msg">Loading recent activity...</p></div>
+          </section>
         </div>
       </section>
 
@@ -310,6 +324,11 @@
                 <!-- Pricing Fields for Reference Only -->
                 <div class="pricing-section">
                   <h4 style="margin: 1.5rem 0 0.5rem 0; color: var(--text2); font-size: 0.875rem; font-weight: 600;">Pricing (For Reference Only)</h4>
+                  <div class="form-row">
+                    <label>Model Number</label>
+                    <input type="text" id="prod-model-number" placeholder="AZ0001" maxlength="64" autocomplete="off"/>
+                    <div class="field-hint">Optional product model reference</div>
+                  </div>
                   <div class="form-row">
                     <label>MRP</label>
                     <input type="number" id="prod-mrp" placeholder="999" min="1" step="0.01" oninput="window.Generator.calculateDiscount()"/>
@@ -508,7 +527,7 @@
           </button>
         </div>
         <div class="products-toolbar">
-          <input type="text" id="products-search" placeholder="Search products or added by..." oninput="window.Marketing.renderProducts()"/>
+          <input type="text" id="products-search" placeholder="Search products or added by..." oninput="window.Marketing.handleProductsSearchInput()"/>
           <select id="products-sort" class="products-sort-select" onchange="window.Marketing.renderProducts()">
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
@@ -542,6 +561,54 @@
           <input type="text" id="campaigns-search" placeholder="Search campaigns..." oninput="window.Marketing.renderCampaigns()"/>
         </div>
         <div id="campaigns-grid" class="campaigns-grid"></div>
+      </section>
+
+      <!-- META PRODUCT CATALOG (admin only) -->
+      <section id="tab-meta-catalog" class="tab-section admin-only">
+        <div class="page-header">
+          <div>
+            <h1>Meta Product Catalog</h1>
+            <p class="text-muted">Campaign-ready Meta Catalog products sourced from completed Sale Campaign items.</p>
+          </div>
+        </div>
+        <div class="campaigns-toolbar">
+          <input type="text" id="meta-campaign-search" placeholder="Search campaigns..." oninput="window.Marketing.handleMetaCatalogSearchInput()"/>
+        </div>
+        <div id="meta-campaigns-grid" class="campaigns-grid"></div>
+        <div id="meta-catalog-detail" class="meta-catalog-detail" style="display:none">
+          <div class="campaign-detail-header">
+            <button class="btn btn-ghost" onclick="window.Marketing.closeMetaCatalogCampaign()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+              </svg>
+              Back to Meta Product Catalog
+            </button>
+            <div class="campaign-detail-info">
+              <h1 id="meta-campaign-detail-name">Campaign Name</h1>
+              <p id="meta-campaign-detail-subtitle" class="text-muted">0 Meta Products</p>
+            </div>
+          </div>
+          <div class="meta-stat-grid">
+            <div class="meta-stat-card">
+              <div class="meta-stat-label">Total Products</div>
+              <div class="meta-stat-value" id="meta-total-count">0</div>
+            </div>
+            <div class="meta-stat-card">
+              <div class="meta-stat-label">Pending</div>
+              <div class="meta-stat-value" id="meta-pending-count">0</div>
+            </div>
+            <div class="meta-stat-card">
+              <div class="meta-stat-label">Added</div>
+              <div class="meta-stat-value" id="meta-added-count">0</div>
+            </div>
+          </div>
+          <div class="meta-status-filter-bar">
+            <button type="button" class="btn btn-outline btn-sm meta-status-filter active" data-filter="all" onclick="window.Marketing.filterMetaCatalog('all')">All</button>
+            <button type="button" class="btn btn-outline btn-sm meta-status-filter" data-filter="pending" onclick="window.Marketing.filterMetaCatalog('pending')">Pending</button>
+            <button type="button" class="btn btn-outline btn-sm meta-status-filter" data-filter="added" onclick="window.Marketing.filterMetaCatalog('added')">Added</button>
+          </div>
+          <div id="meta-catalog-products-grid" class="meta-catalog-products-grid"></div>
+        </div>
       </section>
 
       <!-- CAMPAIGN DETAILS -->
@@ -703,6 +770,11 @@
           <label>Product Name <span style="color:var(--red)">*</span></label>
           <input type="text" id="product-name" placeholder="e.g. Premium Cotton T-Shirt" required/>
         </div>
+
+        <div class="form-row">
+          <label>Model Number</label>
+          <input type="text" id="product-model-number" placeholder="AZ0001" maxlength="64" autocomplete="off"/>
+        </div>
         
         <div class="form-row">
           <label>MRP <span style="color:var(--red)">*</span></label>
@@ -796,6 +868,26 @@ Make it visually appealing with modern design elements."></textarea>
           <button type="button" class="btn btn-outline" onclick="window.Marketing.hideCampaignModal()">Cancel</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- META PRODUCT DETAIL MODAL -->
+<div class="overlay" id="meta-product-modal" style="display:none">
+  <div class="modal modal-lg meta-product-modal">
+    <div class="modal-head meta-product-modal-header">
+      <h3 id="meta-product-modal-title">Product Details</h3>
+      <button class="modal-close" onclick="window.Marketing.hideMetaProductModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="meta-product-modal-body">
+      <div id="meta-product-modal-body"></div>
+    </div>
+    <div class="modal-actions meta-product-modal-footer" id="meta-product-modal-footer">
+      <button type="button" class="btn btn-outline" onclick="window.Marketing.hideMetaProductModal()">Close</button>
     </div>
   </div>
 </div>

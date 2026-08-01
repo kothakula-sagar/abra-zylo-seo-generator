@@ -60,9 +60,10 @@ const App = {
     // Accounts tab is admin-only
     if (tab === 'accounts' && !Auth.isAdmin()) return;
     
-    // Campaigns tab is admin-only
+    // Campaigns and Meta Catalog tabs are admin-only
     if (tab === 'campaigns' && !Auth.isAdmin()) return;
     if (tab === 'campaign-detail' && !Auth.isAdmin()) return;
+    if (tab === 'meta-catalog' && !Auth.isAdmin()) return;
 
     UI.switchTab(tab);
 
@@ -79,6 +80,7 @@ const App = {
     }
     if (tab === 'products')  Marketing.renderProducts();
     if (tab === 'campaigns') Marketing.renderCampaigns();
+    if (tab === 'meta-catalog') Marketing.renderMetaCatalog();
     if (tab === 'campaign-detail') Marketing.renderCampaignDetail();
   },
 

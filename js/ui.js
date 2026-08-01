@@ -73,13 +73,54 @@ export function hideLoading() {
 }
 
 // ── MODALS ───────────────────────────────────────────────────
+let _modalOpenCount = 0;
+let _savedScrollPosition = { x: 0, y: 0 };
+
+function lockBodyScroll() {
+  if (_modalOpenCount === 0) {
+    _savedScrollPosition = {
+      x: window.scrollX || window.pageXOffset || 0,
+      y: window.scrollY || window.pageYOffset || 0
+    };
+    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${_savedScrollPosition.y}px`;
+    document.body.style.left = `-${_savedScrollPosition.x}px`;
+    document.body.style.width = '100%';
+  }
+  _modalOpenCount += 1;
+}
+
+function unlockBodyScroll() {
+  if (_modalOpenCount > 0) {
+    _modalOpenCount -= 1;
+  }
+
+  if (_modalOpenCount === 0) {
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.width = '';
+    window.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
+  }
+}
+
 export function openModal(id) {
   const el = document.getElementById(id);
-  if (el) el.style.display = 'flex';
+  if (!el) return;
+  if (el.style.display === 'flex') return;
+  el.style.display = 'flex';
+  lockBodyScroll();
 }
 export function closeModal(id) {
   const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
+  if (!el) return;
+  if (el.style.display !== 'flex') return;
+  el.style.display = 'none';
+  unlockBodyScroll();
 }
 
 // ── SIDEBAR ──────────────────────────────────────────────────
@@ -103,6 +144,7 @@ const TAB_TITLES = {
   accounts:  'Accounts',
   products:  'Products',
   campaigns: 'Sale Campaigns',
+  'meta-catalog': 'Meta Product Catalog',
   'campaign-detail': 'Campaign Details'
 };
 

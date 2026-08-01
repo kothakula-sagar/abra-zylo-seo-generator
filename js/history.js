@@ -211,7 +211,7 @@ export async function open(idx) {
       </span>
       ${product.category ? `<span style="background:var(--surface2);color:var(--text2);padding:4px 12px;border-radius:99px;font-size:.72rem">${escapeHtml(product.category)}</span>` : ''}
       <span style="background:var(--surface2);color:var(--text2);padding:4px 12px;border-radius:99px;font-size:.72rem">₹${product.sellingPrice || 0}</span>
-      ${product.discount ? `<span style="background:var(--green-bg);color:var(--green);padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:700">${product.discount}% OFF</span>` : ''}
+      ${product.discount ? `<span style="background:var(--green-bg);color:var(--green);padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:700">${Math.round(Number(product.discount || 0))}% OFF</span>` : ''}
     </div>
     
     <div class="product-details" style="margin-bottom:1rem">

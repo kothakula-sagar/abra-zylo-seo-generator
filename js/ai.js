@@ -6,12 +6,12 @@
 
 // ── MODEL CONFIG ─────────────────────────────────────────────
 const MODELS = {
-  groq:           'llama-3.3-70b-versatile',
-  groqVision:     'meta-llama/llama-4-scout-17b-16e-instruct', // vision-capable
-  groqFallback:   'llama-3.1-8b-instant',
-  gemini:         'gemini-1.5-flash',                          // vision built-in
-  openrouter:     'meta-llama/llama-3.3-70b-instruct:free',
-  openrouterVision: 'google/gemini-flash-1.5'                  // vision via OpenRouter
+  groq:            'llama-3.3-70b-versatile',
+  groqVision:      'llama-3.2-90b-vision-preview',
+  groqFallback:    'llama-3.1-8b-instant',
+  gemini:          'gemini-1.5-flash',
+  openrouter:      'meta-llama/llama-3.3-70b-instruct:free',
+  openrouterVision:'google/gemini-flash-1.5'
 };
 
 const ENDPOINTS = {
@@ -51,7 +51,6 @@ export async function callAI(messages, apiKey, provider = 'groq', opts = {}) {
 // ── GROQ ──────────────────────────────────────────────────────
 async function _callGroq(messages, apiKey, opts = {}) {
   const hasImage = !!(opts.imageBase64);
-  // Use vision model when an image is attached
   const model = opts.model || (hasImage ? MODELS.groqVision : MODELS.groq);
 
   // When an image is provided, convert the last user message to a
@@ -68,22 +67,38 @@ async function _callGroq(messages, apiKey, opts = {}) {
       messages: builtMessages,
       temperature: opts.temperature ?? 0.9,
       top_p:       opts.top_p       ?? 0.95,
-      max_tokens:  opts.maxTokens   || 1600
+      max_tokens:  opts.maxTokens   || 1600,
+      response_format: { type: 'json_object' }
     })
   }, opts.timeout || 40000);
 
   const data = await res.json();
-  if (data.error) {
-    const msg = (data.error.message || '').toLowerCase();
-    // Vision model unavailable — retry without image on text-only fallback
-    if (msg.includes('does not exist') || msg.includes('no access')) {
-      if (model !== MODELS.groqFallback) {
-        console.warn('[AI] Groq vision model unavailable, retrying with text-only fallback');
-        return _callGroq(messages, apiKey, { ...opts, model: MODELS.groqFallback, imageBase64: null });
-      }
+  if (!res.ok || data.error) {
+    const serverMessage = data.error?.message || `Groq request failed with HTTP ${res.status}`;
+    const msg = String(serverMessage).toLowerCase();
+
+    // Vision-capability mismatch: retry using the same user text prompt with the
+    // supported text model, but do not send image content on the fallback pass.
+    if (hasImage && model !== MODELS.groqFallback && (
+      msg.includes('does not exist') ||
+      msg.includes('no access') ||
+      msg.includes('vision') ||
+      msg.includes('image') ||
+      msg.includes('multimodal') ||
+      msg.includes('not supported') ||
+      msg.includes('unsupported')
+    )) {
+      console.warn('[AI] Groq vision model unavailable, retrying with text-only fallback');
+      return _callGroq(messages, apiKey, {
+        ...opts,
+        model: MODELS.groqFallback,
+        imageBase64: null
+      });
     }
-    throw new AiError('api_error', 'groq', data.error.message);
+
+    throw new AiError('api_error', 'groq', serverMessage);
   }
+
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -167,7 +182,8 @@ async function _callOpenRouter(messages, apiKey, opts = {}) {
       model,
       messages:    builtMessages,
       temperature: opts.temperature ?? 0.9,
-      max_tokens:  opts.maxTokens   || 1600
+      max_tokens:  opts.maxTokens   || 1600,
+      response_format: { type: 'json_object' }
     })
   }, opts.timeout || 40000);
 

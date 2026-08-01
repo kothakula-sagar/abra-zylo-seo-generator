@@ -13,6 +13,7 @@ import { callAI, friendlyError, validateKey } from './ai.js';
 import { getUser, getUserDoc, getApiKey, isAccessRestricted, getAccessMessage } from './auth.js';
 import { FB } from './firebase.js';
 import { uploadImage, getResponsive, getThumbnail, isFirebaseStorageUrl } from './cloudinary.js';
+import { normalizeModelNumber, checkModelNumberExists } from './product-model.js';
 import {
   safeStr, generateSlug, validateSlug, computeSeoScore,
   compressImage, compressDataUrl, parseJsonSafe, formatDate, escapeHtml
@@ -189,9 +190,11 @@ export function startNewProduct() {
   const nameEl = document.getElementById('prod-name');
   const catEl  = document.getElementById('prod-cat');
   const langEl = document.getElementById('prod-lang');
+  const modelNumberEl = document.getElementById('prod-model-number');
   if (nameEl) nameEl.value = '';
   if (catEl)  catEl.value  = '';
   if (langEl) langEl.value = 'en';
+  if (modelNumberEl) modelNumberEl.value = '';
 
   // Reset pricing fields
   const mrpEl = document.getElementById('prod-mrp');
@@ -295,6 +298,7 @@ export async function generate() {
   const name     = (document.getElementById('prod-name')?.value || '').trim();
   const cat      = document.getElementById('prod-cat')?.value   || '';
   const lang     = document.getElementById('prod-lang')?.value  || 'en';
+  const modelNumber = normalizeModelNumber(document.getElementById('prod-model-number')?.value || '');
   const provider = document.getElementById('prod-provider')?.value || 'groq';
   const apiKey   = getApiKey(provider);
 
@@ -344,10 +348,19 @@ export async function generate() {
       
       // Products contains product data only. SEO_History stores only the
       // generated SEO document and references this product by ID.
+      if (modelNumber) {
+        const duplicate = await checkModelNumberExists(modelNumber, productId || null);
+        if (duplicate) {
+          const duplicateName = duplicate.productName || 'Unknown Product';
+          throw new Error(`Model number ${modelNumber} is already available for ${duplicateName}. Check your database and update it.`);
+        }
+      }
+
       const productData = {
         productName: name,
         imageUrl: imageUrl,
         publicId: uploadResult.public_id,
+        modelNumber,
         category: cat,
         createdBy: getUser()?.uid,
         createdAt: FB.serverTimestamp(),

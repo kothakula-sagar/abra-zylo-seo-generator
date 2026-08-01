@@ -6,14 +6,27 @@
 import { FB } from './firebase.js';
 import { getUser, getUserDoc, isAdmin } from './auth.js';
 import { showToast, showAlert, hideAlert, openModal, closeModal } from './ui.js';
-import { safeStr, escapeHtml, formatDate } from './utils.js';
+import { safeStr, escapeHtml, formatDate, generateSlug } from './utils.js';
 import { uploadImage, getThumbnail, getResponsive, isFirebaseStorageUrl } from './cloudinary.js';
+import { normalizeModelNumber, normalizeProductName, checkModelNumberExists, normalizeDiscountPercent } from './product-model.js';
+
+const ABRA_ZYLO_STORE_URL = 'https://abra-zylo.com';
 
 // ── STATE ────────────────────────────────────────────────────
 let _products = [];
+let _productsLoaded = false;
+let _productsLoadPromise = null;
+let _productsLoadError = null;
+let _productsQueryCount = 0;
+let _productsCreatorLookupCount = 0;
+let _productsRenderCount = 0;
+let _productsRenderTimer = null;
 let _compareProductSelection = []; // store selected product ids for comparison
 let _campaigns = [];
 let _campaignItems = [];
+let _metaCatalogItems = [];
+let _metaCatalogFilter = 'all';
+let _metaCatalogActiveCampaignId = null;
 let _currentCampaign = null;
 let _selectedProductIds = new Set();
 let _currentEditingProduct = null;
@@ -23,6 +36,67 @@ let _campaignProductSelectionMode = 'start';
 let _productsFilterState = new Set();
 let _productsSortMode = 'newest';
 let _productUserCache = {};
+let _productsViewCache = { signature: '', creatorLabels: {}, duplicateProductNameSet: new Set() };
+let _activeMetaProductItemId = null;
+let _activeMetaProductDetails = null;
+let _metaProductLookupCache = {};
+let _metaCatalogCache = {
+  campaigns: [],
+  campaignItems: [],
+  metaItems: [],
+  campaignsById: new Map(),
+  campaignItemsByCampaign: new Map(),
+  productsById: new Map(),
+  metaByCampaignItemId: new Map(),
+  loaded: false,
+  loadPromise: null,
+  syncPromise: null
+};
+let _metaCatalogRenderTimer = null;
+let _metaFirestoreReadCount = 0;
+
+function recordMetaPerfMetric(name, value) {
+  if (!window.__metaCatalogPerf) window.__metaCatalogPerf = {};
+  window.__metaCatalogPerf[name] = value;
+  console.log(`[PERF] ${name}: ${value.toFixed(2)}ms`);
+}
+
+function recordMetaFirestoreRead(label) {
+  _metaFirestoreReadCount += 1;
+  if (!window.__metaCatalogPerf) window.__metaCatalogPerf = {};
+  window.__metaCatalogPerf.firestoreReads = _metaFirestoreReadCount;
+  console.log(`[PERF] Meta Firestore read: ${label}`);
+}
+
+function rebuildMetaCatalogLookups() {
+  const campaignsById = new Map(_metaCatalogCache.campaigns.map(campaign => [campaign.id, campaign]));
+  const campaignItemsByCampaign = new Map();
+  _metaCatalogCache.campaignItems.forEach(item => {
+    const items = campaignItemsByCampaign.get(item.campaignId) || [];
+    items.push(item);
+    campaignItemsByCampaign.set(item.campaignId, items);
+  });
+  const productsById = new Map(_products.map(product => [product.id, product]));
+  const metaByCampaignItemId = new Map(
+    _metaCatalogCache.metaItems.map(entry => [entry.campaignItemId || entry.id, entry])
+  );
+  _metaCatalogCache = {
+    ..._metaCatalogCache,
+    campaignsById,
+    campaignItemsByCampaign,
+    productsById,
+    metaByCampaignItemId
+  };
+}
+
+function invalidateMetaCatalogCache() {
+  _metaCatalogCache = {
+    ..._metaCatalogCache,
+    loaded: false,
+    loadPromise: null,
+    syncPromise: null
+  };
+}
 
 // ── PRODUCTS MODULE ──────────────────────────────────────────
 
@@ -76,42 +150,355 @@ function getUserDisplayName(userData, fallback = 'Unknown User') {
   return userData?.displayName || userData?.name || userData?.fullName || fallback;
 }
 
+async function resolveCreatorLabels(products) {
+  const creatorLabels = {};
+  const uniqueCreatorIds = [...new Set((products || []).map(product => product?.createdBy).filter(Boolean))];
+
+  if (!uniqueCreatorIds.length) {
+    return creatorLabels;
+  }
+
+  const resolvedByCreatorId = {};
+
+  for (const uid of uniqueCreatorIds) {
+    if (resolvedByCreatorId[uid] !== undefined) continue;
+
+    if (_productUserCache[uid] !== undefined) {
+      resolvedByCreatorId[uid] = _productUserCache[uid];
+      continue;
+    }
+
+    _productsCreatorLookupCount += 1;
+
+    try {
+      const userDoc = await FB.getDoc(FB.docRef('users', uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data() || {};
+        const resolved = getUserDisplayName(userData, 'Unknown User');
+        _productUserCache[uid] = resolved;
+        resolvedByCreatorId[uid] = resolved;
+      } else {
+        resolvedByCreatorId[uid] = 'Unknown User';
+      }
+    } catch (error) {
+      console.error('Error resolving creator labels:', error);
+      resolvedByCreatorId[uid] = 'Unknown User';
+    }
+  }
+
+  (products || []).forEach(product => {
+    const uid = product?.createdBy;
+    const createdByName = product?.createdByName || '';
+    creatorLabels[product.id] = createdByName || resolvedByCreatorId[uid] || product?.createdByEmail || 'Unknown User';
+  });
+
+  return creatorLabels;
+}
+
 async function resolveCreatorLabel(product) {
   if (!product) return 'Unknown User';
-
-  if (product.createdByName) {
-    return product.createdByName;
+  if (product.createdByName) return product.createdByName;
+  if (!product.createdBy) return product.createdByEmail || 'Unknown User';
+  if (_productUserCache[product.createdBy] !== undefined) {
+    return _productUserCache[product.createdBy];
   }
-
-  const uid = product.createdBy;
-  if (!uid) {
-    return product.createdByEmail || 'Unknown User';
-  }
-
-  if (_productUserCache[uid]) {
-    return _productUserCache[uid];
-  }
-
-  try {
-    const userDoc = await FB.getDoc(FB.docRef('users', uid));
-    if (userDoc.exists()) {
-      const userData = userDoc.data() || {};
-      const resolved = getUserDisplayName(userData, product.createdByEmail || 'Unknown User');
-      _productUserCache[uid] = resolved;
-      return resolved;
-    }
-  } catch (error) {
-    console.error('Error resolving creator label:', error);
-  }
-
-  const fallback = product.createdByEmail || 'Unknown User';
-  _productUserCache[uid] = fallback;
-  return fallback;
+  const labels = await resolveCreatorLabels([product]);
+  return labels[product.id] || product.createdByEmail || 'Unknown User';
 }
 
 function getProductsSortMode() {
   const select = document.getElementById('products-sort');
   return select?.value || _productsSortMode || 'newest';
+}
+
+function recordProductsPerfMetric(name, value) {
+  if (!window.__productsPerf) {
+    window.__productsPerf = {};
+  }
+  window.__productsPerf[name] = value;
+  console.log(`[PERF] ${name}: ${value.toFixed(2)}ms`);
+}
+
+function getProductsCacheSnapshot() {
+  return {
+    loaded: _productsLoaded,
+    count: _products.length,
+    queryCount: _productsQueryCount,
+    creatorLookups: _productsCreatorLookupCount,
+    renderCount: _productsRenderCount,
+    viewCacheSignature: _productsViewCache.signature
+  };
+}
+
+function invalidateProductsViewCache() {
+  _productsViewCache = { signature: '', creatorLabels: {}, duplicateProductNameSet: new Set() };
+}
+
+function buildProductsViewSignature(products) {
+  return (products || []).map(product => `${product.id}:${product.createdBy || ''}:${product.createdByName || ''}:${product.modelNumber || ''}:${product.productName || ''}:${product.updatedAt || ''}:${product.createdAt || ''}`).join('|');
+}
+
+function normalizeMetaStatus(value = 'pending') {
+  const status = String(value || 'pending').trim().toLowerCase();
+  return status === 'added' ? 'added' : 'pending';
+}
+
+function getMetaStatusLabel(value = 'pending') {
+  return normalizeMetaStatus(value) === 'added' ? 'Added' : 'Pending';
+}
+
+function formatMetaCurrency(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return '₹0';
+  return `₹${numericValue.toLocaleString('en-IN')}`;
+}
+
+function normalizeMetaProductSlug(slug = '') {
+  const trimmed = safeStr(slug).trim().toLowerCase();
+  if (!trimmed) return '';
+  return trimmed.replace(/^\/+/, '').replace(/\/+$/, '').replace(/\s+/g, '-');
+}
+
+function isProductionAbraZyloUrl(value = '') {
+  const candidate = safeStr(value).trim();
+  if (!candidate) return false;
+  try {
+    const parsed = new URL(candidate);
+    const hostname = parsed.hostname.toLowerCase();
+    return hostname === 'abra-zylo.com' || hostname === 'www.abra-zylo.com';
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildMetaProductUrl(product = {}, slugOverride = '') {
+  const directUrlCandidates = [
+    product?.productUrl,
+    product?.product_url,
+    product?.url,
+    product?.seoUrl,
+    product?.seo_url,
+    product?.storeUrl,
+    product?.store_url,
+    slugOverride
+  ];
+
+  for (const candidate of directUrlCandidates) {
+    const value = safeStr(candidate).trim();
+    if (!value) continue;
+    if (/^https?:\/\//i.test(value)) {
+      if (isProductionAbraZyloUrl(value)) return value;
+      if (!/^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(value)) {
+        return value;
+      }
+    }
+  }
+
+  const slug = normalizeMetaProductSlug(slugOverride || product?.seo_slug || product?.seoSlug || product?.slug || '');
+  if (slug) {
+    return `${ABRA_ZYLO_STORE_URL}/${slug}`;
+  }
+
+  const fallbackName = safeStr(product?.productName || '').trim();
+  if (fallbackName) {
+    return `${ABRA_ZYLO_STORE_URL}/${normalizeMetaProductSlug(generateSlug(fallbackName))}`;
+  }
+
+  return 'Not Added';
+}
+
+function hasCopyValue(value) {
+  if (value === undefined || value === null) return false;
+  const text = String(value).trim();
+  return text !== '' && text !== 'Not Added';
+}
+
+async function loadMetaProductDetailData(metaEntry) {
+  const cacheKey = metaEntry?.campaignItemId || metaEntry?.id || metaEntry?.productId || '';
+  if (cacheKey && _metaProductLookupCache[cacheKey]) {
+    return _metaProductLookupCache[cacheKey];
+  }
+
+  try {
+    const productId = metaEntry?.productId || '';
+    const campaignItemId = metaEntry?.campaignItemId || metaEntry?.id;
+    const product = _metaCatalogCache.productsById.get(productId) || null;
+    const campaignItemDoc = _metaCatalogCache.campaignItems.find(item => item.id === campaignItemId) || null;
+    const seoHistoryItems = await (
+      productId
+        ? (async () => {
+            try {
+              const q = FB.query(FB.col('SEO_History'), FB.where('productId', '==', productId));
+              recordMetaFirestoreRead('SEO_History for popup');
+              const snapshot = await FB.getDocs(q);
+              const items = [];
+              snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+              return items;
+            } catch (error) {
+              console.error('Error fetching SEO history for meta product details:', error);
+              return [];
+            }
+          })()
+        : Promise.resolve([])
+    );
+
+    const latestSeoHistory = (seoHistoryItems || []).sort((a, b) => {
+      const aTime = a?.generatedAt?.toDate ? a.generatedAt.toDate().getTime() : new Date(a?.generatedAt || 0).getTime();
+      const bTime = b?.generatedAt?.toDate ? b.generatedAt.toDate().getTime() : new Date(b?.generatedAt || 0).getTime();
+      return bTime - aTime;
+    })[0] || null;
+
+    const seoChecklist = latestSeoHistory?.seoChecklist || {};
+    const seoDescription = safeStr(
+      seoChecklist.productDescription ||
+      seoChecklist.product_description ||
+      seoChecklist.description ||
+      product?.productDescription ||
+      product?.product_description ||
+      product?.description ||
+      ''
+    ).trim();
+    const seoSlug = safeStr(
+      seoChecklist.seoSlug ||
+      seoChecklist.seo_slug ||
+      seoChecklist.slug ||
+      product?.seo_slug ||
+      product?.seoSlug ||
+      product?.slug ||
+      ''
+    ).trim();
+
+    const detail = {
+      productName: safeStr(product?.productName || metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
+      productDescription: seoDescription || 'Not Added',
+      productUrl: buildMetaProductUrl(product || {}, seoSlug),
+      mrp: Number(campaignItemDoc?.mrp ?? product?.mrp ?? metaEntry?.mrp ?? 0),
+      sellingPrice: Number(campaignItemDoc?.sellingPrice ?? product?.sellingPrice ?? metaEntry?.sellingPrice ?? 0),
+      modelNumber: safeStr(product?.modelNumber || metaEntry?.modelNumber || '').trim() || 'Not Added',
+      imageUrl: product?.imageUrl || '',
+      metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
+    };
+
+    if (cacheKey) {
+      _metaProductLookupCache[cacheKey] = detail;
+    }
+    return detail;
+  } catch (error) {
+    console.error('Error resolving meta product detail data:', error);
+    return {
+      productName: safeStr(metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
+      productDescription: 'Not Added',
+      productUrl: 'Not Added',
+      mrp: Number(metaEntry?.mrp ?? 0),
+      sellingPrice: Number(metaEntry?.sellingPrice ?? 0),
+      modelNumber: 'Not Added',
+      imageUrl: '',
+      metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
+    };
+  }
+}
+
+async function loadMetaCatalogItemsMap() {
+  return _metaCatalogCache.metaByCampaignItemId;
+}
+
+async function syncCompletedCampaignItemsToMetaCatalog(items = _metaCatalogCache.campaignItems) {
+  if (_metaCatalogCache.syncPromise) return _metaCatalogCache.syncPromise;
+
+  _metaCatalogCache.syncPromise = (async () => {
+  try {
+    const metaMap = _metaCatalogCache.metaByCampaignItemId;
+    const batch = FB.writeBatch();
+    const createdDocs = [];
+
+    (items || []).forEach(item => {
+      if (String(item.status || '').trim().toLowerCase() !== 'completed') return;
+      if (metaMap.has(item.id)) return;
+
+      const metaDoc = {
+        campaignId: item.campaignId || '',
+        campaignItemId: item.id,
+        productId: item.productId || '',
+        metaStatus: 'pending',
+        createdAt: FB.serverTimestamp(),
+        updatedAt: FB.serverTimestamp()
+      };
+      batch.set(FB.docRef('metaCatalogItems', item.id), metaDoc);
+      createdDocs.push({ id: item.id, ...metaDoc });
+    });
+
+    if (createdDocs.length > 0) {
+      await batch.commit();
+      _metaCatalogCache.metaItems = [..._metaCatalogCache.metaItems, ...createdDocs];
+      rebuildMetaCatalogLookups();
+    }
+  } catch (error) {
+    console.error('Error syncing completed campaign items to meta catalog:', error);
+  }
+  })();
+
+  try {
+    await _metaCatalogCache.syncPromise;
+  } finally {
+    _metaCatalogCache.syncPromise = null;
+  }
+}
+
+async function loadMetaCatalogData(options = {}) {
+  const { force = false } = options;
+  if (!force && _metaCatalogCache.loaded && ! _metaCatalogCache.loadPromise) {
+    return _metaCatalogCache;
+  }
+  if (_metaCatalogCache.loadPromise) return _metaCatalogCache.loadPromise;
+
+  const loadStart = performance.now();
+  _metaCatalogCache.loadPromise = (async () => {
+    try {
+      const campaignStart = performance.now();
+      const campaignsQuery = FB.query(FB.col('saleCampaigns'), FB.orderBy('createdAt', 'desc'));
+      recordMetaFirestoreRead('saleCampaigns');
+      const campaignsSnapshot = await FB.getDocs(campaignsQuery);
+      const campaigns = [];
+      campaignsSnapshot.forEach(doc => campaigns.push({ id: doc.id, ...doc.data() }));
+      recordMetaPerfMetric('Meta Campaigns Load', performance.now() - campaignStart);
+
+      const itemsStart = performance.now();
+      recordMetaFirestoreRead('campaignItems');
+      const itemsSnapshot = await FB.getDocs(FB.col('campaignItems'));
+      const campaignItems = [];
+      itemsSnapshot.forEach(doc => campaignItems.push({ id: doc.id, ...doc.data() }));
+      recordMetaPerfMetric('Campaign Items Load', performance.now() - itemsStart);
+
+      const statusStart = performance.now();
+      recordMetaFirestoreRead('metaCatalogItems');
+      const metaSnapshot = await FB.getDocs(FB.col('metaCatalogItems'));
+      const metaItems = [];
+      metaSnapshot.forEach(doc => metaItems.push({ id: doc.id, ...doc.data() }));
+      recordMetaPerfMetric('Meta Status Load', performance.now() - statusStart);
+
+      _metaCatalogCache = {
+        ..._metaCatalogCache,
+        campaigns,
+        campaignItems,
+        metaItems,
+        loaded: true
+      };
+      await loadProductsCatalog();
+      _campaigns = campaigns;
+      _metaCatalogItems = metaItems;
+      rebuildMetaCatalogLookups();
+      await syncCompletedCampaignItemsToMetaCatalog(campaignItems);
+      recordMetaPerfMetric('Meta Catalog Data Load', performance.now() - loadStart);
+      return _metaCatalogCache;
+    } catch (error) {
+      console.error('Error loading Meta Catalog data:', error);
+      throw error;
+    } finally {
+      _metaCatalogCache.loadPromise = null;
+    }
+  })();
+
+  return _metaCatalogCache.loadPromise;
 }
 
 function applyProductsSort(products) {
@@ -172,46 +559,92 @@ function updateProductsFilterButtons() {
   }
 }
 
-async function loadProductsCatalog() {
-  try {
-    const q = FB.query(
-      FB.col('products'),
-      FB.orderBy('createdAt', 'desc')
-    );
-    const snapshot = await FB.getDocs(q);
+async function loadProductsCatalog(options = {}) {
+  const { force = false } = options;
 
-    _products = [];
-    snapshot.forEach(doc => {
-      _products.push({ id: doc.id, ...doc.data() });
-    });
-
+  if (!force && _productsLoaded && _products.length && !_productsLoadPromise) {
     return _products;
-  } catch (error) {
-    console.error('Error loading products catalog:', error);
-    throw error;
   }
+
+  if (_productsLoadPromise) {
+    return _productsLoadPromise;
+  }
+
+  const loadStart = performance.now();
+  _productsLoadPromise = (async () => {
+    try {
+      _productsQueryCount += 1;
+      const q = FB.query(
+        FB.col('products'),
+        FB.orderBy('createdAt', 'desc')
+      );
+      const snapshot = await FB.getDocs(q);
+
+      const products = [];
+      snapshot.forEach(doc => {
+        products.push({ id: doc.id, ...doc.data() });
+      });
+
+      _products = products;
+      _productsLoaded = true;
+      _productsLoadError = null;
+      invalidateProductsViewCache();
+      recordProductsPerfMetric('Products Firestore Load', performance.now() - loadStart);
+      return _products;
+    } catch (error) {
+      _productsLoadError = error;
+      console.error('Error loading products catalog:', error);
+      throw error;
+    } finally {
+      _productsLoadPromise = null;
+    }
+  })();
+
+  return _productsLoadPromise;
 }
 
 /**
  * Load and render products list
  */
-async function renderProducts() {
+async function renderProducts(options = {}) {
   const container = document.getElementById('products-grid');
   if (!container) return;
-  
-  try {
-    await loadProductsCatalog();
 
+  const renderStart = performance.now();
+  _productsRenderCount += 1;
+
+  try {
+    const products = await loadProductsCatalog(options);
     const searchTerm = document.getElementById('products-search')?.value?.trim().toLowerCase() || '';
     const currentUser = getUser();
     const currentUserId = currentUser?.uid || '';
 
-    const creatorLabels = {};
-    await Promise.all(_products.map(async product => {
-      creatorLabels[product.id] = await resolveCreatorLabel(product);
-    }));
+    const signature = buildProductsViewSignature(products);
+    let creatorLabels = _productsViewCache.creatorLabels;
+    let duplicateProductNameSet = _productsViewCache.duplicateProductNameSet;
 
-    let filteredProducts = _products.filter(product => {
+    if (_productsViewCache.signature !== signature) {
+      const creatorStart = performance.now();
+      creatorLabels = await resolveCreatorLabels(products);
+      recordProductsPerfMetric('Creator Resolution', performance.now() - creatorStart);
+
+      const duplicateStart = performance.now();
+      const duplicateNameCounts = new Map();
+      products.forEach(product => {
+        const normalizedName = normalizeProductName(product.productName);
+        if (!normalizedName) return;
+        duplicateNameCounts.set(normalizedName, (duplicateNameCounts.get(normalizedName) || 0) + 1);
+      });
+      duplicateProductNameSet = new Set(
+        Array.from(duplicateNameCounts.entries())
+          .filter(([, count]) => count > 1)
+          .map(([name]) => name)
+      );
+      _productsViewCache = { signature, creatorLabels, duplicateProductNameSet };
+      recordProductsPerfMetric('Duplicate Map', performance.now() - duplicateStart);
+    }
+
+    let filteredProducts = products.filter(product => {
       const creatorLabel = creatorLabels[product.id] || '';
       const searchableText = [product.productName, creatorLabel, product.createdByEmail].join(' ').toLowerCase();
       const matchesSearch = !searchTerm || searchableText.includes(searchTerm);
@@ -222,14 +655,12 @@ async function renderProducts() {
     });
 
     filteredProducts = applyProductsSort(filteredProducts);
-    
-    // Update badge count
+
     const badge = document.getElementById('products-badge');
-    if (badge) badge.textContent = _products.length;
+    if (badge) badge.textContent = products.length;
 
     updateProductsFilterButtons();
-    
-    // Render products
+
     if (filteredProducts.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
@@ -242,24 +673,26 @@ async function renderProducts() {
           <p>${searchTerm || _productsFilterState.size ? 'No products match your current search or filters.' : 'Get started by adding your first product.'}</p>
           ${!searchTerm && !_productsFilterState.size ? '<button class="btn btn-accent" onclick="window.Marketing.showAddProduct()">Add Product</button>' : ''}
         </div>`;
+      recordProductsPerfMetric('Products Render', performance.now() - renderStart);
+      recordProductsPerfMetric('Total Products', performance.now() - renderStart);
       return;
     }
-    
-    container.innerHTML = filteredProducts.map(product => {
-      // Safe image URL handling with fallbacks
+
+    const markup = filteredProducts.map(product => {
       let imageSrc = '';
       if (product.imageUrl) {
         imageSrc = getResponsive(product.imageUrl, 280);
       } else if (product.image) {
-        // Legacy field fallback
         imageSrc = getResponsive(product.image, 280);
       }
       const isNew = isNewProduct(product.createdAt);
+      const isDuplicateName = duplicateProductNameSet.has(normalizeProductName(product.productName));
+      const modelNumberLabel = normalizeModelNumber(product.modelNumber || '') || 'Not Added';
       const addedByLabel = escapeHtml(creatorLabels[product.id] || 'Unknown User');
       const createdDateLabel = escapeHtml(formatProductShortDate(product.createdAt));
       const canEdit = canEditProduct(product);
       const canDelete = canDeleteProduct(product);
-      
+
       return `
       <div class="product-card">
         <div class="product-card-top">
@@ -267,21 +700,25 @@ async function renderProducts() {
             <input type="checkbox" ${_compareProductSelection.includes(product.id) ? 'checked' : ''} onclick="event.stopPropagation(); window.Marketing.toggleProductCompare('${product.id}')" />
             <span>Compare</span>
           </label>
-          ${isNew ? '<span class="product-new-badge">🟢 NEW</span>' : ''}
+          <div class="product-badge-group">
+            ${isDuplicateName ? '<span class="product-duplicate-badge">DUPLICATE</span>' : ''}
+            ${isNew ? '<span class="product-new-badge">🟢 NEW</span>' : ''}
+          </div>
         </div>
         <div class="product-image ${!imageSrc ? 'empty' : ''}">
           ${imageSrc 
-            ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='No Image';"/>`
+            ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.parentElement.innerHTML='No Image';"/>`
             : 'No Image'
           }
         </div>
         <div class="product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
+        <div class="product-model">Model: ${escapeHtml(modelNumberLabel)}</div>
         <div class="product-pricing">
           <div class="product-mrp">MRP ₹${product.mrp || 0}</div>
           <div class="product-selling-price">₹${product.sellingPrice || 0}</div>
           <div class="product-discount">
             <span class="you-save">Save ₹${product.youSave || 0}</span>
-            <span class="discount-badge">${product.discount || 0}% OFF</span>
+            <span class="discount-badge">${normalizeDiscountPercent(product.discount)}% OFF</span>
           </div>
         </div>
         <div class="product-card-meta">
@@ -304,12 +741,29 @@ async function renderProducts() {
         </div>
       </div>`;
     }).join('');
-    
+
+    container.innerHTML = markup;
+    recordProductsPerfMetric('Products Render', performance.now() - renderStart);
+    recordProductsPerfMetric('Total Products', performance.now() - renderStart);
   } catch (error) {
     console.error('Error loading products:', error);
     showToast('Failed to load products');
-    container.innerHTML = '<div class="empty-state"><p>Error loading products</p></div>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <h3>Products temporarily unavailable</h3>
+        <p>${_productsLoadError ? 'The products list could not be loaded right now.' : 'Please try again.'}</p>
+        <button class="btn btn-accent" onclick="window.Marketing.renderProducts({ force: true })">Retry</button>
+      </div>`;
   }
+}
+
+function handleProductsSearchInput() {
+  if (_productsRenderTimer) {
+    clearTimeout(_productsRenderTimer);
+  }
+  _productsRenderTimer = setTimeout(() => {
+    renderProducts();
+  }, 250);
 }
 
 function toggleProductCompare(productId) {
@@ -376,6 +830,7 @@ function showAddProduct() {
   document.getElementById('product-form').reset();
   document.getElementById('product-img-preview').style.display = 'none';
   document.getElementById('product-upload-placeholder').style.display = 'flex';
+  document.getElementById('product-model-number').value = '';
   document.getElementById('product-discount').value = '';
   document.getElementById('product-you-save').value = '';
   const historyBlock = document.getElementById('product-history-block');
@@ -403,6 +858,7 @@ async function editProduct(productId) {
     _currentEditingProduct = product;
     document.getElementById('product-modal-title').textContent = 'Edit Product';
     document.getElementById('product-name').value = product.productName || '';
+    document.getElementById('product-model-number').value = normalizeModelNumber(product.modelNumber || '');
     document.getElementById('product-mrp').value = product.mrp || '';
     document.getElementById('product-selling-price').value = product.sellingPrice || '';
     const historyBlock = document.getElementById('product-history-block');
@@ -487,20 +943,20 @@ function calculateDiscount() {
   const mrp = parseFloat(document.getElementById('product-mrp').value) || 0;
   const sellingPrice = parseFloat(document.getElementById('product-selling-price').value) || 0;
   
-  if (mrp <= 0 || sellingPrice <= 0) {
+  if (mrp <= 0 || sellingPrice < 0) {
     document.getElementById('product-discount').value = '';
     document.getElementById('product-you-save').value = '';
     return;
   }
   
-  if (sellingPrice > mrp) {
+  if (sellingPrice > mrp || sellingPrice < 0) {
     document.getElementById('product-discount').value = '';
     document.getElementById('product-you-save').value = '';
     return;
   }
   
   const youSave = mrp - sellingPrice;
-  const discount = ((youSave / mrp) * 100).toFixed(1);
+  const discount = mrp > 0 ? Math.round(((youSave / mrp) * 100)) : 0;
   
   document.getElementById('product-discount').value = `${discount}%`;
   document.getElementById('product-you-save').value = `₹${youSave}`;
@@ -527,6 +983,7 @@ async function handleProductSubmit(event) {
   
   // Get form data
   const productName = document.getElementById('product-name').value.trim();
+  const modelNumber = normalizeModelNumber(document.getElementById('product-model-number').value);
   const mrp = parseFloat(document.getElementById('product-mrp').value);
   const sellingPrice = parseFloat(document.getElementById('product-selling-price').value);
   const fileInput = document.getElementById('product-file-inp');
@@ -600,9 +1057,29 @@ async function handleProductSubmit(event) {
       }
     }
     
+    if (modelNumber) {
+      const duplicateInCache = _products.some(product => 
+        product.id !== _currentEditingProduct?.id &&
+        normalizeModelNumber(product.modelNumber || '') === modelNumber
+      );
+
+      if (duplicateInCache) {
+        const duplicateName = _products.find(product => product.id !== _currentEditingProduct?.id && normalizeModelNumber(product.modelNumber || '') === modelNumber)?.productName || 'Unknown Product';
+        showAlert('product-alert', `Model number ${modelNumber} is already available for ${duplicateName}. Check your database and update it.`);
+        return;
+      }
+
+      const duplicate = await checkModelNumberExists(modelNumber, _currentEditingProduct?.id || null);
+      if (duplicate) {
+        const duplicateName = duplicate.productName || 'Unknown Product';
+        showAlert('product-alert', `Model number ${modelNumber} is already available for ${duplicateName}. Check your database and update it.`);
+        return;
+      }
+    }
+
     // Calculate derived values with safe defaults
     const youSave = (mrp || 0) - (sellingPrice || 0);
-    const discount = mrp > 0 ? parseFloat(((youSave / mrp) * 100).toFixed(1)) : 0;
+    const discount = mrp > 0 ? Math.round(((youSave / mrp) * 100)) : 0;
     
     const productData = {
       productName,
@@ -611,7 +1088,8 @@ async function handleProductSubmit(event) {
       mrp: mrp || 0,
       sellingPrice: sellingPrice || 0,
       discount,
-      youSave
+      youSave,
+      ...(modelNumber ? { modelNumber } : {})
     };
 
     if (_currentEditingProduct) {
@@ -622,6 +1100,18 @@ async function handleProductSubmit(event) {
         updatedAt: FB.serverTimestamp()
       };
       await FB.updateDoc(FB.docRef('products', _currentEditingProduct.id), updatePayload);
+      const existingIndex = _products.findIndex(product => product.id === _currentEditingProduct.id);
+      if (existingIndex >= 0) {
+        _products[existingIndex] = {
+          ..._products[existingIndex],
+          ...productData,
+          updatedBy: user.uid,
+          updatedByName: user.displayName || user.email || 'Unknown User',
+          updatedAt: Date.now()
+        };
+      }
+      invalidateProductsViewCache();
+      if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
       showToast('Product updated successfully');
     } else {
       const createPayload = {
@@ -634,7 +1124,16 @@ async function handleProductSubmit(event) {
         updatedByName: user.displayName || user.email || 'Unknown User',
         updatedAt: FB.serverTimestamp()
       };
-      await FB.addDoc(FB.col('products'), createPayload);
+      const createdDoc = await FB.addDoc(FB.col('products'), createPayload);
+      _products.unshift({
+        id: createdDoc.id,
+        ...createPayload,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      _productsLoaded = true;
+      invalidateProductsViewCache();
+      if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
       showToast('Product added successfully');
     }
     
@@ -656,7 +1155,7 @@ async function handleProductSubmit(event) {
  * Delete campaign and its items
  */
 async function deleteCampaign(campaignId) {
-  if (!confirm('Are you sure you want to delete this campaign and all its items?')) return;
+  if (!confirm('Delete this campaign and all its campaign items? This removes the campaign and its occurrences only. Master Products will remain in Products.')) return;
 
   try {
     const campaign = _campaigns.find(c => c.id === campaignId) || (await FB.getDoc(FB.docRef('saleCampaigns', campaignId))).data();
@@ -665,28 +1164,35 @@ async function deleteCampaign(campaignId) {
       return;
     }
 
-    // Fetch campaign items and delete in a batch
     const itemsQuery = FB.query(
       FB.col('campaignItems'),
       FB.where('campaignId', '==', campaignId)
     );
     const itemsSnapshot = await FB.getDocs(itemsQuery);
 
+    const metaQuery = FB.query(
+      FB.col('metaCatalogItems'),
+      FB.where('campaignId', '==', campaignId)
+    );
+    const metaSnapshot = await FB.getDocs(metaQuery);
+
     const batch = FB.writeBatch();
     itemsSnapshot.forEach(doc => {
       batch.delete(FB.docRef('campaignItems', doc.id));
     });
+    metaSnapshot.forEach(doc => {
+      batch.delete(FB.docRef('metaCatalogItems', doc.id));
+    });
 
-    // Delete the campaign document
     batch.delete(FB.docRef('saleCampaigns', campaignId));
 
     await batch.commit();
 
+    invalidateMetaCatalogCache();
+
     showToast('Campaign deleted successfully');
-    // Refresh list
     renderCampaigns();
 
-    // If we were viewing this campaign, navigate back to campaigns list
     if (_currentCampaign && _currentCampaign.id === campaignId) {
       _currentCampaign = null;
       window.App.go('campaigns');
@@ -717,6 +1223,10 @@ async function deleteProduct(productId) {
     }
     
     await FB.deleteDoc(FB.docRef('products', productId));
+    _products = _products.filter(product => product.id !== productId);
+    _productsLoaded = true;
+    invalidateProductsViewCache();
+    if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
     showToast('Product deleted successfully');
     renderProducts();
     
@@ -738,7 +1248,6 @@ async function renderCampaigns() {
   if (!container) return;
   
   try {
-    // Load campaigns from Firestore
     const q = FB.query(
       FB.col('saleCampaigns'),
       FB.orderBy('createdAt', 'desc')
@@ -750,16 +1259,13 @@ async function renderCampaigns() {
       _campaigns.push({ id: doc.id, ...doc.data() });
     });
     
-    // Apply search filter
     const searchTerm = document.getElementById('campaigns-search')?.value?.toLowerCase() || '';
     const filteredCampaigns = _campaigns.filter(campaign =>
       campaign.saleName?.toLowerCase().includes(searchTerm)
     );
     
-    // Update badge count
     const badge = document.getElementById('campaigns-badge');
     if (badge) badge.textContent = _campaigns.length;
-    // Render campaigns
     if (filteredCampaigns.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
@@ -809,6 +1315,356 @@ async function renderCampaigns() {
     console.error('Error loading campaigns:', error);
     showToast('Failed to load campaigns');
     container.innerHTML = '<div class="empty-state"><p>Error loading campaigns</p></div>';
+  }
+}
+
+function bindMetaProductModalCopyButtons(details) {
+  const modal = document.getElementById('meta-product-modal');
+  if (!modal) return;
+
+  modal.querySelectorAll('.meta-copy-btn').forEach(button => {
+    const originalText = button.dataset.originalText || 'Copy';
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (button.disabled) return;
+      const field = button.dataset.copyField;
+      const value = details[field];
+      try {
+        await navigator.clipboard.writeText(String(value ?? ''));
+        button.textContent = '✓ Copied';
+        button.classList.add('is-copied');
+        window.setTimeout(() => {
+          button.textContent = originalText;
+          button.classList.remove('is-copied');
+        }, 1600);
+        showToast('Copied to clipboard');
+      } catch (error) {
+        console.error('Error copying meta product field:', error);
+        showToast('Unable to copy field');
+      }
+    });
+  });
+}
+
+async function openMetaProductDetails(itemId) {
+  const popupStart = performance.now();
+  _activeMetaProductItemId = itemId;
+  try {
+    const metaEntry = _metaCatalogItems.find(entry => (entry.campaignItemId || entry.id) === itemId || entry.id === itemId) || null;
+    if (!metaEntry) {
+      showToast('Meta product not found');
+      return;
+    }
+
+    const details = await loadMetaProductDetailData(metaEntry);
+    const metaState = normalizeMetaStatus(metaEntry?.metaStatus);
+    const isAdded = metaState === 'added';
+
+    _activeMetaProductDetails = {
+      itemId,
+      metaState,
+      ...details
+    };
+
+    const detailFields = [
+      { key: 'productName', label: 'Product Name', value: details.productName, copyValue: details.productName },
+      { key: 'productDescription', label: 'Product Description', value: details.productDescription, copyValue: details.productDescription },
+      { key: 'productUrl', label: 'Product URL', value: details.productUrl, copyValue: details.productUrl },
+      { key: 'mrp', label: 'MRP', value: formatMetaCurrency(details.mrp), copyValue: String(details.mrp) },
+      { key: 'sellingPrice', label: 'Selling Price', value: formatMetaCurrency(details.sellingPrice), copyValue: String(details.sellingPrice) },
+      { key: 'modelNumber', label: 'Model Number', value: details.modelNumber, copyValue: details.modelNumber }
+    ];
+
+    const imageMarkup = details.imageUrl
+      ? `<div class="meta-product-summary-image"><img src="${escapeHtml(getThumbnail(details.imageUrl, 320))}" alt="${escapeHtml(details.productName)}" loading="lazy" decoding="async" onerror="this.style.display='none';"/></div>`
+      : '<div class="meta-product-summary-image meta-product-detail-placeholder">No Image</div>';
+
+    const fieldsMarkup = detailFields.map(field => {
+      const hasValue = hasCopyValue(field.copyValue);
+      return `
+        <div class="meta-product-detail-field">
+          <div class="meta-product-detail-meta">
+            <div class="meta-product-detail-label">${escapeHtml(field.label)}</div>
+            <div class="meta-product-detail-value">${escapeHtml(field.value)}</div>
+          </div>
+          <button class="btn btn-ghost btn-xs meta-copy-btn" data-original-text="Copy" data-copy-field="${field.key}" ${hasValue ? '' : 'disabled'}>Copy</button>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('meta-product-modal-title').textContent = details.productName;
+    document.getElementById('meta-product-modal-body').innerHTML = `
+      <div class="meta-product-detail-card">
+        <div class="meta-product-summary-row">
+          ${imageMarkup}
+          <div class="meta-product-summary-info">
+            <div class="meta-product-summary-name">${escapeHtml(details.productName)}</div>
+            <div class="meta-product-summary-status">
+              <span class="status-badge ${metaState}">${metaState === 'added' ? 'ADDED' : 'PENDING'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="meta-product-detail-fields">${fieldsMarkup}</div>
+      </div>
+    `;
+
+    const footer = document.getElementById('meta-product-modal-footer');
+    if (footer) {
+      footer.innerHTML = `
+        <button type="button" class="btn btn-outline" onclick="window.Marketing.hideMetaProductModal()">Close</button>
+        <button type="button" class="btn ${isAdded ? 'btn-outline' : 'btn-accent'} btn-sm meta-modal-action-btn" ${isAdded ? 'disabled' : ''} onclick="event.stopPropagation(); window.Marketing.toggleMetaProductAdded()">
+          ${isAdded ? '✓ Added' : 'Mark Added'}
+        </button>
+      `;
+    }
+
+    bindMetaProductModalCopyButtons(_activeMetaProductDetails);
+    openModal('meta-product-modal');
+    recordMetaPerfMetric('Meta Product Popup Open', performance.now() - popupStart);
+  } catch (error) {
+    console.error('Error opening meta product details:', error);
+    showToast('Failed to load product details');
+  }
+}
+
+function hideMetaProductModal() {
+  _activeMetaProductItemId = null;
+  _activeMetaProductDetails = null;
+  closeModal('meta-product-modal');
+}
+
+async function toggleMetaProductAdded() {
+  if (!_activeMetaProductItemId) return;
+
+  try {
+    const currentEntry = _metaCatalogCache.metaByCampaignItemId.get(_activeMetaProductItemId) || {};
+    const nextStatus = normalizeMetaStatus(currentEntry.metaStatus) === 'added' ? 'pending' : 'added';
+    await persistMetaCatalogStatus(_activeMetaProductItemId, nextStatus, currentEntry);
+    if (_metaCatalogActiveCampaignId) {
+      await openMetaCatalogCampaign(_metaCatalogActiveCampaignId);
+    }
+    hideMetaProductModal();
+    showToast(`Meta product marked as ${nextStatus}`);
+  } catch (error) {
+    console.error('Error updating meta product status:', error);
+    showToast('Failed to update meta product status');
+  }
+}
+
+async function persistMetaCatalogStatus(itemId, nextStatus, currentEntry = {}) {
+  const updatedEntry = {
+    id: itemId,
+    ...currentEntry,
+    campaignItemId: itemId,
+    metaStatus: nextStatus,
+    updatedAt: FB.serverTimestamp(),
+    createdAt: currentEntry.createdAt || FB.serverTimestamp()
+  };
+  await FB.setDoc(FB.docRef('metaCatalogItems', itemId), {
+    campaignId: updatedEntry.campaignId || '',
+    campaignItemId: itemId,
+    productId: updatedEntry.productId || '',
+    metaStatus: nextStatus,
+    updatedAt: updatedEntry.updatedAt,
+    createdAt: updatedEntry.createdAt
+  }, { merge: true });
+
+  const existingIndex = _metaCatalogCache.metaItems.findIndex(entry => (entry.campaignItemId || entry.id) === itemId);
+  if (existingIndex >= 0) {
+    _metaCatalogCache.metaItems[existingIndex] = { ..._metaCatalogCache.metaItems[existingIndex], ...updatedEntry };
+  } else {
+    _metaCatalogCache.metaItems.push(updatedEntry);
+  }
+  _metaCatalogItems = _metaCatalogCache.metaItems;
+  rebuildMetaCatalogLookups();
+}
+
+async function renderMetaCatalog(options = {}) {
+  if (!isAdmin()) return;
+
+  const container = document.getElementById('meta-campaigns-grid');
+  const detail = document.getElementById('meta-catalog-detail');
+  const detailProductsGrid = document.getElementById('meta-catalog-products-grid');
+
+  if (!container) return;
+
+  const renderStart = performance.now();
+  try {
+    if (!_metaCatalogCache.loaded) {
+      container.innerHTML = '<div class="empty-state"><p>Loading Meta Product Catalog...</p></div>';
+    }
+    const data = await loadMetaCatalogData(options);
+
+    const searchTerm = document.getElementById('meta-campaign-search')?.value?.toLowerCase() || '';
+    const filteredCampaigns = data.campaigns.filter(campaign =>
+      (campaign.saleName || '').toLowerCase().includes(searchTerm)
+    );
+
+    if (detail) detail.style.display = 'none';
+    if (detailProductsGrid) detailProductsGrid.innerHTML = '';
+    if (container) container.style.display = 'grid';
+
+    if (filteredCampaigns.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12l2 2 4-4"/>
+          </svg>
+          <h3>No Campaigns Available</h3>
+          <p>No completed campaigns are available for the Meta Product Catalog yet.</p>
+        </div>`;
+      recordMetaPerfMetric('Meta Catalog Render', performance.now() - renderStart);
+      return;
+    }
+
+    const campaignCards = filteredCampaigns.map(campaign => {
+      return `
+        <div class="campaign-card" onclick="window.Marketing.openMetaCatalogCampaign('${campaign.id}')">
+          <div class="campaign-name">${escapeHtml(campaign.saleName)}</div>
+          <div class="campaign-prompt">${escapeHtml(campaign.prompt)}</div>
+          <div class="campaign-meta">
+            <div class="campaign-date">${formatDate(campaign.createdAt)}</div>
+            <div class="campaign-actions">
+              <button class="btn btn-accent btn-sm" onclick="event.stopPropagation(); window.Marketing.openMetaCatalogCampaign('${campaign.id}')">Open</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = campaignCards.join('');
+    recordMetaPerfMetric('Meta Catalog Render', performance.now() - renderStart);
+  } catch (error) {
+    console.error('Error rendering meta catalog:', error);
+    showToast('Failed to load Meta Product Catalog');
+    container.innerHTML = '<div class="empty-state"><h3>Meta Product Catalog unavailable</h3><p>Try loading the catalog again.</p><button class="btn btn-accent" onclick="window.Marketing.renderMetaCatalog({ force: true })">Retry</button></div>';
+  }
+}
+
+function filterMetaCatalog(filter) {
+  _metaCatalogFilter = filter;
+  document.querySelectorAll('.meta-status-filter').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === filter);
+  });
+  if (_metaCatalogActiveCampaignId) {
+    openMetaCatalogCampaign(_metaCatalogActiveCampaignId);
+  }
+}
+
+function handleMetaCatalogSearchInput() {
+  if (_metaCatalogRenderTimer) clearTimeout(_metaCatalogRenderTimer);
+  _metaCatalogRenderTimer = setTimeout(() => renderMetaCatalog(), 250);
+}
+
+function closeMetaCatalogCampaign() {
+  _metaCatalogActiveCampaignId = null;
+  const container = document.getElementById('meta-campaigns-grid');
+  const detail = document.getElementById('meta-catalog-detail');
+  const detailProductsGrid = document.getElementById('meta-catalog-products-grid');
+  if (container) container.style.display = 'grid';
+  if (detail) detail.style.display = 'none';
+  if (detailProductsGrid) detailProductsGrid.innerHTML = '';
+}
+
+async function openMetaCatalogCampaign(campaignId) {
+  const openStart = performance.now();
+  _metaCatalogActiveCampaignId = campaignId;
+  const container = document.getElementById('meta-campaigns-grid');
+  const detail = document.getElementById('meta-catalog-detail');
+  const detailProductsGrid = document.getElementById('meta-catalog-products-grid');
+  const campaign = _metaCatalogCache.campaignsById.get(campaignId) || _campaigns.find(item => item.id === campaignId);
+  if (!detail || !detailProductsGrid || !campaign) return;
+
+  if (container) container.style.display = 'none';
+  detail.style.display = 'block';
+  detailProductsGrid.innerHTML = '';
+
+  try {
+    const data = await loadMetaCatalogData();
+    const items = data.campaignItemsByCampaign.get(campaignId) || [];
+
+    const metaMap = new Map([...data.metaByCampaignItemId.entries()].map(([id, entry]) => [id, normalizeMetaStatus(entry.metaStatus)]));
+    const eligibleItems = items.filter(item => String(item.status || '').trim().toLowerCase() === 'completed');
+    const totalCount = eligibleItems.length;
+    const pendingCount = eligibleItems.filter(item => (metaMap.get(item.id) || 'pending') === 'pending').length;
+    const addedCount = eligibleItems.filter(item => (metaMap.get(item.id) || 'pending') === 'added').length;
+
+    document.getElementById('meta-total-count').textContent = String(totalCount);
+    document.getElementById('meta-pending-count').textContent = String(pendingCount);
+    document.getElementById('meta-added-count').textContent = String(addedCount);
+
+    const finalizedItems = eligibleItems.filter(item => {
+      const metaState = metaMap.get(item.id) || 'pending';
+      if (_metaCatalogFilter === 'pending') return metaState === 'pending';
+      if (_metaCatalogFilter === 'added') return metaState === 'added';
+      return true;
+    });
+
+    document.getElementById('meta-campaign-detail-name').textContent = campaign.saleName || 'Campaign';
+    document.getElementById('meta-campaign-detail-subtitle').textContent = 'Meta Product Catalog';
+
+    if (finalizedItems.length === 0) {
+      detailProductsGrid.innerHTML = `<div class="empty-state"><p>No matching Meta products for this campaign.</p></div>`;
+      return;
+    }
+
+    const productLookupStart = performance.now();
+    const productRecords = data.productsById;
+    recordMetaPerfMetric('Product Lookup', performance.now() - productLookupStart);
+
+    detailProductsGrid.innerHTML = finalizedItems.map(item => {
+      const productId = item.productId;
+      const latestProduct = productRecords.get(productId) || {};
+      const productImage = latestProduct.imageUrl || latestProduct.image || '';
+      const metaState = metaMap.get(item.id) || 'pending';
+      const buttonLabel = metaState === 'added' ? '✓ Added to Meta' : 'Mark Added';
+      const buttonClass = metaState === 'added' ? 'btn btn-outline btn-sm meta-card-button disabled' : 'btn btn-accent btn-sm meta-card-button';
+      const modelLabel = latestProduct.modelNumber || 'Not Added';
+      const image = productImage ? `<img src="${escapeHtml(getThumbnail(productImage, 200))}" alt="${escapeHtml(item.productName || 'Product')}" loading="lazy" decoding="async" onerror="this.style.display='none';"/>` : '<div style="display:flex;align-items:center;justify-content:center;color:var(--text3)">No Image</div>';
+      const actionMarkup = metaState === 'added'
+        ? `<button class="${buttonClass}" disabled>✓ Added to Meta</button>`
+        : `<button class="${buttonClass}" onclick="event.stopPropagation(); window.Marketing.toggleMetaCatalogStatus('${item.id}')">${buttonLabel}</button>`;
+
+      return `
+        <div class="meta-product-card" onclick="event.stopPropagation(); window.Marketing.openMetaProductDetails('${item.id}')">
+          <div class="meta-product-image">${image}</div>
+          <div class="meta-product-body">
+            <div class="meta-product-name">${escapeHtml(item.productName || 'Untitled Product')}</div>
+            <div class="meta-product-model">Model: ${escapeHtml(modelLabel)}</div>
+            <div class="meta-product-status-row">
+              <span class="status-badge completed">COMPLETED</span>
+              <span class="status-badge ${metaState}">${getMetaStatusLabel(metaState).toUpperCase()}</span>
+            </div>
+            <div class="meta-product-actions">
+              <button class="btn btn-outline btn-sm meta-card-button" onclick="event.stopPropagation(); window.Marketing.openMetaProductDetails('${item.id}')">View Details</button>
+              ${actionMarkup}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    detail.style.display = 'block';
+  recordMetaPerfMetric('Meta Campaign Open', performance.now() - openStart);
+  } catch (error) {
+    console.error('Error opening meta catalog campaign:', error);
+    showToast('Failed to load Meta catalog details');
+  }
+}
+
+async function toggleMetaCatalogStatus(itemId) {
+  try {
+    const currentEntry = _metaCatalogCache.metaByCampaignItemId.get(itemId) || {};
+    const nextStatus = normalizeMetaStatus(currentEntry.metaStatus) === 'added' ? 'pending' : 'added';
+    await persistMetaCatalogStatus(itemId, nextStatus, currentEntry);
+    if (_metaCatalogActiveCampaignId) {
+      await openMetaCatalogCampaign(_metaCatalogActiveCampaignId);
+    }
+    showToast(`Meta product marked as ${nextStatus}`);
+  } catch (error) {
+    console.error('Error updating meta catalog status:', error);
+    showToast('Failed to update meta catalog status');
   }
 }
 
@@ -1125,7 +1981,7 @@ async function renderCampaignProducts() {
         </div>
         <div class="campaign-product-info">
           <div class="campaign-product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
-          <div class="campaign-product-price">₹${product.sellingPrice || 0} (${product.discount || 0}% OFF)</div>
+          <div class="campaign-product-price">₹${product.sellingPrice || 0} (${normalizeDiscountPercent(product.discount)}% OFF)</div>
         </div>
       </div>
     </div>`;
@@ -1483,11 +2339,11 @@ async function deleteCampaignItem(itemId) {
     return;
   }
 
-  let confirmationMessage = 'Remove this product from the campaign?';
+  let confirmationMessage = 'Remove this product from this campaign only? The original product will remain in Products.';
   if (item.status === 'generating') {
-    confirmationMessage = 'This campaign item is currently generating. Remove it from the campaign?';
+    confirmationMessage = 'This campaign item is currently generating. Remove it from this campaign only? The original product will remain in Products.';
   } else if (item.status === 'completed') {
-    confirmationMessage = 'This completed campaign item will be removed from the campaign. Continue?';
+    confirmationMessage = 'This completed campaign item will be removed from this campaign only. The original product will remain in Products. Continue?';
   }
 
   if (!confirm(confirmationMessage)) return;
@@ -1498,6 +2354,17 @@ async function deleteCampaignItem(itemId) {
 
   try {
     await FB.deleteDoc(FB.docRef('campaignItems', itemId));
+    try {
+      await FB.deleteDoc(FB.docRef('metaCatalogItems', itemId));
+    } catch (metaDeleteError) {
+      console.info('No meta catalog record to remove for campaign item:', itemId);
+    }
+    if (_metaCatalogCache.loaded) {
+      _metaCatalogCache.campaignItems = _metaCatalogCache.campaignItems.filter(entry => entry.id !== itemId);
+      _metaCatalogCache.metaItems = _metaCatalogCache.metaItems.filter(entry => (entry.campaignItemId || entry.id) !== itemId);
+      rebuildMetaCatalogLookups();
+      _metaCatalogItems = _metaCatalogCache.metaItems;
+    }
     showToast('Campaign item removed');
     await loadCampaignItems();
     switchCampaignTab(_currentActiveTab);
@@ -1656,6 +2523,18 @@ async function updateCampaignItemStatus(newStatus) {
     }
     
     await FB.updateDoc(FB.docRef('campaignItems', _currentCampaignItem.id), updateData);
+
+    if (newStatus === 'completed') {
+      await FB.setDoc(FB.docRef('metaCatalogItems', _currentCampaignItem.id), {
+        campaignId: _currentCampaign?.id || '',
+        campaignItemId: _currentCampaignItem.id,
+        productId: _currentCampaignItem.productId || '',
+        metaStatus: 'pending',
+        updatedAt: FB.serverTimestamp(),
+        createdAt: FB.serverTimestamp()
+      }, { merge: true });
+      invalidateMetaCatalogCache();
+    }
     
     showToast(`Status updated to ${newStatus}`);
     hideCampaignItemModal();
@@ -1721,6 +2600,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // Export all functions that need to be accessible from HTML onclick attributes
 export {
   renderProducts,
+  loadProductsCatalog,
+  loadMetaCatalogData,
+  handleProductsSearchInput,
+  getProductsCacheSnapshot,
   showAddProduct,
   editProduct,
   deleteProduct,
@@ -1730,6 +2613,15 @@ export {
   calculateDiscount,
   hideProductModal,
   renderCampaigns,
+  renderMetaCatalog,
+  handleMetaCatalogSearchInput,
+  filterMetaCatalog,
+  closeMetaCatalogCampaign,
+  openMetaCatalogCampaign,
+  openMetaProductDetails,
+  hideMetaProductModal,
+  toggleMetaProductAdded,
+  toggleMetaCatalogStatus,
   showCreateCampaign,
   hideCampaignModal,
   editCampaign,

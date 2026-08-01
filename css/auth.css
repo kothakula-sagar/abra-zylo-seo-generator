@@ -11,11 +11,8 @@
 .auth-left::before{content:'';position:absolute;top:-120px;right:-120px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(244,180,0,.2),transparent 70%)}
 .auth-left::after{content:'';position:absolute;bottom:-90px;left:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,213,79,.16),transparent 68%)}
 
-.auth-logo{display:flex;align-items:center;gap:12px;margin-bottom:3rem;position:relative;z-index:1}
-.auth-logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 12px 24px rgba(244,180,0,.22)}
-.auth-logo-icon svg{width:24px;height:24px;fill:none;stroke:#111;stroke-width:2}
-.auth-logo-name{color:#111;font-size:1.1rem;font-weight:700;line-height:1}
-.auth-logo-name span{font-size:.68rem;font-weight:400;color:rgba(17,17,17,.5);display:block;margin-top:2px}
+.auth-logo{width:min(210px,100%);margin-bottom:3rem;position:relative;z-index:1}
+.auth-logo img{display:block;width:100%;height:auto;object-fit:contain}
 
 .auth-left h1{color:#111;font-size:1.9rem;font-weight:800;line-height:1.25;margin-bottom:1rem;position:relative;z-index:1}
 .auth-left h1 em{font-style:normal;color:#b77900}

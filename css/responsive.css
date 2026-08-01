@@ -15,11 +15,8 @@ body.app-ready .page-app { display: flex !important; }
 /* SIDEBAR */
 .sidebar{background:rgba(255,255,255,.45);width:var(--sidebar);min-width:var(--sidebar);flex-shrink:0;height:calc(100vh - 24px);display:flex;flex-direction:column;z-index:20;overflow-y:auto;position:sticky;top:12px;margin:12px 0 12px 12px;border:1px solid rgba(255,255,255,.55);border-radius:30px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 24px 60px rgba(17,24,39,.08)}
 .sidebar-header{padding:1.1rem 1rem;border-bottom:1px solid rgba(17,17,17,.06)}
-.sidebar-logo{display:flex;align-items:center;gap:10px}
-.sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 10px 24px rgba(244,180,0,.24)}
-.sidebar-logo-icon svg{width:16px;height:16px;stroke:#111;stroke-width:2;fill:none}
-.sidebar-logo-text{color:#111;font-weight:700;font-size:.95rem;line-height:1.1}
-.sidebar-logo-text span{font-size:.63rem;font-weight:400;color:rgba(17,17,17,.5);display:block}
+.sidebar-logo{width:100px;max-width:100%;margin:0 auto}
+.sidebar-logo img{display:block;width:100%;height:auto;object-fit:contain}
 .sidebar-nav{flex:1;padding:.75rem .6rem;display:flex;flex-direction:column;gap:2px}
 .nav-label{font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(17,17,17,.38);padding:.75rem .625rem .25rem}
 .nav-item{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:14px;color:rgba(17,17,17,.7);font-size:.84rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none;border:none;background:transparent;font-family:'Outfit',sans-serif;width:100%;text-align:left}

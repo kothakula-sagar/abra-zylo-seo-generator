@@ -71,19 +71,47 @@ export function formatDate(ts) {
 
 // ── JSON PARSING ─────────────────────────────────────────────
 export function parseJsonSafe(text) {
-  const s = text.indexOf('{');
-  const e = text.lastIndexOf('}');
-  if (s === -1 || e === -1) return null;
-  const slice = text.slice(s, e + 1);
-  try { return JSON.parse(slice); } catch {
+  if (!text || typeof text !== 'string') return null;
+
+  const normalized = text
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '');
+
+  const candidates = [
+    normalized,
+    normalized.replace(/^[\s\S]*?\{/, '{'),
+    normalized.slice(normalized.indexOf('{'), normalized.lastIndexOf('}') + 1),
+    normalized.replace(/\n/g, ' ')
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || !candidate.includes('{')) continue;
     try {
-      return JSON.parse(
-        slice.replace(/"(?:[^"\\]|\\.)*"/g, m =>
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        const repaired = candidate.replace(/"(?:[^"\\]|\\.)*"/g, m =>
           m.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' ')
-        )
-      );
-    } catch { return null; }
+        );
+        return JSON.parse(repaired);
+      } catch {
+        // continue to the next candidate
+      }
+    }
   }
+
+  const msgMatch = normalized.match(/\{\s*"(?:meta_title|meta_description|focus_keywords|seo_slug|alt_text|product_description|short_description|product_tags|socialMedia)"/i);
+  if (msgMatch) {
+    try {
+      return JSON.parse(msgMatch[0] + normalized.slice(msgMatch.index + msgMatch[0].length).match(/\}.*/s)?.[0] || '{}');
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 // ── IMAGE COMPRESSION ────────────────────────────────────────
