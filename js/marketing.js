@@ -39,6 +39,7 @@ let _campaignProductSelectionMode = 'start';
 let _productsFilterState = new Set();
 let _productsSortMode = 'newest';
 let _productUserCache = {};
+let _productsScrollState = null;
 let _productsViewCache = { signature: '', creatorLabels: {}, duplicateProductNameSet: new Set() };
 let _activeMetaProductItemId = null;
 let _activeMetaProductDetails = null;
@@ -562,6 +563,159 @@ function updateProductsFilterButtons() {
   }
 }
 
+function getProductsScrollTarget() {
+  const scrollTarget = document.scrollingElement || document.documentElement || document.body;
+  if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+    return scrollTarget;
+  }
+  return window;
+}
+
+function preserveProductsScrollState() {
+  const scrollTarget = getProductsScrollTarget();
+  _productsScrollState = {
+    x: (scrollTarget && typeof scrollTarget.scrollLeft === 'number' ? scrollTarget.scrollLeft : window.scrollX || window.pageXOffset || 0),
+    y: (scrollTarget && typeof scrollTarget.scrollTop === 'number' ? scrollTarget.scrollTop : window.scrollY || window.pageYOffset || 0)
+  };
+}
+
+function restoreProductsScrollState() {
+  if (!_productsScrollState) return;
+
+  const restoreScroll = () => {
+    const scrollTarget = getProductsScrollTarget();
+    if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+      scrollTarget.scrollTo(_productsScrollState.x, _productsScrollState.y);
+    } else {
+      window.scrollTo(_productsScrollState.x, _productsScrollState.y);
+    }
+  };
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(restoreScroll);
+  } else {
+    setTimeout(restoreScroll, 0);
+  }
+}
+
+function matchesProductsViewFilters(product, searchTerm, currentUserId) {
+  const creatorLabel = (product.createdByName || product.createdByEmail || '').toLowerCase();
+  const searchableText = [product.productName, creatorLabel, product.createdByEmail].join(' ').toLowerCase();
+  const matchesSearch = !searchTerm || searchableText.includes(searchTerm);
+  const matchesAddedByMe = !_productsFilterState.has('added-by-me') || (currentUserId && product.createdBy === currentUserId);
+  const matchesAddedToday = !_productsFilterState.has('added-today') || isSameDay(product.createdAt);
+  const matchesUpdatedToday = !_productsFilterState.has('updated-today') || isSameDay(product.updatedAt);
+  return matchesSearch && matchesAddedByMe && matchesAddedToday && matchesUpdatedToday;
+}
+
+function buildProductCardMarkup(product, creatorLabels, duplicateProductNameSet, currentUserId) {
+  let imageSrc = '';
+  if (product.imageUrl) {
+    imageSrc = getResponsive(product.imageUrl, 280);
+  } else if (product.image) {
+    imageSrc = getResponsive(product.image, 280);
+  }
+  const isNew = isNewProduct(product.createdAt);
+  const isDuplicateName = duplicateProductNameSet.has(normalizeProductName(product.productName));
+  const modelNumberLabel = normalizeModelNumber(product.modelNumber || '') || 'Not Added';
+  const addedByLabel = escapeHtml(creatorLabels[product.id] || 'Unknown User');
+  const createdDateLabel = escapeHtml(formatProductShortDate(product.createdAt));
+  const canEdit = canEditProduct(product);
+  const canDelete = canDeleteProduct(product);
+
+  return `
+    <div class="product-card" data-product-id="${escapeHtml(product.id || '')}">
+      <div class="product-card-top">
+        <label class="product-compare-pill" onclick="event.stopPropagation();">
+          <input type="checkbox" ${_compareProductSelection.includes(product.id) ? 'checked' : ''} onclick="event.stopPropagation(); window.Marketing.toggleProductCompare('${product.id}')" />
+          <span>Compare</span>
+        </label>
+        <div class="product-badge-group">
+          ${isDuplicateName ? '<span class="product-duplicate-badge">DUPLICATE</span>' : ''}
+          ${isNew ? '<span class="product-new-badge">🟢 NEW</span>' : ''}
+        </div>
+      </div>
+      <div class="product-image ${!imageSrc ? 'empty' : ''}">
+        ${imageSrc 
+          ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.parentElement.innerHTML='No Image';"/>`
+          : 'No Image'
+        }
+      </div>
+      <div class="product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
+      <div class="product-model">Model: ${escapeHtml(modelNumberLabel)}</div>
+      <div class="product-pricing">
+        <div class="product-mrp">MRP ₹${product.mrp || 0}</div>
+        <div class="product-selling-price">₹${product.sellingPrice || 0}</div>
+        <div class="product-discount">
+          <span class="you-save">Save ₹${product.youSave || 0}</span>
+          <span class="discount-badge">${normalizeDiscountPercent(product.discount)}% OFF</span>
+        </div>
+      </div>
+      <div class="product-card-meta">
+        <div class="product-meta-main">
+          <span class="product-meta-user">👤 ${addedByLabel}</span>
+          <span class="product-meta-date">🗓 ${createdDateLabel}</span>
+        </div>
+        <div class="product-actions">
+          ${canEdit ? `
+            <button class="product-action-btn" title="Edit Product" onclick="event.stopPropagation(); window.Marketing.editProduct('${product.id}')">
+              ✏️
+            </button>
+          ` : ''}
+          ${canDelete ? `
+            <button class="product-action-btn product-action-btn-delete" title="Delete Product" onclick="event.stopPropagation(); window.Marketing.deleteProduct('${product.id}')">
+              🗑️
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function updateEditedProductCard(product) {
+  const container = document.getElementById('products-grid');
+  if (!container || !product) return false;
+
+  const searchTerm = document.getElementById('products-search')?.value?.trim().toLowerCase() || '';
+  const currentUser = getUser();
+  const currentUserId = currentUser?.uid || '';
+  const shouldRemainVisible = matchesProductsViewFilters(product, searchTerm, currentUserId);
+  const existingCard = container.querySelector(`[data-product-id="${product.id}"]`);
+
+  if (!shouldRemainVisible) {
+    if (existingCard) {
+      existingCard.remove();
+    }
+    return true;
+  }
+
+  if (existingCard) {
+    const creatorLabels = await resolveCreatorLabels([product]);
+    const duplicateNameCounts = new Map();
+    _products.forEach(item => {
+      const normalizedName = normalizeProductName(item.productName);
+      if (!normalizedName) return;
+      duplicateNameCounts.set(normalizedName, (duplicateNameCounts.get(normalizedName) || 0) + 1);
+    });
+    const duplicateProductNameSet = new Set(
+      Array.from(duplicateNameCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([name]) => name)
+    );
+
+    existingCard.outerHTML = buildProductCardMarkup(product, { [product.id]: creatorLabels[product.id] || 'Unknown User' }, duplicateProductNameSet, currentUserId);
+    return true;
+  }
+
+  const existingProducts = container.querySelectorAll('.product-card');
+  if (existingProducts.length === 0) {
+    await renderProducts({ force: true });
+    return true;
+  }
+
+  return false;
+}
+
 async function loadProductsCatalog(options = {}) {
   const { force = false } = options;
 
@@ -647,15 +801,7 @@ async function renderProducts(options = {}) {
       recordProductsPerfMetric('Duplicate Map', performance.now() - duplicateStart);
     }
 
-    let filteredProducts = products.filter(product => {
-      const creatorLabel = creatorLabels[product.id] || '';
-      const searchableText = [product.productName, creatorLabel, product.createdByEmail].join(' ').toLowerCase();
-      const matchesSearch = !searchTerm || searchableText.includes(searchTerm);
-      const matchesAddedByMe = !_productsFilterState.has('added-by-me') || (currentUserId && product.createdBy === currentUserId);
-      const matchesAddedToday = !_productsFilterState.has('added-today') || isSameDay(product.createdAt);
-      const matchesUpdatedToday = !_productsFilterState.has('updated-today') || isSameDay(product.updatedAt);
-      return matchesSearch && matchesAddedByMe && matchesAddedToday && matchesUpdatedToday;
-    });
+    let filteredProducts = products.filter(product => matchesProductsViewFilters(product, searchTerm, currentUserId));
 
     filteredProducts = applyProductsSort(filteredProducts);
 
@@ -681,69 +827,7 @@ async function renderProducts(options = {}) {
       return;
     }
 
-    const markup = filteredProducts.map(product => {
-      let imageSrc = '';
-      if (product.imageUrl) {
-        imageSrc = getResponsive(product.imageUrl, 280);
-      } else if (product.image) {
-        imageSrc = getResponsive(product.image, 280);
-      }
-      const isNew = isNewProduct(product.createdAt);
-      const isDuplicateName = duplicateProductNameSet.has(normalizeProductName(product.productName));
-      const modelNumberLabel = normalizeModelNumber(product.modelNumber || '') || 'Not Added';
-      const addedByLabel = escapeHtml(creatorLabels[product.id] || 'Unknown User');
-      const createdDateLabel = escapeHtml(formatProductShortDate(product.createdAt));
-      const canEdit = canEditProduct(product);
-      const canDelete = canDeleteProduct(product);
-
-      return `
-      <div class="product-card">
-        <div class="product-card-top">
-          <label class="product-compare-pill" onclick="event.stopPropagation();">
-            <input type="checkbox" ${_compareProductSelection.includes(product.id) ? 'checked' : ''} onclick="event.stopPropagation(); window.Marketing.toggleProductCompare('${product.id}')" />
-            <span>Compare</span>
-          </label>
-          <div class="product-badge-group">
-            ${isDuplicateName ? '<span class="product-duplicate-badge">DUPLICATE</span>' : ''}
-            ${isNew ? '<span class="product-new-badge">🟢 NEW</span>' : ''}
-          </div>
-        </div>
-        <div class="product-image ${!imageSrc ? 'empty' : ''}">
-          ${imageSrc 
-            ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.parentElement.innerHTML='No Image';"/>`
-            : 'No Image'
-          }
-        </div>
-        <div class="product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
-        <div class="product-model">Model: ${escapeHtml(modelNumberLabel)}</div>
-        <div class="product-pricing">
-          <div class="product-mrp">MRP ₹${product.mrp || 0}</div>
-          <div class="product-selling-price">₹${product.sellingPrice || 0}</div>
-          <div class="product-discount">
-            <span class="you-save">Save ₹${product.youSave || 0}</span>
-            <span class="discount-badge">${normalizeDiscountPercent(product.discount)}% OFF</span>
-          </div>
-        </div>
-        <div class="product-card-meta">
-          <div class="product-meta-main">
-            <span class="product-meta-user">👤 ${addedByLabel}</span>
-            <span class="product-meta-date">🗓 ${createdDateLabel}</span>
-          </div>
-          <div class="product-actions">
-            ${canEdit ? `
-              <button class="product-action-btn" title="Edit Product" onclick="event.stopPropagation(); window.Marketing.editProduct('${product.id}')">
-                ✏️
-              </button>
-            ` : ''}
-            ${canDelete ? `
-              <button class="product-action-btn product-action-btn-delete" title="Delete Product" onclick="event.stopPropagation(); window.Marketing.deleteProduct('${product.id}')">
-                🗑️
-              </button>
-            ` : ''}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+    const markup = filteredProducts.map(product => buildProductCardMarkup(product, creatorLabels, duplicateProductNameSet, currentUserId)).join('');
 
     container.innerHTML = markup;
     recordProductsPerfMetric('Products Render', performance.now() - renderStart);
@@ -828,6 +912,7 @@ async function compareSelectedProducts() {
  * Show add product modal
  */
 function showAddProduct() {
+  preserveProductsScrollState();
   _currentEditingProduct = null;
   document.getElementById('product-modal-title').textContent = 'Add Product';
   document.getElementById('product-form').reset();
@@ -858,6 +943,7 @@ async function editProduct(productId) {
       return;
     }
     
+    preserveProductsScrollState();
     _currentEditingProduct = product;
     document.getElementById('product-modal-title').textContent = 'Edit Product';
     document.getElementById('product-name').value = product.productName || '';
@@ -970,6 +1056,7 @@ function calculateDiscount() {
  */
 function hideProductModal() {
   closeModal('product-modal');
+  restoreProductsScrollState();
 }
 
 /**
@@ -1105,17 +1192,22 @@ async function handleProductSubmit(event) {
       await FB.updateDoc(FB.docRef('products', _currentEditingProduct.id), updatePayload);
       const existingIndex = _products.findIndex(product => product.id === _currentEditingProduct.id);
       if (existingIndex >= 0) {
-        _products[existingIndex] = {
+        const updatedProduct = {
           ..._products[existingIndex],
           ...productData,
           updatedBy: user.uid,
           updatedByName: user.displayName || user.email || 'Unknown User',
           updatedAt: Date.now()
         };
+        _products[existingIndex] = updatedProduct;
+        invalidateProductsViewCache();
+        if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
+        showToast('Product updated successfully');
+        hideProductModal();
+        await updateEditedProductCard(updatedProduct);
+        restoreProductsScrollState();
+        return;
       }
-      invalidateProductsViewCache();
-      if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
-      showToast('Product updated successfully');
     } else {
       const createPayload = {
         ...productData,
