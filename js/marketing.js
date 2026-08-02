@@ -33,6 +33,8 @@ let _metaCatalogActiveCampaignId = null;
 let _currentCampaign = null;
 let _selectedProductIds = new Set();
 let _currentEditingProduct = null;
+let _productEditOriginal = null;
+let _productImageChanged = false;
 let _currentCampaignItem = null;
 let _currentActiveTab = 'pending';
 let _campaignProductSelectionMode = 'start';
@@ -914,6 +916,8 @@ async function compareSelectedProducts() {
 function showAddProduct() {
   preserveProductsScrollState();
   _currentEditingProduct = null;
+  _productEditOriginal = null;
+  _productImageChanged = false;
   document.getElementById('product-modal-title').textContent = 'Add Product';
   document.getElementById('product-form').reset();
   document.getElementById('product-img-preview').style.display = 'none';
@@ -945,6 +949,8 @@ async function editProduct(productId) {
     
     preserveProductsScrollState();
     _currentEditingProduct = product;
+    _productEditOriginal = { ...product };
+    _productImageChanged = false;
     document.getElementById('product-modal-title').textContent = 'Edit Product';
     document.getElementById('product-name').value = product.productName || '';
     document.getElementById('product-model-number').value = normalizeModelNumber(product.modelNumber || '');
@@ -1000,6 +1006,7 @@ async function editProduct(productId) {
 function onProductImageSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
+  _productImageChanged = true;
   
   // Validate file
   if (!file.type.startsWith('image/')) {
@@ -1055,6 +1062,8 @@ function calculateDiscount() {
  * Hide product modal
  */
 function hideProductModal() {
+  _productImageChanged = false;
+  _productEditOriginal = null;
   closeModal('product-modal');
   restoreProductsScrollState();
 }
@@ -1118,25 +1127,19 @@ async function handleProductSubmit(event) {
     let imageUrl = _currentEditingProduct?.imageUrl || '';
     let publicId = _currentEditingProduct?.publicId || '';
     
-    // Upload new image if selected
-    if (fileInput.files[0]) {
+    // Upload new image only if the user explicitly selected one.
+    if (_productImageChanged && fileInput.files[0]) {
       const file = fileInput.files[0];
       
       showToast('Uploading image to Cloudinary...');
       
       try {
-        // Upload to Cloudinary with optimized settings for products
         const uploadResult = await uploadImage(file, 'products', {
           publicId: `product_${user.uid}_${Date.now()}`
         });
         
         imageUrl = uploadResult.secure_url;
         publicId = uploadResult.public_id;
-        
-        console.log('[Marketing] Upload result:', {
-          secure_url: uploadResult.secure_url,
-          public_id: uploadResult.public_id
-        });
         
         showToast('Image uploaded successfully!');
         
@@ -1147,44 +1150,116 @@ async function handleProductSubmit(event) {
       }
     }
     
-    if (modelNumber) {
+    const originalProduct = _productEditOriginal || _currentEditingProduct || null;
+    const normalizedProductName = productName.trim();
+    const normalizedModelNumber = normalizeModelNumber(modelNumber);
+    const normalizedMrp = Number.isFinite(mrp) ? mrp : 0;
+    const normalizedSellingPrice = Number.isFinite(sellingPrice) ? sellingPrice : 0;
+    const youSave = (normalizedMrp || 0) - (normalizedSellingPrice || 0);
+    const discount = normalizedMrp > 0 ? Math.round(((youSave / normalizedMrp) * 100)) : 0;
+
+    if (originalProduct && modelNumber) {
       const duplicateInCache = _products.some(product => 
-        product.id !== _currentEditingProduct?.id &&
-        normalizeModelNumber(product.modelNumber || '') === modelNumber
+        product.id !== originalProduct.id &&
+        normalizeModelNumber(product.modelNumber || '') === normalizedModelNumber
       );
 
       if (duplicateInCache) {
-        const duplicateName = _products.find(product => product.id !== _currentEditingProduct?.id && normalizeModelNumber(product.modelNumber || '') === modelNumber)?.productName || 'Unknown Product';
-        showAlert('product-alert', `Model number ${modelNumber} is already available for ${duplicateName}. Check your database and update it.`);
+        const duplicateName = _products.find(product => product.id !== originalProduct.id && normalizeModelNumber(product.modelNumber || '') === normalizedModelNumber)?.productName || 'Unknown Product';
+        showAlert('product-alert', `Model number ${normalizedModelNumber} is already available for ${duplicateName}. Check your database and update it.`);
         return;
       }
 
-      const duplicate = await checkModelNumberExists(modelNumber, _currentEditingProduct?.id || null);
+      const duplicate = await checkModelNumberExists(normalizedModelNumber, originalProduct.id || null);
       if (duplicate) {
         const duplicateName = duplicate.productName || 'Unknown Product';
-        showAlert('product-alert', `Model number ${modelNumber} is already available for ${duplicateName}. Check your database and update it.`);
+        showAlert('product-alert', `Model number ${normalizedModelNumber} is already available for ${duplicateName}. Check your database and update it.`);
         return;
       }
     }
 
-    // Calculate derived values with safe defaults
-    const youSave = (mrp || 0) - (sellingPrice || 0);
-    const discount = mrp > 0 ? Math.round(((youSave / mrp) * 100)) : 0;
-    
-    const productData = {
-      productName,
-      imageUrl,
-      publicId,
-      mrp: mrp || 0,
-      sellingPrice: sellingPrice || 0,
-      discount,
-      youSave,
-      ...(modelNumber ? { modelNumber } : {})
-    };
+    const changes = {};
+
+    if (originalProduct) {
+      const originalName = String(originalProduct.productName || '').trim();
+      const originalModelNumber = normalizeModelNumber(originalProduct.modelNumber || '');
+      const originalMrp = Number.isFinite(Number(originalProduct.mrp)) ? Number(originalProduct.mrp) : 0;
+      const originalSellingPrice = Number.isFinite(Number(originalProduct.sellingPrice)) ? Number(originalProduct.sellingPrice) : 0;
+
+      if (normalizedProductName !== originalName) {
+        changes.productName = normalizedProductName;
+      }
+
+      if (originalModelNumber !== normalizedModelNumber) {
+        changes.modelNumber = normalizedModelNumber;
+      }
+
+      const mrpChanged = normalizedMrp !== originalMrp;
+      const sellingPriceChanged = normalizedSellingPrice !== originalSellingPrice;
+
+      if (mrpChanged) {
+        changes.mrp = normalizedMrp;
+      }
+      if (sellingPriceChanged) {
+        changes.sellingPrice = normalizedSellingPrice;
+      }
+      if (mrpChanged || sellingPriceChanged) {
+        changes.discount = discount;
+        changes.youSave = youSave;
+      }
+
+      if (_productImageChanged) {
+        changes.imageUrl = imageUrl;
+        changes.publicId = publicId;
+      }
+    } else {
+      const createPayload = {
+        productName: normalizedProductName,
+        imageUrl,
+        publicId,
+        mrp: normalizedMrp || 0,
+        sellingPrice: normalizedSellingPrice || 0,
+        discount,
+        youSave,
+        ...(normalizedModelNumber ? { modelNumber: normalizedModelNumber } : {})
+      };
+
+      const createPayloadWithMeta = {
+        ...createPayload,
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || 'Unknown User',
+        createdByEmail: user.email || '',
+        createdAt: FB.serverTimestamp(),
+        updatedBy: user.uid,
+        updatedByName: user.displayName || user.email || 'Unknown User',
+        updatedAt: FB.serverTimestamp()
+      };
+
+      const createdDoc = await FB.addDoc(FB.col('products'), createPayloadWithMeta);
+      _products.unshift({
+        id: createdDoc.id,
+        ...createPayloadWithMeta,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      _productsLoaded = true;
+      invalidateProductsViewCache();
+      if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
+      showToast('Product added successfully');
+      hideProductModal();
+      renderProducts();
+      return;
+    }
+
+    if (Object.keys(changes).length === 0) {
+      showToast('No changes detected');
+      hideProductModal();
+      return;
+    }
 
     if (_currentEditingProduct) {
       const updatePayload = {
-        ...productData,
+        ...changes,
         updatedBy: user.uid,
         updatedByName: user.displayName || user.email || 'Unknown User',
         updatedAt: FB.serverTimestamp()
@@ -1194,7 +1269,7 @@ async function handleProductSubmit(event) {
       if (existingIndex >= 0) {
         const updatedProduct = {
           ..._products[existingIndex],
-          ...productData,
+          ...changes,
           updatedBy: user.uid,
           updatedByName: user.displayName || user.email || 'Unknown User',
           updatedAt: Date.now()
