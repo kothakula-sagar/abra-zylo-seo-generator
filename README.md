@@ -1,367 +1,796 @@
-# Abra Zylo - AI SEO Portal
+# 🔍 ABRA ZYLO – AI SEO Portal
 
-> AI-powered SEO content generator with Real-Time Performance Audit
+<p align="center">
+  <strong>AI-Powered SEO Content Generation, Product Optimization & Website Audit Platform</strong>
+</p>
 
-## 🚀 Features
-
-### Core Features
-- **AI SEO Content Generation** - Generate meta titles, descriptions, product copy, and more
-- **SEO Audit Tool** - Comprehensive SEO analysis with 11-point validation
-- **Real-Time Performance Audit** ⭐ NEW - Google PageSpeed Insights integration
-- **Multi-Language Support** - English, Hindi, Telugu
-- **Firebase Cloud Sync** - All data synced across devices
-- **Admin Account Management** - User approval and role management
-
-### AI Providers Supported
-- Groq (Llama 3.3 70B) - Free tier: 14,400 req/day
-- Google Gemini
-- OpenRouter (200+ models)
-
-### Performance Audit Features ⭐ NEW
-- **Google PageSpeed Insights Integration**
-- Real-time Lighthouse analysis
-- Mobile & Desktop testing
-- Core Web Vitals metrics (LCP, CLS, FCP, TTFB, Speed Index, INP)
-- Performance, Accessibility, Best Practices, and SEO scores
-- Optimization opportunities and diagnostics
-- Beautiful visual reports with circular progress indicators
-- Save audits to Firebase
-- Admin-controlled API key configuration
-
-## 📋 Requirements
-
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Firebase account
-- Google PageSpeed Insights API key (for Performance Audit)
-- AI provider API key (Groq/Gemini/OpenRouter)
-
-## 🔧 Setup
-
-### 1. Firebase Setup
-1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable Authentication (Email/Password)
-3. Enable Firestore Database
-4. Update Firebase config in `js/firebase.js`
-
-### 2. Firestore Security Rules
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // Users collection
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && 
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Global settings (API keys) - Admin only
-    match /settings/global {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // SEO generations
-    match /seo_generations/{genId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if request.auth != null && 
-                                     (resource.data.uid == request.auth.uid || 
-                                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // SEO audits
-    match /seo_audits/{auditId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if request.auth != null && 
-                                     (resource.data.uid == request.auth.uid || 
-                                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    // PageSpeed audits
-    match /pagespeed_audits/{auditId} {
-      allow create: if request.auth != null && 
-                       request.resource.data.uid == request.auth.uid;
-      allow read, update, delete: if request.auth != null && 
-                                     (resource.data.uid == request.auth.uid || 
-                                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-  }
-}
-```
-
-### 3. Google PageSpeed API Key (For Performance Audit)
-1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Create or select a project
-3. Enable "PageSpeed Insights API"
-4. Create API key
-5. Configure in app: Settings → Google APIs
-
-### 4. AI Provider API Key
-Get your API key from:
-- **Groq**: [console.groq.com/keys](https://console.groq.com/keys) (FREE - no credit card)
-- **Gemini**: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-- **OpenRouter**: [openrouter.ai](https://openrouter.ai)
-
-## 🎯 Quick Start
-
-### For Administrators
-
-#### Initial Setup
-1. Create first admin account (use email: `kothakulasagar2002@gmail.com`)
-2. Configure AI provider API key in Settings
-3. Configure Google PageSpeed API key in Settings → Google APIs
-4. Test Performance Audit feature
-
-#### Managing Users
-1. Navigate to Accounts page
-2. Approve/Block users
-3. Manage roles and permissions
-
-### For Regular Users
-
-#### Generate SEO Content
-1. Navigate to "Generate SEO"
-2. Upload product image
-3. Enter product name and category
-4. Click "Generate SEO Content"
-5. Review and save
-
-#### Run SEO Audit
-1. Navigate to "SEO Audit" → "SEO Audit" tab
-2. Enter page details (title, description, content, keyword)
-3. Click "Run Audit"
-4. Review 11-point checklist
-5. Save to Firebase
-
-#### Run Performance Audit ⭐ NEW
-1. Navigate to "SEO Audit" → "Performance" tab
-2. Enter website URL
-3. Select Mobile or Desktop
-4. Click "Analyze Performance"
-5. Wait 30-60 seconds for results
-6. Review scores and recommendations
-7. Save to Firebase or copy report
-
-## 📚 Documentation
-
-### User Guides
-- **[Quick Start Guide](QUICK_START_GUIDE.md)** - Getting started with Performance Audit
-- **[Testing Checklist](TESTING_CHECKLIST.md)** - Comprehensive testing guide
-
-### Technical Documentation
-- **[Performance Audit Feature](PERFORMANCE_AUDIT_FEATURE.md)** - Complete technical documentation
-- **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)** - Development details
-- **[Deployment Guide](DEPLOYMENT_READY.md)** - Production deployment steps
-
-## 🏗️ Architecture
-
-### Frontend
-- HTML5, CSS3, JavaScript (ES6 modules)
-- No build process required
-- Firebase SDK (v10.12.0)
-
-### Backend
-- Firebase Authentication
-- Firebase Firestore
-- Google PageSpeed Insights API
-
-### Project Structure
-```
-├── css/
-│   ├── components.css    # Shared components
-│   ├── auth.css          # Authentication pages
-│   ├── dashboard.css     # Dashboard
-│   ├── generate.css      # SEO generator
-│   ├── history.css       # Generation history
-│   ├── audit.css         # SEO & Performance audits
-│   ├── settings.css      # Settings page
-│   └── responsive.css    # Mobile responsive
-├── js/
-│   ├── firebase.js       # Firebase config
-│   ├── auth.js           # Authentication
-│   ├── app.js            # Main controller
-│   ├── dashboard.js      # Dashboard logic
-│   ├── seo-generator.js  # Content generation
-│   ├── history.js        # History management
-│   ├── audit.js          # SEO & Performance audits
-│   ├── pagespeed.js      # PageSpeed API integration ⭐
-│   ├── settings.js       # Settings management
-│   ├── accounts.js       # User management
-│   ├── ai.js             # AI provider integrations
-│   ├── ui.js             # UI helpers
-│   └── utils.js          # Utility functions
-└── index.html            # Single-page app
-```
-
-## 🔐 Security
-
-### Authentication
-- Firebase Authentication with Email/Password
-- Admin role verification
-- Access restrictions for pending/blocked users
-
-### API Keys
-- Stored server-side in Firestore
-- Admin-only write access
-- Masked display in UI
-- Validated before saving
-
-### Data Access
-- Users can only access their own data
-- Admin can access all data
-- Firestore security rules enforce permissions
-
-## 🎨 Features Breakdown
-
-### Dashboard
-- Quick stats overview
-- Recent activity feed
-- Quick action buttons
-
-### Generate SEO
-- Image upload with preview
-- Product details form
-- Real-time AI generation
-- SEO score calculation
-- Auto-save high scores (98+)
-
-### History
-- View all generations
-- Search and filter
-- Export to JSON
-- Delete management
-
-### SEO Audit
-- **SEO Audit Tab:**
-  - 11-point SEO validation
-  - Title/description length checks
-  - Keyword placement analysis
-  - Content quality scoring
-  - Save audit results
-
-- **Performance Tab:** ⭐ NEW
-  - Google PageSpeed integration
-  - Real-time Lighthouse analysis
-  - 4 main scores (Performance, Accessibility, Best Practices, SEO)
-  - Core Web Vitals (LCP, CLS, FCP, TTFB, etc.)
-  - Optimization opportunities
-  - Diagnostics and passed audits
-  - Save and export reports
-
-### Settings
-- AI provider API keys
-- Google PageSpeed API key (Admin only) ⭐
-- Theme (Light/Dark/System)
-- Default language
-- Default AI provider
-- Temperature and token settings
-- Profile management
-
-### Accounts (Admin Only)
-- View all users
-- Approve/Block users
-- Role management
-- User statistics
-
-## 🌐 Browser Support
-
-- Chrome (recommended)
-- Firefox
-- Safari
-- Edge
-
-## 📱 Responsive Design
-
-- Mobile-first approach
-- Breakpoints: 768px (tablet), 1024px (desktop)
-- Touch-friendly interface
-- Optimized for all screen sizes
-
-## 🚀 Deployment
-
-### Static Hosting (Recommended)
-Deploy to any static hosting:
-- Firebase Hosting
-- Netlify
-- Vercel
-- GitHub Pages
-
-### Steps
-1. Update Firebase config in `js/firebase.js`
-2. Deploy all files
-3. Configure custom domain (optional)
-4. Set up SSL certificate
-5. Configure Firebase security rules
-6. Add Google PageSpeed API key
-
-See [DEPLOYMENT_READY.md](DEPLOYMENT_READY.md) for detailed steps.
-
-## 🔄 Updates & Changelog
-
-### Version 1.1.0 - Real-Time Performance Audit ⭐
-**Added:**
-- Google PageSpeed Insights integration
-- Performance audit tab in SEO Audit page
-- Core Web Vitals tracking
-- Mobile and Desktop testing strategies
-- Admin-controlled API key configuration
-- Beautiful performance reports with circular indicators
-- Save audits to Firebase
-- Copy reports to clipboard
-
-**Modified:**
-- Enhanced Settings page with Google APIs section
-- Extended audit.js with performance features
-- Improved loading overlay with multi-step progress
-- Updated CSS with performance audit styles
-
-**Documentation:**
-- Added PERFORMANCE_AUDIT_FEATURE.md
-- Added QUICK_START_GUIDE.md
-- Added TESTING_CHECKLIST.md
-- Added DEPLOYMENT_READY.md
-- Updated README.md
-
-## 🐛 Known Issues
-
-- PageSpeed audits can take 30-60 seconds (expected)
-- Scores may vary between runs due to network conditions
-- Free tier API limits: 25,000 queries/day (Google's limit)
-
-## 🔮 Future Enhancements
-
-- Audit history tab with filtering
-- Audit comparison view
-- PDF export for performance reports
-- Scheduled/recurring audits
-- Email notifications
-- Custom performance budgets
-- Bulk URL analysis
-- Webhook integrations
-
-## 👥 Contributing
-
-This is a private project. For issues or suggestions, contact the administrator.
-
-## 📄 License
-
-Proprietary - All rights reserved
-
-## 👤 Author
-
-**Sagar K**
-- Email: kothakulasagar2002@gmail.com
-
-## 🙏 Acknowledgments
-
-- Google PageSpeed Insights API
-- Firebase Platform
-- Groq AI
-- Google Gemini
-- OpenRouter
+<p align="center">
+  Built specifically for <strong>ABRA ZYLO</strong>
+</p>
 
 ---
 
-**Made with ❤️ by Sagar K**
+## 📌 Overview
+
+**ABRA ZYLO – AI SEO Portal** is an AI-powered SEO management platform developed specifically for the ABRA ZYLO e-commerce ecosystem.
+
+The platform helps streamline product SEO workflows by combining:
+
+- AI-powered SEO content generation
+- Product management
+- SEO scoring
+- Field-level SEO improvement
+- Website SEO auditing
+- Google PageSpeed performance analysis
+- AI-assisted performance recommendations
+- Sale campaign management
+- Meta Product Catalog preparation
+- SEO history and audit history
+- Firebase-based cloud storage
+- Multi-provider AI integration
+
+The primary goal of the platform is to reduce repetitive SEO work and create a centralized workflow for managing and improving ABRA ZYLO's product SEO.
+
+---
+
+# ✨ Core Features
+
+## 🤖 1. AI SEO Content Generator
+
+Generate complete SEO content for ABRA ZYLO products using AI.
+
+The generator can work with:
+
+- Product image
+- Product name
+- Product category
+- Output language
+- Additional product information
+
+The system analyzes the product information and generates structured SEO content.
+
+### Generated SEO Content
+
+The platform can generate:
+
+- Meta Title
+- Meta Description
+- Focus Keywords
+- Image Alt Text
+- Product Description
+- Short Description
+- SEO-Friendly URL / Slug
+- Product Tags
+- Social Media SEO Content
+- OpenCart-ready SEO information
+
+---
+
+# 📸 AI Product Understanding
+
+Product images can be used as part of the SEO generation workflow.
+
+When a product is loaded into the generator, the associated product image and available product information can be used to provide better context for SEO content generation.
+
+This helps the system create content that is more closely aligned with the actual product.
+
+---
+
+# 📊 SEO Score System
+
+Every generated product can be evaluated using an SEO scoring system.
+
+Example:
+
+```text
+SEO Score
+83 / 100
+
+Good SEO
+```
+
+The score helps identify whether generated SEO content meets the configured optimization requirements.
+
+The SEO checklist can evaluate items such as:
+
+- Meta Title length
+- Meta Description length
+- Product keyword in Meta Title
+- Product keyword in Meta Description
+- Product keyword in SEO slug
+- Product keyword in Image Alt Text
+- Call-to-action usage
+- Meta Title quality
+- Meta Description quality
+- Keyword relevance
+- Content completeness
+
+The score is recalculated whenever supported SEO content is successfully improved.
+
+---
+
+# ✨ AI Improve
+
+Instead of regenerating the entire SEO output, individual fields can be improved using the **AI Improve** feature.
+
+Supported fields can include:
+
+```text
+Meta Title            → ✨ AI Improve
+Meta Description      → ✨ AI Improve
+Focus Keywords        → ✨ AI Improve
+Image Alt Text        → ✨ AI Improve
+Product Description   → ✨ AI Improve
+```
+
+The system attempts to regenerate only the selected field.
+
+After a successful improvement:
+
+```text
+Previous SEO Score
+74 / 100
+
+↓
+
+AI Improve
+
+↓
+
+Updated SEO Score
+83 / 100
+
++9 Improvement
+```
+
+This allows SEO content to be optimized progressively without unnecessarily replacing already-good content.
+
+---
+
+# 🔄 Full Regenerate
+
+When required, users can regenerate the complete SEO output instead of improving individual fields.
+
+The **Full Regenerate** feature rebuilds the generated SEO content using the available product information.
+
+This is useful when:
+
+- Product information changes
+- Existing content is unsuitable
+- A completely different SEO direction is required
+- Multiple SEO fields require improvement
+
+---
+
+# 🧠 SEO Improvement Validation
+
+AI-generated improvements are validated before replacing existing content.
+
+The application is designed to avoid replacing existing SEO content with a clearly worse candidate.
+
+If an improvement cannot satisfy the required validation after the configured attempts, the original content can be preserved.
+
+Example:
+
+```text
+Unable to generate a valid improvement after 3 attempts.
+Your original content has been preserved.
+```
+
+This prevents unsuccessful AI generations from automatically overwriting usable SEO content.
+
+---
+
+# 🛍️ Product Management
+
+The portal includes centralized product management for ABRA ZYLO.
+
+Users can manage products and reuse their information across different marketing and SEO workflows.
+
+Product information can include:
+
+- Product name
+- Product image
+- Category
+- SEO status
+- Generated SEO content
+- Campaign information
+- Product metadata
+
+Products can be loaded directly into the SEO generator, reducing duplicate data entry.
+
+---
+
+# 🏷️ Sale Campaign Management
+
+The platform includes a dedicated **Sale Campaigns** module.
+
+This module helps organize products being prepared for promotional campaigns.
+
+Campaign products can include information such as:
+
+- Product image
+- Product name
+- MRP
+- Sale price
+- Discount percentage
+- Savings
+- Campaign status
+- SEO generation status
+- Creation date
+
+Users can open a campaign product and send it directly to the SEO generation workflow.
+
+---
+
+# 📢 Meta Product Catalog
+
+The **Meta Product Catalog** section helps organize ABRA ZYLO products intended for Meta advertising/catalog workflows.
+
+Products can be categorized based on workflow status.
+
+Example statuses:
+
+```text
+Pending
+Completed
+Added
+```
+
+Users can:
+
+- View product information
+- Review generated content
+- Track catalog preparation
+- Mark products as added
+- Copy required product information
+
+This provides a structured workflow between product SEO preparation and Meta Catalog management.
+
+---
+
+# 🔎 SEO Audit Tool
+
+The application includes an SEO Audit section for analyzing ABRA ZYLO website performance and SEO.
+
+The audit system contains dedicated analysis capabilities for website performance and SEO checks.
+
+---
+
+# ⚡ Real-Time Performance Audit
+
+The Real-Time Performance Audit integrates with Google's performance auditing ecosystem to analyze ABRA ZYLO pages.
+
+The audit can evaluate:
+
+- Performance
+- Accessibility
+- Best Practices
+- SEO
+
+Example report:
+
+```text
+Performance       22
+Accessibility     65
+Best Practices    92
+SEO               92
+```
+
+Both supported device strategies can be used:
+
+```text
+📱 Mobile
+🖥️ Desktop
+```
+
+---
+
+# 🎯 ABRA ZYLO Domain Restriction
+
+The performance audit functionality is designed specifically for the ABRA ZYLO website.
+
+Authorized domain:
+
+```text
+https://abra-zylo.com/
+```
+
+Product URLs and other pages under the ABRA ZYLO domain can be analyzed.
+
+Example:
+
+```text
+https://abra-zylo.com/product-page
+```
+
+External websites are rejected because this implementation is intended specifically for ABRA ZYLO.
+
+Example:
+
+```text
+This product is only built for ABRA ZYLO, not for example.com.
+This product is fully trained only for ABRA ZYLO.
+```
+
+---
+
+# 🤖 AI Performance Analysis
+
+Performance audit results can optionally be analyzed using the configured AI providers.
+
+The AI layer can help transform technical audit information into easier-to-understand recommendations and potential action items.
+
+The goal is to help identify:
+
+- Performance issues
+- SEO problems
+- Accessibility improvements
+- Technical optimization opportunities
+- Recommended fixes
+
+---
+
+# 📜 SEO History
+
+Generated SEO records can be stored in the application's history system.
+
+This allows previously generated content to be reviewed instead of regenerating everything from scratch.
+
+History records can include generated SEO information and related product data.
+
+---
+
+# 🕐 Audit History
+
+Performance and SEO audit reports can be saved for future reference.
+
+This makes it easier to compare previous audit results and track website optimization work over time.
+
+---
+
+# 📊 Dashboard
+
+The dashboard provides a centralized overview of the platform.
+
+It can display information such as:
+
+- Total Products
+- Recent SEO activity
+- Generated products
+- SEO history
+- Total Audits
+- Average Audit Score
+- Supported Languages
+- Firebase Status
+- Recent activity
+- Quick actions
+
+The dashboard acts as the main control center for the SEO workflow.
+
+---
+
+# 🌐 Multi-Language Support
+
+The portal includes language options for supported SEO workflows.
+
+Current interface options include:
+
+```text
+EN – English
+HI – Hindi
+TE – Telugu
+```
+
+The architecture can be extended with additional languages in the future.
+
+---
+
+# 🔥 Firebase Integration
+
+Firebase is used as part of the application's backend infrastructure.
+
+Depending on the module, Firebase supports functionality such as:
+
+- Authentication
+- Product storage
+- SEO content storage
+- Campaign data
+- Audit history
+- User-specific information
+- Application synchronization
+
+This allows generated SEO content and application data to persist across sessions.
+
+---
+
+# 👤 Authentication & Accounts
+
+The application contains an account-based authentication system.
+
+Authenticated users can access platform features based on the application's configured account permissions.
+
+The sidebar account area provides access to user-related functionality and settings.
+
+---
+
+# 🔐 AI Provider Configuration
+
+The application supports configurable AI providers.
+
+Current integrations include support for:
+
+### Groq
+
+Used for fast AI-powered generation and analysis workflows.
+
+### Google Gemini
+
+Used as an additional AI provider for supported generation and analysis tasks.
+
+### OpenRouter
+
+Provides access to compatible AI models through the OpenRouter API.
+
+The system is designed so individual AI providers can maintain independent API configuration.
+
+---
+
+# 🔑 API Key Management
+
+API credentials can be configured through the application's Settings section.
+
+Supported configuration can include:
+
+```text
+Groq API Key
+Google Gemini API Key
+OpenRouter API Key
+```
+
+API credentials should never be committed directly to the public GitHub repository.
+
+---
+
+# 🔒 Security
+
+API keys and sensitive credentials must never be hardcoded into source files committed to GitHub.
+
+Never commit:
+
+```text
+Gemini API keys
+Groq API keys
+OpenRouter API keys
+Firebase private credentials
+Service-account credentials
+Passwords
+Authentication tokens
+```
+
+Use environment variables, protected backend configuration, or the application's secure configuration mechanism where applicable.
+
+If an API credential is accidentally exposed publicly, revoke it immediately and generate a replacement.
+
+---
+
+# 🧩 Main Application Modules
+
+The application is organized around the following major modules:
+
+```text
+ABRA ZYLO AI SEO Portal
+│
+├── 📊 Dashboard
+│
+├── ⚡ Generate SEO
+│
+├── 🕐 History
+│
+├── 🔎 SEO Audit
+│   ├── Performance
+│   └── SEO Checker
+│
+├── 🕐 Audit History
+│
+├── 🤖 AI Marketing
+│   ├── Products
+│   ├── Sale Campaigns
+│   └── Meta Product Catalog
+│
+└── 👤 Account
+    ├── Accounts
+    └── Settings
+```
+
+---
+
+# 🔄 Product SEO Workflow
+
+A typical workflow inside the platform is:
+
+```text
+Product Added
+      ↓
+Product Image + Information
+      ↓
+Select Product Category
+      ↓
+Generate SEO
+      ↓
+AI Generates SEO Content
+      ↓
+SEO Validation
+      ↓
+SEO Score
+      ↓
+Identify Failed Checks
+      ↓
+AI Improve
+      ↓
+Recalculate SEO Score
+      ↓
+Save SEO Content
+      ↓
+SEO History
+      ↓
+Use for ABRA ZYLO / OpenCart / Marketing
+```
+
+---
+
+# 📢 Marketing Workflow
+
+Products can also move through the marketing workflow:
+
+```text
+Product
+   ↓
+Sale Campaign
+   ↓
+Generate / Improve SEO
+   ↓
+Campaign Content
+   ↓
+Meta Product Catalog
+   ↓
+Mark Added
+```
+
+This helps connect SEO preparation with ABRA ZYLO's advertising workflow.
+
+---
+
+# 🛠️ Technology Stack
+
+The project uses modern web technologies and cloud services.
+
+### Frontend
+
+```text
+HTML5
+CSS3
+JavaScript
+Responsive Web Design
+```
+
+### Backend / Cloud
+
+```text
+Firebase
+Firebase Authentication
+Cloud Database / Application Storage
+```
+
+### AI
+
+```text
+Groq
+Google Gemini
+OpenRouter
+```
+
+### SEO & Performance
+
+```text
+Google PageSpeed Insights
+Lighthouse-based Performance Analysis
+Custom SEO Scoring
+Custom SEO Validation
+```
+
+### Version Control & Deployment
+
+```text
+Git
+GitHub
+GitHub Pages
+```
+
+---
+
+# 📁 Project Structure
+
+The exact structure may evolve as the platform grows, but the application follows a modular architecture similar to:
+
+```text
+abra-zylo-seo-generator/
+│
+├── index.html
+│
+├── css/
+│   └── ...
+│
+├── js/
+│   ├── seo-generator.js
+│   └── ...
+│
+├── assets/
+│   ├── images/
+│   └── ...
+│
+├── README.md
+│
+└── ...
+```
+
+---
+
+# 🚀 Running the Project Locally
+
+Clone the repository:
+
+```bash
+git clone <repository-url>
+```
+
+Enter the project directory:
+
+```bash
+cd abra-zylo-seo-generator
+```
+
+Open the project using VS Code:
+
+```bash
+code .
+```
+
+Because the application uses browser APIs, Firebase, and external services, running it through a local development server is recommended.
+
+For example, VS Code Live Server or another local HTTP server can be used.
+
+---
+
+# ⚙️ Configuration
+
+Before using AI-powered functionality, configure the required services.
+
+Depending on the enabled features, this can include:
+
+```text
+Firebase
+Groq
+Google Gemini
+OpenRouter
+Google PageSpeed Insights
+```
+
+Do not place production secrets directly inside publicly accessible frontend files.
+
+---
+
+# 🧪 Recommended Testing
+
+Before deploying a new version, verify the following workflows:
+
+- User authentication
+- Dashboard loading
+- Product loading
+- Product image loading
+- SEO generation
+- SEO score calculation
+- AI Improve
+- Full Regenerate
+- SEO History
+- Sale Campaign loading
+- Meta Product Catalog
+- SEO Audit
+- Performance Audit
+- Audit History
+- Firebase synchronization
+- AI provider configuration
+- Mobile responsiveness
+
+Also verify that opening and closing modals does not leave the document scroll locked.
+
+---
+
+# 🎯 Project Objective
+
+The objective of ABRA ZYLO – AI SEO Portal is to build a dedicated AI-powered SEO ecosystem for ABRA ZYLO rather than relying entirely on disconnected third-party SEO tools.
+
+The platform aims to bring together:
+
+```text
+Product Data
+      +
+Artificial Intelligence
+      +
+SEO Validation
+      +
+Performance Auditing
+      +
+Marketing Workflows
+      +
+Cloud Storage
+```
+
+into one centralized application.
+
+---
+
+# 🔮 Future Development
+
+Potential future improvements include:
+
+- Google Search Console integration
+- Google Analytics integration
+- Keyword ranking tracking
+- Competitor keyword research
+- Search-volume integration
+- Automatic product SEO synchronization
+- OpenCart API integration
+- Bulk SEO generation
+- Bulk AI Improve
+- SEO issue prioritization
+- Product-level SEO analytics
+- SEO performance trends
+- Automated sitemap monitoring
+- Indexing status monitoring
+- Merchant listing optimization
+- Google Merchant Center integration
+- Meta Catalog synchronization
+- AI-powered internal linking
+- Duplicate content detection
+- Broken link monitoring
+- Automated SEO reports
+- Advanced role-based access control
+
+---
+
+# ⚠️ Important
+
+This platform is developed specifically for:
+
+## ABRA ZYLO
+
+The SEO logic, product workflows, performance auditing, campaign workflows, and AI-assisted functionality are designed around the ABRA ZYLO e-commerce ecosystem.
+
+The platform should not be considered a general-purpose public SEO auditing service.
+
+---
+
+# 👨‍💻 Development
+
+Developed as an internal AI-powered SEO and digital marketing technology project for **ABRA ZYLO**.
+
+The project combines:
+
+**SEO + Artificial Intelligence + E-commerce + Performance Auditing + Marketing Automation**
+
+to create a centralized product optimization workflow.
+
+---
+
+<p align="center">
+  <strong>ABRA ZYLO – AI SEO Portal</strong>
+</p>
+
+<p align="center">
+  AI Powered SEO • Smarter Rankings
+</p>
+
+<p align="center">
+  🔍 SEO &nbsp; • &nbsp; 🤖 AI &nbsp; • &nbsp; 🛍️ E-commerce &nbsp; • &nbsp; 📊 Analytics
+</p>
