@@ -159,7 +159,7 @@ function _extractPageTitle(url) {
 
 // ── RENDER HISTORY PAGE ───────────────────────────────────────
 export async function render() {
-  const container = document.getElementById('audit-history-container');
+  const container = document.getElementById('audit-history-container') || document.getElementById('audit-history-list');
   if (!container) return;
   
   container.innerHTML = '<p class="empty-msg" style="text-align:center;padding:2rem">Loading reports from Firebase...</p>';
@@ -188,7 +188,7 @@ export async function render() {
 
 // ── RENDER REPORTS LIST ───────────────────────────────────────
 function _renderReportsList(reports) {
-  const container = document.getElementById('audit-history-container');
+  const container = document.getElementById('audit-history-container') || document.getElementById('audit-history-list');
   
   const reportsHtml = reports.map((report, idx) => {
     const avgScore = Math.round(

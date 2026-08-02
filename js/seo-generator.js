@@ -30,10 +30,70 @@ let _imageMime     = 'image/jpeg';
 let _productId     = null;   // Products document ID used by SEO_History
 let _currentResult = null;   // live working copy of the SEO result
 let _busy          = false;  // prevents concurrent AI calls
+let _existingProductImageUrl = null;
+let _imageSourceIsFile = false;
+let _productContext = null;
+let _lastImproveScoreBefore = null;
+let _lastImproveScoreAfter = null;
+let _lastImproveScoreDifference = null;
+let _lastImprovedField = null;
 
 // _imageBase64 persists across the full session for this product.
 // It is only cleared by startNewProduct(). If the user accidentally
 // dismisses the preview, we still have the image for Improve calls.
+
+function _hasImageAvailable() {
+  return !!(_imageBase64 || _existingProductImageUrl);
+}
+
+function _setPreviewImage(imageSrc) {
+  const preview = document.getElementById('img-preview');
+  const ph = document.getElementById('upload-placeholder');
+  const box = document.getElementById('upload-box');
+
+  if (!imageSrc) {
+    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+    if (ph) ph.style.display = '';
+    if (box) box.classList.remove('has-image');
+    return;
+  }
+
+  if (preview) {
+    preview.src = imageSrc;
+    preview.style.display = 'block';
+  }
+  if (ph) ph.style.display = 'none';
+  if (box) box.classList.add('has-image');
+}
+
+async function _ensureImageReady() {
+  if (_imageBase64) return true;
+  if (!_existingProductImageUrl) return false;
+
+  try {
+    let source = _existingProductImageUrl;
+    let compressedDataUrl = source;
+
+    if (!source.startsWith('data:')) {
+      const response = await fetch(source);
+      if (!response.ok) throw new Error(`Unable to load image (${response.status})`);
+      const blob = await response.blob();
+      const file = new File([blob], 'product-image', { type: blob.type || 'image/jpeg' });
+      const result = await compressImage(file, 800, 0.75);
+      compressedDataUrl = result.dataUrl;
+    } else {
+      compressedDataUrl = await compressDataUrl(source, 800, 0.75);
+    }
+
+    _imageBase64 = compressedDataUrl.split(',')[1];
+    _imageMime = 'image/jpeg';
+    _setPreviewImage(compressedDataUrl);
+    return true;
+  } catch (error) {
+    console.error('Failed to load existing product image:', error);
+    return false;
+  }
+}
 
 const SEO_STYLES = [
   'Luxury','Premium','Trendy','Professional',
@@ -116,15 +176,9 @@ export async function onFileSelect(event) {
     const { dataUrl } = await compressImage(file, 800, 0.75);
     _imageBase64 = dataUrl.split(',')[1];
     _imageMime   = 'image/jpeg';
-
-    const preview = document.getElementById('img-preview');
-    const ph      = document.getElementById('upload-placeholder');
-    const box     = document.getElementById('upload-box');
-    if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
-    if (ph)  ph.style.display = 'none';
-    // Mark upload box as fulfilled so the required indicator clears
-    if (box) box.classList.add('has-image');
-
+    _existingProductImageUrl = null;
+    _imageSourceIsFile = true;
+    _setPreviewImage(dataUrl);
     _updateButtonState();
   } catch {
     showAlert('gen-alert', 'Could not process image. Please try another file.');
@@ -185,6 +239,9 @@ export function startNewProduct() {
   _productId     = null;
   _currentResult = null;
   _busy          = false;
+  _existingProductImageUrl = null;
+  _imageSourceIsFile = false;
+  _productContext = null;
 
   // Reset form fields
   const nameEl = document.getElementById('prod-name');
@@ -209,12 +266,7 @@ export function startNewProduct() {
   // Reset file input and preview
   const fileInp = document.getElementById('file-inp');
   if (fileInp) fileInp.value = '';
-  const preview = document.getElementById('img-preview');
-  const ph      = document.getElementById('upload-placeholder');
-  const box     = document.getElementById('upload-box');
-  if (preview) { preview.src = ''; preview.style.display = 'none'; }
-  if (ph)  ph.style.display = '';
-  if (box) box.classList.remove('has-image', 'field-ok', 'field-missing');
+  _setPreviewImage(null);
 
   // Hide result panel, show empty state
   const resultContent = document.getElementById('result-content');
@@ -233,7 +285,7 @@ export function startNewProduct() {
  */
 function _validateForm() {
   const errors = [];
-  if (!_imageBase64) {
+  if (!_hasImageAvailable()) {
     errors.push('Product image is required. Please upload a photo of your product.');
   }
   const name = (document.getElementById('prod-name')?.value || '').trim();
@@ -263,7 +315,7 @@ function _updateButtonState() {
   // Visual indicators on the required fields
   const name  = (document.getElementById('prod-name')?.value || '').trim();
   const cat   = document.getElementById('prod-cat')?.value || '';
-  _setFieldState('upload-box',    !!_imageBase64);
+  _setFieldState('upload-box',    _hasImageAvailable());
   _setFieldState('name-row',      !!name);
   _setFieldState('cat-row',       !!cat);
 }
@@ -298,6 +350,11 @@ export async function generate() {
   const name     = (document.getElementById('prod-name')?.value || '').trim();
   const cat      = document.getElementById('prod-cat')?.value   || '';
   const lang     = document.getElementById('prod-lang')?.value  || 'en';
+
+  if (!await _ensureImageReady()) {
+    showAlert('gen-alert', 'Product image is required. Please upload a photo of your product.');
+    return;
+  }
   const modelNumber = normalizeModelNumber(document.getElementById('prod-model-number')?.value || '');
   const provider = document.getElementById('prod-provider')?.value || 'groq';
   const apiKey   = getApiKey(provider);
@@ -329,22 +386,29 @@ export async function generate() {
       throw new Error('Product image is required');
     }
 
-    completeStep(1, 25, 'Uploading image to Cloudinary...');
-    
-    // Convert base64 to file for upload
-    const response = await fetch(`data:${_imageMime};base64,${_imageBase64}`);
-    const blob = await response.blob();
-    const file = new File([blob], `product_${Date.now()}.jpg`, { type: _imageMime });
+    completeStep(1, 25, 'Preparing product image...');
     
     let productId = _productId;
     let imageUrl = '';
+    let publicId = '';
+    const reuseExistingImage = !_imageSourceIsFile && !!_existingProductImageUrl;
     
     try {
-      const uploadResult = await uploadImage(file, 'products', {
-        publicId: `product_${getUser()?.uid}_${Date.now()}`
-      });
-      
-      imageUrl = uploadResult.secure_url;
+      if (reuseExistingImage) {
+        imageUrl = _existingProductImageUrl;
+        publicId = _productContext?.publicId || '';
+      } else {
+        // Convert base64 to file for upload
+        const response = await fetch(`data:${_imageMime};base64,${_imageBase64}`);
+        const blob = await response.blob();
+        const file = new File([blob], `product_${Date.now()}.jpg`, { type: _imageMime });
+        const uploadResult = await uploadImage(file, 'products', {
+          publicId: `product_${getUser()?.uid}_${Date.now()}`
+        });
+        
+        imageUrl = uploadResult.secure_url;
+        publicId = uploadResult.public_id;
+      }
       
       // Products contains product data only. SEO_History stores only the
       // generated SEO document and references this product by ID.
@@ -359,7 +423,7 @@ export async function generate() {
       const productData = {
         productName: name,
         imageUrl: imageUrl,
-        publicId: uploadResult.public_id,
+        publicId,
         modelNumber,
         category: cat,
         createdBy: getUser()?.uid,
@@ -385,7 +449,7 @@ export async function generate() {
       }
       _productId = productId;
       
-      showToast('Product created and image uploaded successfully');
+      showToast(reuseExistingImage ? 'Product saved successfully' : 'Product created and image uploaded successfully');
       
     } catch (uploadError) {
       console.error('Upload error:', uploadError);
@@ -508,10 +572,23 @@ export async function regenerateSection(sectionKey) {
   }
 
   // Capture the score BEFORE making any changes (for delta reporting)
-  const scoreBefore = _currentResult._scoreData?.score ?? computeSeoScore(_currentResult).score;
+  const currentSd = _currentResult._scoreData || computeSeoScore(_currentResult);
+  const scoreBefore = currentSd.score;
 
   // Snapshot current field value so we can detect no-change responses
   const prevValue = _getFieldValue(sectionKey, _currentResult);
+
+  if (sectionKey === 'product_description') {
+    const allFailedChecksBefore = currentSd.checks.filter(c => !c.pass);
+    const fieldFailedChecksBefore = allFailedChecksBefore.filter(c => c.field === sectionKey);
+    console.group('AI IMPROVE DEBUG');
+    console.log('FIELD:', sectionKey);
+    console.log('ORIGINAL VALUE:', prevValue);
+    console.log('OLD SEO SCORE:', scoreBefore);
+    console.log('ALL FAILED CHECKS BEFORE:', allFailedChecksBefore.map(c => ({ label: c.label, field: c.field, pass: c.pass })));
+    console.log('FIELD FAILED CHECKS BEFORE:', fieldFailedChecksBefore.map(c => ({ label: c.label, field: c.field, pass: c.pass })));
+    console.groupEnd();
+  }
 
   _busy = true;
   _setSectionBusy(sectionKey, true);
@@ -519,11 +596,12 @@ export async function regenerateSection(sectionKey) {
   const MAX_RETRIES = 3;
   let   attempt     = 0;
   let   newValue    = null;
+  let   lastReason  = '';
 
   try {
     while (attempt < MAX_RETRIES) {
       attempt++;
-      const prompt = _buildSectionPrompt(sectionKey, section, _currentResult, attempt);
+      const prompt = _buildSectionPrompt(sectionKey, section, _currentResult, attempt, currentSd, lastReason);
 
       // ── Dev console logging ──────────────────────────────────
       console.group(`[Regenerate] ${section.label} — attempt ${attempt}/${MAX_RETRIES}`);
@@ -566,18 +644,41 @@ export async function regenerateSection(sectionKey) {
       const isDuplicate = normalize(candidate) === normalize(prevValue);
 
       if (isDuplicate && attempt < MAX_RETRIES) {
+        lastReason = 'The previous result was identical to the current value.';
         console.warn(`[Regenerate] Attempt ${attempt}: response identical to previous, retrying...`);
         await new Promise(r => setTimeout(r, 400));
         continue;
       }
 
-      // We have an acceptable new value
-      newValue = candidate;
-      break;
+      candidate = _applyDeterministicFallback(sectionKey, candidate, _currentResult, currentSd);
+      candidate = _normalizeCandidateForValidation(sectionKey, candidate);
+      if (sectionKey === 'product_description') {
+        console.log('ATTEMPT:', attempt);
+        console.log('AI GENERATED VALUE:', candidate);
+      }
+      const validation = _validateImprovedValue(sectionKey, candidate, _currentResult, currentSd, attempt);
+      if (!validation.ok) {
+        lastReason = validation.reason || `Attempt ${attempt} still failed the targeted SEO checks.`;
+        console.warn(`[Regenerate] Attempt ${attempt}: ${lastReason}`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 400));
+          continue;
+        }
+      } else {
+        if (sectionKey === 'product_description') {
+          console.log('ACCEPTANCE CONDITION: accepted');
+          console.log('NEW GLOBAL SCORE:', computeSeoScore({ ..._currentResult, product_description: candidate }).score);
+        }
+        newValue = candidate;
+        break;
+      }
     }
 
     if (newValue === null) {
-      throw new Error('AI returned the same content after 3 attempts. Try again later.');
+      if (sectionKey === 'product_description') {
+        console.log('ACCEPTANCE CONDITION: rejected after max attempts');
+      }
+      throw new Error('Unable to generate a valid improvement after 3 attempts. Your original content has been preserved.');
     }
 
     // ── Save version snapshot BEFORE replacing ───────────────
@@ -598,6 +699,7 @@ export async function regenerateSection(sectionKey) {
     _currentResult._scoreData = sd;
     const scoreAfter  = sd.score;
     const scoreDelta  = scoreAfter - scoreBefore;
+    _setImproveState(section.label, scoreBefore, scoreAfter, scoreDelta);
 
     // ── Patch DOM — only the changed element ─────────────────
     _patchDom(sectionKey, _currentResult);
@@ -608,17 +710,15 @@ export async function regenerateSection(sectionKey) {
     const deltaMsg = scoreDelta > 0
       ? `+${scoreDelta} improvement`
       : scoreDelta < 0
-        ? `${scoreDelta} (section met requirements before)`
+        ? `${scoreDelta} (score decreased)`
         : 'Score unchanged — ' + _explainNoImprovement(sectionKey, sd);
 
     showToast(`${section.label} updated. Score: ${scoreBefore} -> ${scoreAfter} (${deltaMsg})`);
     console.log(`[Regenerate] Done. Score ${scoreBefore} -> ${scoreAfter} (delta: ${scoreDelta})`);
 
-    await _handleAutoSave(scoreAfter);
-
   } catch (err) {
     console.error('[Generator] regenerateSection failed:', err);
-    showToast(friendlyError(err));
+    showToast(err?.message || friendlyError(err));
   } finally {
     _busy = false;
     _setSectionBusy(sectionKey, false);
@@ -665,7 +765,6 @@ export async function improveFailedItems() {
   _currentResult._scoreData = finalSd;
   _updateScoreUI(finalSd);
   showToast(`Improvements done. Score: ${finalSd.score}/100`);
-  await _handleAutoSave(finalSd.score);
 }
 
 // ── AUTO-SAVE LOGIC ───────────────────────────────────────────
@@ -758,6 +857,16 @@ function _updateScoreUI(sd) {
   // Re-animate score ring
   animateScoreRing(sd.score, sd.cat.color, 'score-ring-fill', 'score-val');
 
+  const banner = document.getElementById('autosave-banner');
+  if (banner) {
+    banner.innerHTML = sd.score >= 98
+      ? `✅ Auto-saved to Firebase (Score: ${sd.score}/100)`
+      : `Score: ${sd.score}/100 — Improve failed items or save manually.`;
+    banner.className = `autosave-notice ${sd.score >= 98 ? 'saved' : 'pending'}`;
+  }
+
+  _renderImproveFeedback(sd);
+
   // Update status label
   const status = document.getElementById('score-status-label');
   if (status) { status.textContent = sd.cat.label + ' SEO'; status.style.color = sd.cat.color; }
@@ -781,13 +890,60 @@ function _updateScoreUI(sd) {
   }
 }
 
+function _renderImproveFeedback(sd) {
+  const feedback = document.getElementById('score-improve-feedback');
+  if (!feedback) return;
+
+  if (_lastImproveScoreBefore === null || _lastImproveScoreAfter === null || !_lastImprovedField) {
+    feedback.style.display = 'none';
+    feedback.innerHTML = '';
+    return;
+  }
+
+  const diff = _lastImproveScoreDifference;
+  const before = _lastImproveScoreBefore;
+  const after = _lastImproveScoreAfter;
+  const field = _lastImprovedField;
+
+  const message = diff > 0
+    ? `${field} successfully improved.`
+    : `${field} improved successfully.`;
+
+  const details = diff > 0
+    ? `<div class="score-improve-values"><span>${before}</span><span>→</span><span>${after}</span></div>
+       <div class="score-improve-change">+${diff} points</div>`
+    : `<div class="score-improve-values"><span>${after}</span><span>Overall SEO Score remains</span></div>`;
+
+  feedback.innerHTML = `
+    <div class="autosave-notice saved" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;">
+      <div>
+        <div style="font-weight:600;">SEO Score ${diff > 0 ? 'Improved 🎉' : 'Update'}</div>
+        <div style="margin:.35rem 0;">
+          ${diff > 0 ? details : `${message} ${after}/100.`}
+        </div>
+        <div>${message}</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="window.Generator.viewSeoScore()">View SEO Score</button>
+    </div>
+  `;
+
+  feedback.style.display = 'block';
+}
+
+function _setImproveState(field, before, after, diff) {
+  _lastImproveScoreBefore = before;
+  _lastImproveScoreAfter = after;
+  _lastImproveScoreDifference = diff;
+  _lastImprovedField = field;
+}
+
 function _setSectionBusy(sectionKey, busy) {
   const btn = document.getElementById(`regen-btn-${sectionKey}`);
   if (!btn) return;
   btn.disabled = busy;
   if (busy) {
     btn.dataset.origText = btn.textContent;
-    btn.innerHTML = '<span class="regen-spinner"></span>Regenerating...';
+    btn.innerHTML = '<span class="regen-spinner"></span>Improving...';
   } else {
     btn.textContent = btn.dataset.origText || '&#x2728; AI Improve';
   }
@@ -867,6 +1023,237 @@ function _buildSlugChecklist(slug) {
   ).join('');
 }
 
+function _normalizeCandidateForValidation(sectionKey, candidate) {
+  if (candidate === null || candidate === undefined) return candidate;
+
+  if (sectionKey === 'focus_keywords' || sectionKey === 'product_tags') {
+    if (!Array.isArray(candidate)) return candidate;
+    return candidate
+      .map(v => safeStr(v).trim().replace(/^['"]+|['"]+$/g, ''))
+      .filter(v => safeStr(v).trim());
+  }
+
+  if (sectionKey === 'social') {
+    return candidate;
+  }
+
+  let value = safeStr(candidate).trim();
+  value = value.replace(/^['"]+|['"]+$/g, '');
+  value = value.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return value;
+}
+
+function _getFieldScopedChecks(sd, sectionKey) {
+  return (sd?.checks || []).filter(c => c.field === sectionKey);
+}
+
+function _validateImprovedValue(sectionKey, candidate, r, currentSd, attempt = 1) {
+  if (candidate === null || candidate === undefined) {
+    return { ok: false, reason: 'The generated response was empty.' };
+  }
+
+  const normalizeStr = (value) => safeStr(value).trim();
+  const normalizeArray = (value) => Array.isArray(value) ? value.filter(v => safeStr(v).trim()).map(v => safeStr(v).trim()) : [];
+
+  candidate = _normalizeCandidateForValidation(sectionKey, candidate);
+
+  switch (sectionKey) {
+    case 'meta_title':
+    case 'meta_description':
+    case 'alt_text':
+    case 'seo_slug':
+    case 'product_description': {
+      const value = normalizeStr(candidate);
+      if (!value) return { ok: false, reason: 'The generated content was empty.' };
+      if (/^(lorem|placeholder|example|sample|your product|todo|tbd|dummy)/i.test(value)) {
+        return { ok: false, reason: 'The generated content looked like placeholder text.' };
+      }
+      if (value.length < 3) return { ok: false, reason: 'The generated content was too short.' };
+      break;
+    }
+    case 'focus_keywords': {
+      const arr = normalizeArray(candidate);
+      if (arr.length < 5) return { ok: false, reason: 'The generated keywords did not meet the required count.' };
+      break;
+    }
+    case 'product_tags': {
+      const arr = normalizeArray(candidate);
+      if (arr.length < 5) return { ok: false, reason: 'The generated tags did not meet the required count.' };
+      break;
+    }
+    case 'social': {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        return { ok: false, reason: 'The social content response was not valid.' };
+      }
+      const social = candidate;
+      const invalidKeys = ['instagram', 'facebook', 'twitter', 'youtube'].filter(key => !safeStr(social[key]).trim());
+      if (invalidKeys.length) {
+        return { ok: false, reason: 'The generated social content was incomplete.' };
+      }
+      break;
+    }
+    default:
+      return { ok: false, reason: 'The AI Improve response was not supported for this field.' };
+  }
+
+  const tempResult = JSON.parse(JSON.stringify(r));
+  const section = SECTIONS[sectionKey];
+  if (!section) return { ok: false, reason: 'The field could not be validated.' };
+  section.render(tempResult, candidate);
+  const tempSd = computeSeoScore(tempResult);
+
+  if (sectionKey === 'product_description') {
+    const candidateSeoData = tempResult;
+    const allFailedChecksAfter = tempSd.checks.filter(c => !c.pass);
+    const fieldFailedChecksBefore = currentSd.checks.filter(c => !c.pass).filter(c => c.field === sectionKey);
+    const fieldFailedChecksAfter = allFailedChecksAfter.filter(c => c.field === sectionKey);
+    console.group('AI IMPROVE DEBUG');
+    console.log('ATTEMPT:', attempt);
+    console.log('AI GENERATED VALUE:', candidate);
+    console.log('CANDIDATE SEO DATA:', candidateSeoData);
+    console.log('CANDIDATE PRODUCT DESCRIPTION:', candidateSeoData.product_description);
+    console.log('ALL FAILED CHECKS AFTER:', allFailedChecksAfter.map(c => ({ label: c.label, field: c.field, pass: c.pass })));
+    console.log('FIELD FAILED CHECKS AFTER:', fieldFailedChecksAfter.map(c => ({ label: c.label, field: c.field, pass: c.pass })));
+    console.log('OLD FIELD FAILURE COUNT:', fieldFailedChecksBefore.length);
+    console.log('NEW FIELD FAILURE COUNT:', fieldFailedChecksAfter.length);
+    console.log('OLD GLOBAL SCORE:', currentSd.score);
+    console.log('NEW GLOBAL SCORE:', tempSd.score);
+    console.groupEnd();
+  }
+
+  const beforeChecks = _getFieldScopedChecks(currentSd, sectionKey);
+  const afterChecks = _getFieldScopedChecks(tempSd, sectionKey);
+  const failingChecks = beforeChecks.filter(c => !c.pass);
+  const relevantFailuresAfter = afterChecks.filter(c => !c.pass);
+  const beforeCheckMap = new Map(beforeChecks.map(c => [c.label, c.pass]));
+  const afterCheckMap = new Map(afterChecks.map(c => [c.label, c.pass]));
+  const resolved = failingChecks.filter(check => afterCheckMap.get(check.label));
+  const stillFailing = failingChecks.filter(check => !afterCheckMap.get(check.label));
+  const introduced = relevantFailuresAfter.filter(check => beforeCheckMap.get(check.label) === true);
+  const beforePassWeight = beforeChecks.filter(c => c.pass).reduce((sum, c) => sum + (c.weight || 0), 0);
+  const afterPassWeight = afterChecks.filter(c => c.pass).reduce((sum, c) => sum + (c.weight || 0), 0);
+  const failedCountBefore = failingChecks.length;
+  const failedCountAfter = relevantFailuresAfter.length;
+  const failureCountImproved = failedCountAfter < failedCountBefore;
+  const scoreImproved = afterPassWeight > beforePassWeight;
+  const passesAllField = failedCountAfter === 0;
+  const currentGlobalScore = currentSd.score;
+  const candidateGlobalScore = tempSd.score;
+  const acceptable = candidateGlobalScore >= currentGlobalScore && (passesAllField || failureCountImproved || scoreImproved);
+
+  const detail = stillFailing[0]?.label || 'the targeted SEO checks';
+  const failureDetail = detail.includes('length') ? `${detail}. Adjust the length to satisfy the existing rule.` : detail;
+
+  const acceptanceCondition = acceptable ? 'accepted' : 'rejected';
+  const rejectionReason = acceptable
+    ? 'accepted'
+    : candidateGlobalScore < currentGlobalScore
+      ? `Candidate overall SEO score dropped from ${currentGlobalScore} to ${candidateGlobalScore}.`
+      : (failureCountImproved || scoreImproved)
+        ? 'accepted'
+        : (relevantFailuresAfter.length === failingChecks.length
+          ? `Attempt ${attempt} did not improve the targeted SEO checks.`
+          : `Attempt ${attempt} still failed: ${failureDetail}`);
+
+  console.groupCollapsed(`[AI Improve] Field: ${sectionKey} | Attempt: ${attempt}/3`);
+  console.log('Field:', sectionKey);
+  console.log('Original failed checks:', failingChecks.map(c => c.label));
+  console.log('Generated value:', candidate);
+  console.log('Generated value length:', safeStr(candidate).length);
+  console.log('Validation result:', acceptanceCondition);
+  console.log('Remaining targeted failures:', relevantFailuresAfter.map(c => c.label));
+  console.log('Resolved targeted failures:', resolved.map(c => c.label));
+  console.log('OLD FIELD FAILURE COUNT:', failingChecks.length);
+  console.log('NEW FIELD FAILURE COUNT:', relevantFailuresAfter.length);
+  console.log('OLD GLOBAL SCORE:', currentGlobalScore);
+  console.log('NEW GLOBAL SCORE:', candidateGlobalScore);
+  console.log('ACCEPTANCE CONDITION:', acceptanceCondition);
+  console.log('REJECTION REASON:', rejectionReason);
+  console.log('Before field-specific score:', beforePassWeight);
+  console.log('After field-specific score:', afterPassWeight);
+  console.groupEnd();
+
+  if (!acceptable) {
+    return { ok: false, reason: introduced.length
+      ? `Attempt ${attempt} introduced new field-specific failures: ${introduced.map(c => c.label).join(', ')}`
+      : (relevantFailuresAfter.length === failingChecks.length
+        ? `Attempt ${attempt} did not improve the targeted SEO checks.`
+        : `Attempt ${attempt} still failed: ${failureDetail}`),
+      remainingFailures: relevantFailuresAfter.map(c => c.label),
+      resolvedFailures: resolved.map(c => c.label) };
+  }
+
+  return { ok: true, tempSd, remainingFailures: relevantFailuresAfter.map(c => c.label), resolvedFailures: resolved.map(c => c.label) };
+}
+
+function _applyDeterministicFallback(sectionKey, candidate, r, currentSd) {
+  const value = safeStr(candidate).trim();
+  if (!value) return candidate;
+
+  const title = safeStr(r.productName).trim();
+  const cat = safeStr(r.category).trim();
+  const maxLen = sectionKey === 'meta_title' ? 70 : sectionKey === 'meta_description' ? 160 : null;
+  const minLen = sectionKey === 'meta_title' ? 50 : sectionKey === 'meta_description' ? 140 : null;
+
+  if (sectionKey === 'meta_title' || sectionKey === 'meta_description') {
+    let text = value;
+    const words = text.split(/\s+/).filter(Boolean);
+
+    if (sectionKey === 'meta_title') {
+      if (text.length > 70) {
+        const shortWords = [];
+        for (const word of words) {
+          shortWords.push(word);
+          if (shortWords.join(' ').length >= 60) break;
+        }
+        text = shortWords.join(' ').replace(/[\s.,;:!?]+$/g, '');
+      }
+      if (text.length < 50) {
+        const extra = `${title}${cat ? ` ${cat}` : ''}`.trim();
+        text = `${text} ${extra}`.trim();
+        text = text.replace(/\s+/g, ' ');
+      }
+      return text.length > 70 ? text.slice(0, 70).trim().replace(/\s+[^\s]*$/, '') : text;
+    }
+
+    if (sectionKey === 'meta_description') {
+      if (text.length > 160) {
+        const shortWords = [];
+        for (const word of words) {
+          shortWords.push(word);
+          if (shortWords.join(' ').length >= 150) break;
+        }
+        text = shortWords.join(' ').replace(/[\s.,;:!?]+$/g, '');
+      }
+      if (text.length < 140) {
+        const suffix = `${title} for ${cat || 'shopping'}`.trim();
+        text = `${text} ${suffix}`.trim();
+        text = text.replace(/\s+/g, ' ');
+      }
+      return text.length > 160 ? text.slice(0, 160).trim().replace(/\s+[^\s]*$/, '') : text;
+    }
+  }
+
+  if (sectionKey === 'product_description') {
+    const normalizedCat = cat.split(/[,&]/)[0].trim();
+    const wordCount = value.split(/\s+/).filter(Boolean).length;
+    const categoryMention = normalizedCat ? new RegExp(`\\b${normalizedCat.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(value) : false;
+    let updated = value;
+
+    if (normalizedCat && !categoryMention) {
+      updated += `\n\nAs a standout piece in the ${normalizedCat} category, the ${title} delivers the style and versatility shoppers expect from premium ${normalizedCat.toLowerCase()} accessories.`;
+    }
+
+    if (wordCount < 220) {
+      updated += `\n\nDesigned to complement every outfit, it balances visible charm with practical comfort, making it ideal for gifting, everyday wear, and special occasions. The necklace brings premium ${normalizedCat.toLowerCase()} design into a lightweight silhouette that's easy to layer with other jewelry. Its detailed finish and elegant shape ensure it fits seamlessly into any curated collection of accessories.`;
+    }
+
+    return updated;
+  }
+
+  return candidate;
+}
+
 // ── RENDER FULL RESULT ────────────────────────────────────────
 export function renderResult(r, sd) {
   const empty   = document.getElementById('result-empty');
@@ -929,6 +1316,7 @@ function _buildResultHTML(r, sd) {
         ? '&#x2705; Auto-saved to Firebase (Score: ' + sd.score + '/100)'
         : 'Score: ' + sd.score + '/100 &mdash; Improve failed items or save manually.'}
     </div>
+    <div id="score-improve-feedback" class="score-improve-feedback" style="display:none;"></div>
 
     <div class="tabs">
       <button class="tab-btn active" data-tab="score">SEO Score</button>
@@ -1125,7 +1513,7 @@ Respond ONLY with this exact JSON structure, no markdown, no extra text:
  *  - Explicit "do not repeat" instruction
  *  - attempt > 1 escalates the instruction to force variety
  */
-function _buildSectionPrompt(sectionKey, section, r, attempt = 1) {
+function _buildSectionPrompt(sectionKey, section, r, attempt = 1, currentSd = null, lastReason = '') {
   const langInstr = {
     en: 'Write output in English.',
     hi: 'Write output in Hindi (Devanagari script).',
@@ -1140,6 +1528,25 @@ function _buildSectionPrompt(sectionKey, section, r, attempt = 1) {
 
   const retryNote = attempt > 1
     ? `IMPORTANT: The previous attempt returned content identical or too similar to the existing value. This is attempt ${attempt}. You MUST produce significantly different wording, structure, and approach. Do not start with the same words.`
+    : '';
+
+  const scoreContext = currentSd
+    ? (() => {
+        const relevant = (currentSd.checks || []).filter(c => c.field === sectionKey && !c.pass);
+        const reasons = relevant.length ? relevant.map(c => c.label).join('; ') : 'No obvious scoring issues were detected from the current saved state.';
+        const failedList = relevant.length
+          ? relevant.map((c, index) => `${index + 1}. ${c.label}`).join('\n')
+          : 'None';
+        const currentLength = sectionKey === 'meta_title'
+          ? safeStr(r.meta_title).length
+          : sectionKey === 'meta_description'
+            ? safeStr(r.meta_description).length
+            : null;
+        const lengthHint = currentLength !== null
+          ? `Current length: ${currentLength}. Ensure the replacement satisfies the existing length rule.`
+          : '';
+        return `CURRENT SEO FAILURE REASONS: ${reasons}\nTARGETED FAILED CHECKS:\n${failedList}\n${lengthHint}\nFix these issues specifically in the new value.`;
+      })()
     : '';
 
   const imageNote = _imageBase64
@@ -1167,6 +1574,8 @@ PRODUCT CONTEXT:
 
 TASK: Regenerate ONLY the "${section.label}" field.
 ${retryNote}
+${scoreContext}
+${lastReason ? `PREVIOUS ATTEMPT FEEDBACK: ${lastReason}` : ''}
 
 CURRENT VALUE (you must NOT repeat this — generate something NEW and BETTER):
 ${currentValueStr}
@@ -1308,6 +1717,9 @@ async function _saveToFirestore(r) {
 }
 
 // ── COPY HELPERS ─────────────────────────────────────────────
+export function viewSeoScore() {
+  switchResultTab('score');
+}
 export function copyField(id)  { copyText(document.getElementById(id)?.textContent || ''); }
 export function copyKw()       { copyText(Array.from(document.querySelectorAll('#r-kw .kw-tag')).map(x => x.textContent).join(', ')); }
 export function copyTags()     { copyText(Array.from(document.querySelectorAll('#r-tags .prod-tag')).map(x => x.textContent).join(', ')); }
@@ -1336,7 +1748,34 @@ export async function saveAnyway() {
 // ── PUBLIC ACCESSORS ──────────────────────────────────────────
 export function getCurrentResult() { return _currentResult; }
 export function setProductContext(product) {
+  _productContext = product || null;
   _productId = product?.id || product?.productId || null;
+  _existingProductImageUrl = product?.imageUrl || product?.image || null;
+  _imageSourceIsFile = false;
+  _imageBase64 = null;
+  _imageMime = 'image/jpeg';
+
+  const nameEl = document.getElementById('prod-name');
+  const catEl = document.getElementById('prod-cat');
+  const langEl = document.getElementById('prod-lang');
+  const modelEl = document.getElementById('prod-model-number');
+  const mrpEl = document.getElementById('prod-mrp');
+  const sellingPriceEl = document.getElementById('prod-selling-price');
+
+  if (nameEl) nameEl.value = product?.productName || '';
+  if (catEl) catEl.value = product?.category || '';
+  if (langEl) langEl.value = product?.language || product?.lang || 'en';
+  if (modelEl) modelEl.value = product?.modelNumber || '';
+  if (mrpEl) mrpEl.value = product?.mrp || '';
+  if (sellingPriceEl) sellingPriceEl.value = product?.sellingPrice || '';
+
+  if (_existingProductImageUrl) {
+    _setPreviewImage(_existingProductImageUrl);
+  } else {
+    _setPreviewImage(null);
+  }
+
+  _updateButtonState();
 }
 export function setCurrentResult(r) {
   _currentResult = r;

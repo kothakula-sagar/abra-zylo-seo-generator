@@ -18,6 +18,9 @@ let _productsLoaded = false;
 let _productsLoadPromise = null;
 let _productsLoadError = null;
 let _productsQueryCount = 0;
+let _campaignItemsCache = new Map();
+let _campaignItemsLoadPromise = new Map();
+let _campaignDetailsLoadPromise = new Map();
 let _productsCreatorLookupCount = 0;
 let _productsRenderCount = 0;
 let _productsRenderTimer = null;
@@ -1838,37 +1841,30 @@ async function openCampaign(campaignId) {
     showToast('Only admins can access campaigns');
     return;
   }
-  
+
   try {
-    const campaign = _campaigns.find(c => c.id === campaignId) || 
-                    (await FB.getDoc(FB.docRef('saleCampaigns', campaignId))).data();
-    
+    const campaign = _campaigns.find(c => c.id === campaignId) || (await FB.getDoc(FB.docRef('saleCampaigns', campaignId))).data();
+
     if (!campaign) {
       showToast('Campaign not found');
       return;
     }
-    
+
     _currentCampaign = { id: campaignId, ...campaign };
-    
-    // Update UI
+
+    // Update UI immediately from cached data
     document.getElementById('campaign-detail-name').textContent = campaign.saleName;
     document.getElementById('campaign-detail-prompt').textContent = campaign.prompt;
-    
-    // Check if campaign has been started (has campaign items)
-    const itemsQuery = FB.query(
-      FB.col('campaignItems'),
-      FB.where('campaignId', '==', campaignId)
-    );
-    const itemsSnapshot = await FB.getDocs(itemsQuery);
-    const hasItems = !itemsSnapshot.empty;
+
+    const cachedItems = _campaignItemsCache.get(campaignId) || [];
+    const hasItems = cachedItems.length > 0;
 
     const addProductsBtn = document.getElementById('campaign-add-products-btn');
     if (addProductsBtn) {
       addProductsBtn.style.display = hasItems ? 'inline-flex' : 'none';
     }
-    
+
     if (!hasItems) {
-      // Show product selection
       document.getElementById('product-selection').style.display = 'block';
       document.getElementById('campaign-tabs').style.display = 'none';
       document.getElementById('campaign-items-grid').style.display = 'none';
@@ -1876,16 +1872,14 @@ async function openCampaign(campaignId) {
       updateCampaignSelectionUi();
       await renderCampaignProducts();
     } else {
-      // Show campaign tabs and items
       document.getElementById('product-selection').style.display = 'none';
       document.getElementById('campaign-tabs').style.display = 'flex';
       document.getElementById('campaign-items-grid').style.display = 'grid';
-      await loadCampaignItems(); // FIX: Await items before switching tabs
+      await loadCampaignItems(campaignId, { force: false });
       switchCampaignTab(_currentActiveTab);
     }
-    
+
     window.App.go('campaign-detail');
-    
   } catch (error) {
     console.error('Error loading campaign:', error);
     showToast('Failed to load campaign details');
@@ -1928,64 +1922,60 @@ async function renderCampaignProducts() {
   const container = document.getElementById('campaign-products-list');
   if (!container) return;
 
-  try {
-    await loadProductsCatalog();
-  } catch (error) {
-    container.innerHTML = '<div class="empty-state"><p>Failed to load products.</p></div>';
-    return;
-  }
-
   updateCampaignSelectionUi();
 
-  const existingProductIds = new Set(_campaignItems.map(item => item.productId));
-  
-  // Apply search filter
-  const searchTerm = document.getElementById('campaign-products-search')?.value?.toLowerCase() || '';
-  const filteredProducts = _products.filter(product => {
-    if (_campaignProductSelectionMode === 'add' && existingProductIds.has(product.id)) {
-      return false;
+  try {
+    const products = await loadProductsCatalog();
+    const existingProductIds = new Set((_campaignItemsCache.get(_currentCampaign?.id) || []).map(item => item.productId));
+
+    const searchTerm = document.getElementById('campaign-products-search')?.value?.toLowerCase() || '';
+    const filteredProducts = products.filter(product => {
+      if (_campaignProductSelectionMode === 'add' && existingProductIds.has(product.id)) {
+        return false;
+      }
+      return product.productName?.toLowerCase().includes(searchTerm);
+    });
+
+    if (filteredProducts.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>${searchTerm ? 'No products match your search.' : 'No products available to add.'}</p>
+        </div>`;
+      return;
     }
-    return product.productName?.toLowerCase().includes(searchTerm);
-  });
   
-  if (filteredProducts.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <p>${searchTerm ? 'No products match your search.' : 'No products available to add.'}</p>
+    container.innerHTML = filteredProducts.map(product => {
+      let imageSrc = '';
+      if (product.imageUrl) {
+        imageSrc = getThumbnail(product.imageUrl, 40);
+      } else if (product.image) {
+        imageSrc = getThumbnail(product.image, 40);
+      }
+
+      return `
+      <div class="campaign-product-item ${_selectedProductIds.has(product.id) ? 'selected' : ''}" 
+           onclick="window.Marketing.toggleProductSelection('${product.id}')">
+        <div class="campaign-product-header">
+          <input type="checkbox" ${_selectedProductIds.has(product.id) ? 'checked' : ''} 
+                 onchange="window.Marketing.toggleProductSelection('${product.id}')" 
+                 onclick="event.stopPropagation()"/>
+          <div class="campaign-product-image">
+            ${imageSrc 
+              ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" loading="lazy" onerror="this.style.display='none';"/>`
+              : '<div style="width:40px;height:40px;background:#f0f0f0;border-radius:4px;"></div>'
+            }
+          </div>
+          <div class="campaign-product-info">
+            <div class="campaign-product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
+            <div class="campaign-product-price">₹${product.sellingPrice || 0} (${normalizeDiscountPercent(product.discount)}% OFF)</div>
+          </div>
+        </div>
       </div>`;
-    return;
+    }).join('');
+  } catch (error) {
+    console.error('Error rendering campaign products:', error);
+    container.innerHTML = '<div class="empty-state"><p>Failed to load products.</p></div>';
   }
-  
-  container.innerHTML = filteredProducts.map(product => {
-    // Safe image URL handling with fallbacks
-    let imageSrc = '';
-    if (product.imageUrl) {
-      imageSrc = getThumbnail(product.imageUrl, 40);
-    } else if (product.image) {
-      // Legacy field fallback
-      imageSrc = getThumbnail(product.image, 40);
-    }
-    
-    return `
-    <div class="campaign-product-item ${_selectedProductIds.has(product.id) ? 'selected' : ''}" 
-         onclick="window.Marketing.toggleProductSelection('${product.id}')">
-      <div class="campaign-product-header">
-        <input type="checkbox" ${_selectedProductIds.has(product.id) ? 'checked' : ''} 
-               onchange="window.Marketing.toggleProductSelection('${product.id}')" 
-               onclick="event.stopPropagation()"/>
-        <div class="campaign-product-image">
-          ${imageSrc 
-            ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.productName || 'Product')}" onerror="this.style.display='none'; console.error('Failed to load campaign product image:', '${escapeHtml(imageSrc)}');"/>`
-            : '<div style="width:40px;height:40px;background:#f0f0f0;border-radius:4px;"></div>'
-          }
-        </div>
-        <div class="campaign-product-info">
-          <div class="campaign-product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
-          <div class="campaign-product-price">₹${product.sellingPrice || 0} (${normalizeDiscountPercent(product.discount)}% OFF)</div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 /**
@@ -2171,35 +2161,67 @@ async function regeneratePendingCampaignItems(campaignId, promptTemplate) {
 /**
  * Load campaign items
  */
-async function loadCampaignItems() {
-  if (!_currentCampaign) return;
-  
-  try {
-    const q = FB.query(
-      FB.col('campaignItems'),
-      FB.where('campaignId', '==', _currentCampaign.id),
-      FB.orderBy('createdAt', 'desc')
-    );
-    const snapshot = await FB.getDocs(q);
-    
-    _campaignItems = [];
-    snapshot.forEach(doc => {
-      _campaignItems.push({ id: doc.id, ...doc.data() });
-    });
-    
-    // Update tab counts
-    const pendingCount = _campaignItems.filter(item => item.status === 'pending').length;
-    const generatingCount = _campaignItems.filter(item => item.status === 'generating').length;
-    const completedCount = _campaignItems.filter(item => item.status === 'completed').length;
-    
-    document.getElementById('pending-count').textContent = pendingCount;
-    document.getElementById('generating-count').textContent = generatingCount;
-    document.getElementById('completed-count').textContent = completedCount;
-    
-  } catch (error) {
-    console.error('Error loading campaign items:', error);
-    showToast('Failed to load campaign items');
+async function loadCampaignItems(campaignId = _currentCampaign?.id, options = {}) {
+  if (!campaignId) return;
+
+  const { force = false } = options;
+  const cachedItems = _campaignItemsCache.get(campaignId);
+
+  if (!force && cachedItems) {
+    _campaignItems = cachedItems;
+    updateCampaignItemCounts(cachedItems);
+    return cachedItems;
   }
+
+  if (_campaignItemsLoadPromise.has(campaignId)) {
+    return _campaignItemsLoadPromise.get(campaignId);
+  }
+
+  const loadStart = performance.now();
+  const promise = (async () => {
+    try {
+      const q = FB.query(
+        FB.col('campaignItems'),
+        FB.where('campaignId', '==', campaignId),
+        FB.orderBy('createdAt', 'desc')
+      );
+      const snapshot = await FB.getDocs(q);
+
+      const items = [];
+      snapshot.forEach(doc => {
+        items.push({ id: doc.id, ...doc.data() });
+      });
+
+      _campaignItemsCache.set(campaignId, items);
+      _campaignItems = items;
+      updateCampaignItemCounts(items);
+      console.log('[CampaignPerf]', { campaignItemsFetch: performance.now() - loadStart, campaignId });
+      return items;
+    } catch (error) {
+      console.error('Error loading campaign items:', error);
+      showToast('Failed to load campaign items');
+      throw error;
+    } finally {
+      _campaignItemsLoadPromise.delete(campaignId);
+    }
+  })();
+
+  _campaignItemsLoadPromise.set(campaignId, promise);
+  return promise;
+}
+
+function updateCampaignItemCounts(items = _campaignItems) {
+  const pendingCount = items.filter(item => item.status === 'pending').length;
+  const generatingCount = items.filter(item => item.status === 'generating').length;
+  const completedCount = items.filter(item => item.status === 'completed').length;
+
+  const pendingEl = document.getElementById('pending-count');
+  const generatingEl = document.getElementById('generating-count');
+  const completedEl = document.getElementById('completed-count');
+
+  if (pendingEl) pendingEl.textContent = pendingCount;
+  if (generatingEl) generatingEl.textContent = generatingCount;
+  if (completedEl) completedEl.textContent = completedCount;
 }
 
 /**
@@ -2222,9 +2244,9 @@ function switchCampaignTab(status) {
 async function renderCampaignItems() {
   const container = document.getElementById('campaign-items-grid');
   if (!container) return;
-  
+
   const filteredItems = _campaignItems.filter(item => item.status === _currentActiveTab);
-  
+
   if (filteredItems.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
@@ -2239,7 +2261,6 @@ async function renderCampaignItems() {
     return;
   }
 
-  // Get product images for campaign items
   const productIds = [...new Set(filteredItems.map(item => item.productId))];
   const productImages = await getProductImages(productIds);
 
@@ -2249,7 +2270,7 @@ async function renderCampaignItems() {
     if (productImage) {
       imageSrc = getThumbnail(productImage, 140);
     }
-    
+
     return `
       <div class="campaign-item-card" onclick="window.Marketing.openCampaignItem('${item.id}')">
         <div class="campaign-item-card-header">
@@ -2291,28 +2312,16 @@ async function getProductImages(productIds) {
 
   try {
     const productImages = {};
-    
-    // Batch fetch products in chunks of 10 (Firestore limit)
-    const chunks = [];
-    for (let i = 0; i < productIds.length; i += 10) {
-      chunks.push(productIds.slice(i, i + 10));
-    }
+    const productsById = new Map(_products.map(product => [product.id, product]));
 
-    for (const chunk of chunks) {
-      const q = FB.query(
-        FB.col('products'),
-        FB.where(FB.documentId(), 'in', chunk)
-      );
-      const snapshot = await FB.getDocs(q);
-      
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        productImages[doc.id] = data.imageUrl || '';
-      });
-    }
+    productIds.forEach(productId => {
+      const product = productsById.get(productId);
+      if (product) {
+        productImages[productId] = product.imageUrl || product.image || '';
+      }
+    });
 
     return productImages;
-
   } catch (error) {
     console.error('Error fetching product images:', error);
     return {};
@@ -2324,8 +2333,10 @@ async function getProductImages(productIds) {
  */
 async function renderCampaignDetail() {
   if (_currentCampaign) {
-    await loadCampaignItems(); // FIX: Wait for items to refresh before switching tabs
+    const start = performance.now();
+    await loadCampaignItems(_currentCampaign.id, { force: false });
     switchCampaignTab(_currentActiveTab);
+    console.log('[CampaignPerf]', { campaignRender: performance.now() - start, campaignId: _currentCampaign.id });
   }
 }
 
@@ -2366,7 +2377,10 @@ async function deleteCampaignItem(itemId) {
       _metaCatalogItems = _metaCatalogCache.metaItems;
     }
     showToast('Campaign item removed');
-    await loadCampaignItems();
+    const updatedItems = _campaignItems.filter(item => item.id !== itemId);
+    _campaignItems = updatedItems;
+    _campaignItemsCache.set(_currentCampaign?.id, updatedItems);
+    updateCampaignItemCounts(updatedItems);
     switchCampaignTab(_currentActiveTab);
   } catch (error) {
     console.error('Error deleting campaign item:', error);
@@ -2539,8 +2553,10 @@ async function updateCampaignItemStatus(newStatus) {
     showToast(`Status updated to ${newStatus}`);
     hideCampaignItemModal();
     
-    // Reload campaign items and update view
-    await loadCampaignItems();
+    const updatedItems = _campaignItems.map(item => item.id === _currentCampaignItem.id ? { ...item, status: newStatus, updatedAt: Date.now() } : item);
+    _campaignItems = updatedItems;
+    _campaignItemsCache.set(_currentCampaign?.id, updatedItems);
+    updateCampaignItemCounts(updatedItems);
     renderCampaignItems();
     
   } catch (error) {

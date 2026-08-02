@@ -51,7 +51,7 @@ export async function render() {
   }
 
   list.innerHTML = products.map((p, i) => {
-    const directSeoStatus = _hasDirectSeoContent(p) ? 'Completed' : 'Pending';
+    const directSeoStatus = (_hasDirectSeoContent(p) || _getProductHistoryVersions(p).length) ? 'Completed' : 'Pending';
     const status = p.generationStatus || directSeoStatus;
     const statusColors = {
       'Pending': { bg: '#fff7ed', color: '#ea580c', icon: '⏳' },
@@ -175,7 +175,7 @@ export async function open(idx) {
   const seoHistory = await _fetchSeoHistoryForProduct(product.id, language);
   const historyVersions = seoHistory.length ? seoHistory : _getProductHistoryVersions(product);
   
-  const status = product.generationStatus || (_hasDirectSeoContent(product) ? 'Completed' : 'Pending');
+  const status = product.generationStatus || (_hasDirectSeoContent(product) || historyVersions.length ? 'Completed' : 'Pending');
   const statusColors = {
     'Pending': { bg: '#fff7ed', color: '#ea580c', icon: '⏳' },
     'Generating': { bg: '#eff6ff', color: '#2563eb', icon: '🔄' },
@@ -521,9 +521,6 @@ async function _fetchAllProducts() {
 
     snapshot.forEach(doc => {
       const product = { id: doc.id, ...doc.data() };
-      if (!product.generationStatus) {
-        product.generationStatus = 'Pending';
-      }
       products.push(product);
       productIds.add(product.id);
     });
@@ -549,8 +546,12 @@ async function _fetchAllProducts() {
     });
 
     products.forEach(product => {
-      product._seoHistory = (historyByProduct.get(product.id) || [])
+      const versions = (historyByProduct.get(product.id) || [])
         .sort((a, b) => _dateValue(b.generatedAt) - _dateValue(a.generatedAt));
+      product._seoHistory = versions;
+      if (!product.generationStatus) {
+        product.generationStatus = versions.length || _hasDirectSeoContent(product) ? 'Completed' : 'Pending';
+      }
     });
 
     products.sort((a, b) => _dateValue(b.createdAt || b.updatedAt) - _dateValue(a.createdAt || a.updatedAt));

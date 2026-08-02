@@ -23,10 +23,26 @@ const ENDPOINTS = {
 // ── API KEY VALIDATION ────────────────────────────────────────
 export function validateKey(key, provider) {
   const k = (key || '').trim();
-  if (!k || k.length < 10) return false;
-  if (provider === 'groq'       && !k.startsWith('gsk_')) return false;
-  if (provider === 'gemini'     && !k.startsWith('AIza')) return false;
+  if (!k) return false;
+  if (provider === 'groq' && !k.startsWith('gsk_')) return false;
   return true;
+}
+
+export async function verifyGeminiKey(apiKey) {
+  const key = (apiKey || '').trim();
+  if (!key) throw new Error('Please enter your Gemini API key.');
+
+  const testMessages = [{ role: 'user', content: 'Verify Gemini API key.' }];
+  try {
+    await _callGemini(testMessages, key, { temperature: 0, maxTokens: 1, timeout: 20000 });
+    return true;
+  } catch (err) {
+    const message = String(err?.message || err || '').toLowerCase();
+    if (message.includes('abort') || message.includes('timeout') || message.includes('failed to fetch') || message.includes('network')) {
+      throw new Error('Unable to connect to Gemini. Please check your internet connection and try again.');
+    }
+    throw new Error('Unable to authenticate with Gemini. Please check your API key.');
+  }
 }
 
 // ── MAIN DISPATCH ─────────────────────────────────────────────
@@ -226,7 +242,16 @@ class AiError extends Error {
   userMessage() {
     switch (this.type) {
       case 'invalid_key':
-        return `Invalid ${this.provider} API key.\n\nCheck your key in Settings:\n- Groq keys start with gsk_\n- Gemini keys start with AIza\n- Add key at console.groq.com/keys`;
+        if (this.provider === 'groq') {
+        return 'Invalid Groq API key. Please check your key in Settings.';
+      }
+      if (this.provider === 'gemini') {
+        return 'Invalid Gemini API key. Please check your API key in Settings.';
+      }
+      if (this.provider === 'openrouter') {
+        return 'Invalid OpenRouter API key. Please check your key in Settings.';
+      }
+      return `Invalid ${this.provider} API key. Check your key in Settings.`;
       case 'api_error': {
         const d = this.detail.toLowerCase();
         if (d.includes('rate') || d.includes('quota') || d.includes('limit')) {

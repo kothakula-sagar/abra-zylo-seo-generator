@@ -53,6 +53,7 @@ const App = {
     // Route guard: restricted users can only see the dashboard (access overlay)
     if (Auth.isAccessRestricted() && !Auth.isAdmin()) {
       _showAccessOverlay();
+      UI.closeAllModals();
       UI.switchTab('dashboard');
       return;
     }
@@ -65,6 +66,7 @@ const App = {
     if (tab === 'campaign-detail' && !Auth.isAdmin()) return;
     if (tab === 'meta-catalog' && !Auth.isAdmin()) return;
 
+    UI.closeAllModals();
     UI.switchTab(tab);
 
     // Lazy-load tab data
@@ -237,8 +239,9 @@ document.addEventListener('keydown', e => {
 
 // ── CLICK OUTSIDE OVERLAY MODAL ───────────────────────────────
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('overlay')) {
-    e.target.style.display = 'none';
+  const target = e.target;
+  if (target instanceof HTMLElement && target.classList.contains('overlay') && target.id) {
+    UI.closeModal(target.id);
   }
 });
 

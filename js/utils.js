@@ -27,6 +27,30 @@ const STOP_WORDS = new Set([
   'also','than','just','one','how','do','over','under','any','when','use','only','no'
 ]);
 
+const CATEGORY_SYNONYMS = {
+  jewellery: ['jewelry'],
+  accessories: ['accessory', 'accessories'],
+  clothing: ['apparel', 'clothes'],
+  beauty: ['cosmetics', 'skincare', 'makeup'],
+  kitchen: ['cookware', 'kitchen'],
+  electronics: ['gadgets', 'electronics'],
+  sports: ['fitness', 'athletic'],
+  fitness: ['sports', 'workout'],
+  books: ['books', 'stationery'],
+  stationery: ['stationery', 'office'],
+  toys: ['toys', 'kids', 'children'],
+  grocery: ['grocery', 'groceries', 'food'],
+  home: ['home', 'household']
+};
+
+function _normalizeText(text) {
+  return safeStr(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function generateSlug(input) {
   return safeStr(input).toLowerCase()
     .replace(/[|&%@#*]/g, '')
@@ -197,9 +221,22 @@ export function computeSeoScore(r) {
   const titleLower = title.toLowerCase();
   const descWords  = prodDesc.split(/\s+/).filter(Boolean).length;
   const descSents  = Math.max((prodDesc.match(/[.!?]+/g) || []).length, 0);
+  const normCat    = _normalizeText(cat);
+  const catTerms   = new Set(normCat.split(' ').filter(term => term.length >= 3 && !STOP_WORDS.has(term)));
 
   // ── Helper: does field contain at least one product keyword? ──
   const hasProductKw = (text) => pWords.some(w => text.toLowerCase().includes(w));
+  const hasCategoryContext = (text) => {
+    const normalized = _normalizeText(text);
+    const words = new Set(normalized.split(' ').filter(Boolean));
+    for (const term of catTerms) {
+      if (term.length < 3) continue;
+      if (words.has(term)) return true;
+      const synonyms = CATEGORY_SYNONYMS[term];
+      if (synonyms && synonyms.some(syn => words.has(syn))) return true;
+    }
+    return false;
+  };
 
   // ── Helper: does field contain a CTA-like phrase? ──────────
   const CTA_PATTERNS = /\b(buy|shop|order|get|discover|explore|view|check|grab|save|find|try|visit|see)\b/i;
@@ -272,7 +309,7 @@ export function computeSeoScore(r) {
       label:  'Category context in Description',
       field:  'product_description',
       weight: 6,
-      pass:   cat.length > 0 && prodDesc.toLowerCase().includes(cat.split(' ')[0])
+      pass:   cat.length > 0 && hasCategoryContext(prodDesc)
     },
     {
       label:  'Brand / Product name mentioned',

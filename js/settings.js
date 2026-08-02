@@ -4,7 +4,7 @@
 
 import { FB } from './firebase.js';
 import { getUser, getUserDoc, updateUserField, getApiKey, isAdmin } from './auth.js';
-import { validateKey } from './ai.js';
+import { verifyGeminiKey } from './ai.js';
 import { safeStr, formatDate } from './utils.js';
 import { showToast, applyTheme } from './ui.js';
 import { getPageSpeedApiKey, savePageSpeedApiKey, validateApiKey } from './pagespeed.js';
@@ -88,7 +88,7 @@ function _sectionGemini(ud) {
       <div class="form-row">
         <label>Gemini API Key</label>
         <div class="api-row">
-          <input type="password" id="s-gemini-key" placeholder="AIza..." value="${safeStr(ud.geminiKey)}"/>
+          <input type="password" id="s-gemini-key" placeholder="Enter Gemini API key" value="${safeStr(ud.geminiKey)}"/>
           <button class="btn btn-outline btn-sm" onclick="window.Settings.toggleKey('s-gemini-key', this)">Show</button>
         </div>
       </div>
@@ -301,16 +301,23 @@ export async function saveKey(provider) {
   if (oEl) oEl.style.display = 'none';
 
   if (!key) {
-    if (aEl) { aEl.textContent = 'Please enter an API key.'; aEl.style.display = 'block'; }
+    if (aEl) { aEl.textContent = provider === 'gemini' ? 'Please enter your Gemini API key.' : 'Please enter an API key.'; aEl.style.display = 'block'; }
     return;
   }
   if (provider === 'groq' && !key.startsWith('gsk_')) {
     if (aEl) { aEl.textContent = 'Groq keys start with gsk_. Check your key.'; aEl.style.display = 'block'; }
     return;
   }
-  if (provider === 'gemini' && !key.startsWith('AIza')) {
-    if (aEl) { aEl.textContent = 'Gemini keys start with AIza. Check your key.'; aEl.style.display = 'block'; }
-    return;
+
+  if (provider === 'gemini') {
+    try {
+      await verifyGeminiKey(key);
+    } catch (err) {
+      const message = String(err?.message || err || 'Unable to authenticate with Gemini. Please check your API key.');
+      if (aEl) { aEl.textContent = message; aEl.style.display = 'block'; }
+      console.error('[Settings] Gemini validation failed:', message);
+      return;
+    }
   }
 
   await updateUserField({ [fieldMap[provider]]: key });

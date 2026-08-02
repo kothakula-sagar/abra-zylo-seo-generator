@@ -12,7 +12,7 @@
 .auth-left::after{content:'';position:absolute;bottom:-90px;left:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,213,79,.16),transparent 68%)}
 
 .auth-logo{width:min(210px,100%);margin-bottom:3rem;position:relative;z-index:1}
-.auth-logo img{display:block;width:100%;height:auto;object-fit:contain}
+.auth-logo img{display:block;width:100%;height:auto;object-fit:contain;}
 
 .auth-left h1{color:#111;font-size:1.9rem;font-weight:800;line-height:1.25;margin-bottom:1rem;position:relative;z-index:1}
 .auth-left h1 em{font-style:normal;color:#b77900}

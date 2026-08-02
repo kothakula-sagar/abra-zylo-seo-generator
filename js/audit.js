@@ -67,24 +67,42 @@ export function switchAuditTab(tab) {
 export async function runPerformanceAudit() {
   hideAlert('perf-alert');
   
-  const url = (document.getElementById('perf-url')?.value || '').trim();
+  const rawUrl = (document.getElementById('perf-url')?.value || '').trim();
   const strategyEl = document.querySelector('input[name="perf-strategy"]:checked');
   const strategy = strategyEl ? strategyEl.value : 'mobile';
   const aiAnalysisEnabled = document.getElementById('perf-ai-enabled')?.checked || false;
   
-  if (!url) {
+  if (!rawUrl) {
     showAlert('perf-alert', 'Please enter a website URL.');
     return;
   }
-  
-  // Basic URL validation
+
+  let normalizedUrl = rawUrl;
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(normalizedUrl)) {
+    normalizedUrl = `https://${normalizedUrl}`;
+  }
+
+  let parsedUrl;
   try {
-    new URL(url);
+    parsedUrl = new URL(normalizedUrl);
   } catch {
-    showAlert('perf-alert', 'Please enter a valid URL (including http:// or https://).');
+    showAlert('perf-alert', 'Please enter a valid ABRA ZYLO URL.');
     return;
   }
-  
+
+  const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, '');
+  const isAbraZylo = hostname === 'abra-zylo.com';
+  if (!isAbraZylo) {
+    showAlert('perf-alert', `This product is built exclusively for ABRA ZYLO and cannot audit ${hostname}. The performance audit is specifically configured for abra-zylo.com. Please enter an ABRA ZYLO URL to continue.`);
+    return;
+  }
+
+  const url = normalizedUrl;
+  if (rawUrl !== normalizedUrl) {
+    const inputEl = document.getElementById('perf-url');
+    if (inputEl) inputEl.value = normalizedUrl;
+  }
+
   // Show loading overlay with steps
   const steps = aiAnalysisEnabled 
     ? [
