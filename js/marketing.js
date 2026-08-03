@@ -84,6 +84,16 @@ function recordMetaFirestoreRead(label) {
   console.log(`[PERF] Meta Firestore read: ${label}`);
 }
 
+function firstPositiveNumber(...values) {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return numeric;
+    }
+  }
+  return 0;
+}
+
 function rebuildMetaCatalogLookups() {
   const campaignsById = new Map(_metaCatalogCache.campaigns.map(campaign => [campaign.id, campaign]));
   const campaignItemsByCampaign = new Map();
@@ -388,8 +398,8 @@ async function loadMetaProductDetailData(metaEntry) {
       productName: safeStr(product?.productName || metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
       productDescription: seoDescription || 'Not Added',
       productUrl: buildMetaProductUrl(product || {}, seoSlug),
-      mrp: Number(campaignItemDoc?.mrp ?? product?.mrp ?? metaEntry?.mrp ?? 0),
-      sellingPrice: Number(campaignItemDoc?.sellingPrice ?? product?.sellingPrice ?? metaEntry?.sellingPrice ?? 0),
+      mrp: firstPositiveNumber(product?.mrp, campaignItemDoc?.mrp, metaEntry?.mrp),
+      sellingPrice: firstPositiveNumber(product?.sellingPrice, campaignItemDoc?.sellingPrice, metaEntry?.sellingPrice),
       modelNumber: safeStr(product?.modelNumber || metaEntry?.modelNumber || '').trim() || 'Not Added',
       imageUrl: product?.imageUrl || '',
       metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
@@ -405,8 +415,8 @@ async function loadMetaProductDetailData(metaEntry) {
       productName: safeStr(metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
       productDescription: 'Not Added',
       productUrl: 'Not Added',
-      mrp: Number(metaEntry?.mrp ?? 0),
-      sellingPrice: Number(metaEntry?.sellingPrice ?? 0),
+      mrp: firstPositiveNumber(metaEntry?.mrp),
+      sellingPrice: firstPositiveNumber(metaEntry?.sellingPrice),
       modelNumber: 'Not Added',
       imageUrl: '',
       metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
