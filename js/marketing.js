@@ -55,6 +55,7 @@ let _productsViewCache = { signature: '', creatorLabels: {}, duplicateProductNam
 let _activeMetaProductItemId = null;
 let _activeMetaProductDetails = null;
 let _metaProductLookupCache = {};
+let _metaProductModalScrollState = null;
 let _metaCatalogCache = {
   campaigns: [],
   campaignItems: [],
@@ -659,6 +660,33 @@ function restoreCampaignDetailScrollState() {
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(restoreScroll);
     });
+  } else {
+    setTimeout(restoreScroll, 0);
+  }
+}
+
+function preserveMetaProductModalScrollState() {
+  const scrollTarget = getProductsScrollTarget();
+  _metaProductModalScrollState = {
+    x: (scrollTarget && typeof scrollTarget.scrollLeft === 'number' ? scrollTarget.scrollLeft : window.scrollX || window.pageXOffset || 0),
+    y: (scrollTarget && typeof scrollTarget.scrollTop === 'number' ? scrollTarget.scrollTop : window.scrollY || window.pageYOffset || 0)
+  };
+}
+
+function restoreMetaProductModalScrollState() {
+  if (!_metaProductModalScrollState) return;
+
+  const restoreScroll = () => {
+    const scrollTarget = getProductsScrollTarget();
+    if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+      scrollTarget.scrollTo(_metaProductModalScrollState.x, _metaProductModalScrollState.y);
+    } else {
+      window.scrollTo(_metaProductModalScrollState.x, _metaProductModalScrollState.y);
+    }
+  };
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(restoreScroll);
   } else {
     setTimeout(restoreScroll, 0);
   }
@@ -1653,6 +1681,7 @@ async function openMetaProductDetails(itemId) {
     }
 
     bindMetaProductModalCopyButtons(_activeMetaProductDetails);
+    preserveMetaProductModalScrollState();
     openModal('meta-product-modal');
     recordMetaPerfMetric('Meta Product Popup Open', performance.now() - popupStart);
   } catch (error) {
@@ -1665,6 +1694,7 @@ function hideMetaProductModal() {
   _activeMetaProductItemId = null;
   _activeMetaProductDetails = null;
   closeModal('meta-product-modal');
+  restoreMetaProductModalScrollState();
 }
 
 async function toggleMetaProductAdded() {
