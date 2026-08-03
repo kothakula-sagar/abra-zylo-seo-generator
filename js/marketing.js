@@ -36,12 +36,21 @@ let _currentEditingProduct = null;
 let _productEditOriginal = null;
 let _productImageChanged = false;
 let _currentCampaignItem = null;
+let _currentCampaignItemName = '';
 let _currentActiveTab = 'pending';
 let _campaignProductSelectionMode = 'start';
 let _productsFilterState = new Set();
 let _productsSortMode = 'newest';
 let _productUserCache = {};
 let _productsScrollState = null;
+let _campaignDetailScrollState = null;
+let _campaignViewState = {
+  campaignId: null,
+  activeTab: 'pending',
+  productId: null,
+  scrollTop: 0,
+  scrollContainer: 'window'
+};
 let _productsViewCache = { signature: '', creatorLabels: {}, duplicateProductNameSet: new Set() };
 let _activeMetaProductItemId = null;
 let _activeMetaProductDetails = null;
@@ -566,10 +575,19 @@ function updateProductsFilterButtons() {
 }
 
 function getProductsScrollTarget() {
+  const windowScrollY = window.scrollY || window.pageYOffset || 0;
+  const documentScrollTop = document.documentElement?.scrollTop || 0;
+  const bodyScrollTop = document.body?.scrollTop || 0;
+
+  if (windowScrollY > 0 || documentScrollTop > 0 || bodyScrollTop > 0) {
+    return window;
+  }
+
   const scrollTarget = document.scrollingElement || document.documentElement || document.body;
-  if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+  if (scrollTarget && typeof scrollTarget.scrollTo === 'function' && (scrollTarget.scrollTop > 0 || scrollTarget.scrollHeight > scrollTarget.clientHeight)) {
     return scrollTarget;
   }
+
   return window;
 }
 
@@ -595,6 +613,52 @@ function restoreProductsScrollState() {
 
   if (typeof window.requestAnimationFrame === 'function') {
     window.requestAnimationFrame(restoreScroll);
+  } else {
+    setTimeout(restoreScroll, 0);
+  }
+}
+
+function preserveCampaignDetailScrollState(productId = null) {
+  const scrollTarget = getProductsScrollTarget();
+  _campaignDetailScrollState = {
+    x: (scrollTarget && typeof scrollTarget.scrollLeft === 'number' ? scrollTarget.scrollLeft : window.scrollX || window.pageXOffset || 0),
+    y: (scrollTarget && typeof scrollTarget.scrollTop === 'number' ? scrollTarget.scrollTop : window.scrollY || window.pageYOffset || 0)
+  };
+
+  _campaignViewState = {
+    campaignId: _currentCampaign?.id || null,
+    activeTab: _currentActiveTab || 'pending',
+    productId: productId || _currentCampaignItem?.productId || null,
+    scrollTop: _campaignDetailScrollState.y,
+    scrollContainer: scrollTarget === window ? 'window' : 'container'
+  };
+}
+
+function restoreCampaignDetailScrollState() {
+  if (!_campaignDetailScrollState && !_campaignViewState?.campaignId) return;
+
+  const restoreScroll = () => {
+    const scrollTarget = getProductsScrollTarget();
+    const targetTop = _campaignViewState?.scrollTop ?? _campaignDetailScrollState?.y ?? 0;
+
+    if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+      scrollTarget.scrollTo(_campaignDetailScrollState?.x ?? 0, targetTop);
+    } else {
+      window.scrollTo(_campaignDetailScrollState?.x ?? 0, targetTop);
+    }
+
+    if (_campaignViewState?.productId) {
+      const productCard = document.querySelector(`[data-product-id="${CSS.escape(String(_campaignViewState.productId))}"]`);
+      if (productCard && typeof productCard.scrollIntoView === 'function') {
+        productCard.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }
+  };
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(restoreScroll);
+    });
   } else {
     setTimeout(restoreScroll, 0);
   }
@@ -2439,7 +2503,7 @@ async function renderCampaignItems() {
     }
 
     return `
-      <div class="campaign-item-card" onclick="window.Marketing.openCampaignItem('${item.id}')">
+      <div class="campaign-item-card" data-item-id="${escapeHtml(item.id || '')}" data-product-id="${escapeHtml(item.productId || '')}" onclick="window.Marketing.openCampaignItem('${item.id}')">
         <div class="campaign-item-card-header">
           <div class="campaign-item-name">${escapeHtml(item.productName || 'Untitled Product')}</div>
           <button class="campaign-item-delete-btn" onclick="event.stopPropagation(); window.Marketing.deleteCampaignItem('${item.id}')" aria-label="Delete campaign item">🗑️</button>
@@ -2604,7 +2668,9 @@ async function openCampaignItem(itemId) {
     
     document.getElementById('campaign-item-modal-title').textContent = `${displayProduct.productName || 'Product'} - ${item.status.toUpperCase()}`;
     document.getElementById('campaign-item-image').src = productImage || '';
-    document.getElementById('campaign-item-product-name').textContent = displayProduct.productName || 'Untitled Product';
+    const displayedName = displayProduct.productName || 'Untitled Product';
+    _currentCampaignItemName = displayedName;
+    document.getElementById('campaign-item-product-name').textContent = displayedName;
     document.getElementById('campaign-item-status').textContent = item.status;
     document.getElementById('campaign-item-status').className = `status-badge ${item.status}`;
     document.getElementById('campaign-item-prompt').value = promptToShow;
@@ -2620,6 +2686,7 @@ async function openCampaignItem(itemId) {
     document.getElementById('campaign-item-prompt').readOnly = item.status === 'completed';
     
     hideAlert('campaign-item-alert');
+    preserveCampaignDetailScrollState(item.productId || item.id || null);
     openModal('campaign-item-modal');
     
   } catch (error) {
@@ -2655,6 +2722,29 @@ async function copyPrompt() {
     promptTextarea.select();
     document.execCommand('copy');
     showToast('Prompt copied to clipboard');
+  }
+}
+
+async function copyCampaignItemName() {
+  const productName = _currentCampaignItemName || document.getElementById('campaign-item-product-name')?.textContent || '';
+  if (!productName) {
+    showToast('No product name to copy');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(productName);
+    showToast('Product name copied');
+  } catch (error) {
+    const textarea = document.createElement('textarea');
+    textarea.value = productName;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('Product name copied');
   }
 }
 
@@ -2821,6 +2911,7 @@ export {
   openCampaignItem,
   hideCampaignItemModal,
   copyPrompt,
+  copyCampaignItemName,
   markGenerating,
   markCompleted,
   deleteCampaign,

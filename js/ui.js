@@ -76,12 +76,41 @@ export function hideLoading() {
 let _activeModalIds = new Set();
 let _savedScrollPosition = { x: 0, y: 0 };
 
-function lockBodyScroll() {
-  if (_activeModalIds.size === 0) {
-    _savedScrollPosition = {
+function getScrollTarget() {
+  const windowScrollY = window.scrollY || window.pageYOffset || 0;
+  const documentScrollTop = document.documentElement?.scrollTop || 0;
+  const bodyScrollTop = document.body?.scrollTop || 0;
+
+  if (windowScrollY > 0 || documentScrollTop > 0 || bodyScrollTop > 0) {
+    return window;
+  }
+
+  const scrollTarget = document.scrollingElement || document.documentElement || document.body;
+  if (scrollTarget && typeof scrollTarget.scrollTo === 'function' && (scrollTarget.scrollTop > 0 || scrollTarget.scrollHeight > scrollTarget.clientHeight)) {
+    return scrollTarget;
+  }
+
+  return window;
+}
+
+function getScrollPosition() {
+  const scrollTarget = getScrollTarget();
+  if (scrollTarget === window) {
+    return {
       x: window.scrollX || window.pageXOffset || 0,
       y: window.scrollY || window.pageYOffset || 0
     };
+  }
+
+  return {
+    x: typeof scrollTarget.scrollLeft === 'number' ? scrollTarget.scrollLeft : 0,
+    y: typeof scrollTarget.scrollTop === 'number' ? scrollTarget.scrollTop : 0
+  };
+}
+
+function lockBodyScroll() {
+  if (_activeModalIds.size === 0) {
+    _savedScrollPosition = getScrollPosition();
 
     const body = document.body;
     const html = document.documentElement;
@@ -119,7 +148,14 @@ function unlockBodyScroll() {
     html.style.overflow = '';
     html.style.position = '';
 
-    const restoreScroll = () => window.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
+    const restoreScroll = () => {
+      const scrollTarget = getScrollTarget();
+      if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+        scrollTarget.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
+      } else {
+        window.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
+      }
+    };
     if (typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(restoreScroll);
     } else {
@@ -151,6 +187,10 @@ export function closeModal(id) {
 
   el.style.display = 'none';
   _activeModalIds.delete(id);
+
+  if (id === 'campaign-item-modal' && typeof window.Marketing?.restoreCampaignDetailScrollState === 'function') {
+    window.Marketing.restoreCampaignDetailScrollState();
+  }
 
   if (_activeModalIds.size === 0) {
     unlockBodyScroll();
