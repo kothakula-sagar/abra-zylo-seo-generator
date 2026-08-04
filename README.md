@@ -1,35 +1,95 @@
-# 🔍 ABRA ZYLO – AI SEO Portal
+# Abra Zylo AI SEO Generator
 
 <p align="center">
-  <strong>AI-Powered SEO Content Generation, Product Optimization & Website Audit Platform</strong>
+  <strong>AI-powered eCommerce SEO generation, validation, auditing, and product optimization for Abra Zylo</strong>
 </p>
 
 <p align="center">
-  Built specifically for <strong>ABRA ZYLO</strong>
+  Built for <strong>product SEO workflows</strong> that move from generation to validation, audit, campaign preparation, and Meta catalog readiness.
 </p>
 
 ---
 
-## 📌 Overview
+## What is Abra Zylo AI SEO Generator?
 
-**ABRA ZYLO – AI SEO Portal** is an AI-powered SEO management platform developed specifically for the ABRA ZYLO e-commerce ecosystem.
+Abra Zylo AI SEO Generator is a web-based SEO platform for eCommerce product workflows. It combines AI-assisted content generation, deterministic SEO scoring, field-level improvement, SEO audits, Google PageSpeed analysis, product management, sale campaign preparation, and Meta Product Catalog organization in one portal.
 
-The platform helps streamline product SEO workflows by combining:
+## Key SEO Features
 
-- AI-powered SEO content generation
-- Product management
-- SEO scoring
-- Field-level SEO improvement
-- Website SEO auditing
-- Google PageSpeed performance analysis
-- AI-assisted performance recommendations
-- Sale campaign management
-- Meta Product Catalog preparation
-- SEO history and audit history
-- Firebase-based cloud storage
-- Multi-provider AI integration
+- AI-powered meta title and meta description generation
+- SEO-friendly URL and slug generation
+- Focus keyword generation and product description generation
+- Field-level AI regeneration for weak SEO sections
+- Internal SEO scoring that evaluates title, description, URL, keywords, and content completeness
+- SEO audit workflows for page-level on-page checks
+- Google PageSpeed and Lighthouse performance analysis
+- Product management and SEO history tracking
+- Sale campaign preparation and Meta Product Catalog workflows
 
-The primary goal of the platform is to reduce repetitive SEO work and create a centralized workflow for managing and improving ABRA ZYLO's product SEO.
+## AI SEO Generator
+
+The generator uses product images, product names, categories, and optional product metadata to create structured SEO content. The workflow supports multiple AI providers including Groq, Google Gemini, and OpenRouter.
+
+## SEO Scoring & Validation
+
+Every generated result is evaluated using the portal’s own scoring logic. The score is recalculated after targeted improvements and only reaches the save threshold when the content satisfies the configured quality checks.
+
+## SEO Audit
+
+The app includes an SEO checker for page title, meta description, focus keyword, content, and URL signals. It also provides a performance audit workflow powered by Google PageSpeed Insights and Lighthouse.
+
+## PageSpeed & Core Web Vitals
+
+The performance experience analyzes Lighthouse report data across Performance, Accessibility, Best Practices, and SEO. It also surfaces Core Web Vitals data such as Largest Contentful Paint, Cumulative Layout Shift, First Contentful Paint, Speed Index, and Time to First Byte.
+
+## Product Management
+
+The platform includes a product management workflow for storing product details, images, model numbers, pricing context, and SEO generation progress. Products can be reused across SEO generation, campaigns, and catalog preparation.
+
+## AI Providers
+
+The portal supports provider selection for:
+
+- Groq
+- Google Gemini
+- OpenRouter
+
+## Sale Campaigns
+
+The marketing module includes sale campaign creation and campaign-item organization for promotional workflows.
+
+## Meta Product Catalog
+
+The Meta Product Catalog module helps organize products for catalog-style workflows and campaign-ready product preparation.
+
+## Technology Stack
+
+- Frontend: HTML, CSS, JavaScript
+- Authentication: Firebase Authentication
+- Database: Cloud Firestore
+- Media: Cloudinary
+- AI: Groq, Google Gemini, OpenRouter
+- Performance: Google PageSpeed Insights, Lighthouse
+
+## Getting Started
+
+Open the project in a browser and load the landing page. Signed-in users can enter the authenticated portal to use the SEO generator, audits, products, campaigns, and settings modules.
+
+## Screenshots
+
+The repository includes a project preview image at [abra-zylo-seo-portal.png](abra-zylo-seo-portal.png).
+
+## Architecture
+
+The application is structured around a public marketing layer and an authenticated portal layer. The public page is designed for discoverability, while the existing portal preserves the current application experience after authentication.
+
+## Project Structure
+
+- [index.html](index.html)
+- [css](css)
+- [js](js)
+- [sitemap.xml](sitemap.xml)
+- [robots.txt](robots.txt)
 
 ---
 

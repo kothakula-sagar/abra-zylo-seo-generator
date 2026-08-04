@@ -108,6 +108,25 @@ function getScrollPosition() {
   };
 }
 
+function restoreModalScrollPosition(id) {
+  if (id === 'campaign-item-modal' && typeof window.Marketing?.restoreCampaignDetailScrollState === 'function') {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.Marketing.restoreCampaignDetailScrollState();
+      });
+    });
+    return;
+  }
+
+  if (id === 'product-modal' && typeof window.Marketing?.restoreProductsScrollState === 'function') {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.Marketing.restoreProductsScrollState();
+      });
+    });
+  }
+}
+
 function lockBodyScroll() {
   if (_activeModalIds.size === 0) {
     _savedScrollPosition = getScrollPosition();
@@ -188,12 +207,9 @@ export function closeModal(id) {
   el.style.display = 'none';
   _activeModalIds.delete(id);
 
-  if (id === 'campaign-item-modal' && typeof window.Marketing?.restoreCampaignDetailScrollState === 'function') {
-    window.Marketing.restoreCampaignDetailScrollState();
-  }
-
   if (_activeModalIds.size === 0) {
     unlockBodyScroll();
+    restoreModalScrollPosition(id);
   }
 }
 

@@ -84,16 +84,6 @@ function recordMetaFirestoreRead(label) {
   console.log(`[PERF] Meta Firestore read: ${label}`);
 }
 
-function firstPositiveNumber(...values) {
-  for (const value of values) {
-    const numeric = Number(value);
-    if (Number.isFinite(numeric) && numeric > 0) {
-      return numeric;
-    }
-  }
-  return 0;
-}
-
 function rebuildMetaCatalogLookups() {
   const campaignsById = new Map(_metaCatalogCache.campaigns.map(campaign => [campaign.id, campaign]));
   const campaignItemsByCampaign = new Map();
@@ -398,8 +388,8 @@ async function loadMetaProductDetailData(metaEntry) {
       productName: safeStr(product?.productName || metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
       productDescription: seoDescription || 'Not Added',
       productUrl: buildMetaProductUrl(product || {}, seoSlug),
-      mrp: firstPositiveNumber(product?.mrp, campaignItemDoc?.mrp, metaEntry?.mrp),
-      sellingPrice: firstPositiveNumber(product?.sellingPrice, campaignItemDoc?.sellingPrice, metaEntry?.sellingPrice),
+      mrp: Number(campaignItemDoc?.mrp ?? product?.mrp ?? metaEntry?.mrp ?? 0),
+      sellingPrice: Number(campaignItemDoc?.sellingPrice ?? product?.sellingPrice ?? metaEntry?.sellingPrice ?? 0),
       modelNumber: safeStr(product?.modelNumber || metaEntry?.modelNumber || '').trim() || 'Not Added',
       imageUrl: product?.imageUrl || '',
       metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
@@ -415,8 +405,8 @@ async function loadMetaProductDetailData(metaEntry) {
       productName: safeStr(metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
       productDescription: 'Not Added',
       productUrl: 'Not Added',
-      mrp: firstPositiveNumber(metaEntry?.mrp),
-      sellingPrice: firstPositiveNumber(metaEntry?.sellingPrice),
+      mrp: Number(metaEntry?.mrp ?? 0),
+      sellingPrice: Number(metaEntry?.sellingPrice ?? 0),
       modelNumber: 'Not Added',
       imageUrl: '',
       metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
@@ -675,11 +665,39 @@ function restoreCampaignDetailScrollState() {
   }
 }
 
+function getMetaCatalogScrollTarget() {
+  const candidates = [
+    document.scrollingElement,
+    document.querySelector('.main-content'),
+    document.querySelector('.page-body'),
+    document.documentElement,
+    document.body
+  ].filter(Boolean);
+
+  const scrollableCandidate = candidates.find(candidate => {
+    if (!candidate || typeof candidate.scrollTo !== 'function') return false;
+    const overflowY = (candidate.style && candidate.style.overflowY) || '';
+    const computedOverflowY = window.getComputedStyle(candidate).overflowY;
+    const canScrollVertically = candidate.scrollHeight > candidate.clientHeight;
+    return canScrollVertically || overflowY === 'auto' || overflowY === 'scroll' || computedOverflowY === 'auto' || computedOverflowY === 'scroll';
+  });
+
+  return scrollableCandidate || window;
+}
+
 function preserveMetaProductModalScrollState() {
-  const scrollTarget = getProductsScrollTarget();
+  const scrollTarget = getMetaCatalogScrollTarget();
+  const currentScrollX = scrollTarget === window
+    ? (window.scrollX || window.pageXOffset || 0)
+    : (typeof scrollTarget.scrollLeft === 'number' ? scrollTarget.scrollLeft : 0);
+  const currentScrollY = scrollTarget === window
+    ? (window.scrollY || window.pageYOffset || 0)
+    : (typeof scrollTarget.scrollTop === 'number' ? scrollTarget.scrollTop : 0);
+
   _metaProductModalScrollState = {
-    x: (scrollTarget && typeof scrollTarget.scrollLeft === 'number' ? scrollTarget.scrollLeft : window.scrollX || window.pageXOffset || 0),
-    y: (scrollTarget && typeof scrollTarget.scrollTop === 'number' ? scrollTarget.scrollTop : window.scrollY || window.pageYOffset || 0)
+    element: scrollTarget === window ? null : scrollTarget,
+    x: currentScrollX,
+    y: currentScrollY
   };
 }
 
@@ -687,8 +705,8 @@ function restoreMetaProductModalScrollState() {
   if (!_metaProductModalScrollState) return;
 
   const restoreScroll = () => {
-    const scrollTarget = getProductsScrollTarget();
-    if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
+    const scrollTarget = _metaProductModalScrollState.element || getMetaCatalogScrollTarget();
+    if (scrollTarget && scrollTarget !== window && typeof scrollTarget.scrollTo === 'function') {
       scrollTarget.scrollTo(_metaProductModalScrollState.x, _metaProductModalScrollState.y);
     } else {
       window.scrollTo(_metaProductModalScrollState.x, _metaProductModalScrollState.y);
@@ -696,7 +714,9 @@ function restoreMetaProductModalScrollState() {
   };
 
   if (typeof window.requestAnimationFrame === 'function') {
-    window.requestAnimationFrame(restoreScroll);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(restoreScroll);
+    });
   } else {
     setTimeout(restoreScroll, 0);
   }
@@ -1167,7 +1187,6 @@ function hideProductModal() {
   _productImageChanged = false;
   _productEditOriginal = null;
   closeModal('product-modal');
-  restoreProductsScrollState();
 }
 
 /**
