@@ -263,9 +263,64 @@ function getMetaStatusLabel(value = 'pending') {
   return normalizeMetaStatus(value) === 'added' ? 'Added' : 'Pending';
 }
 
-function formatMetaCurrency(value) {
+function normalizeNumericPriceValue(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const cleaned = value.toString().trim().replace(/[^\d.-]/g, '');
+    if (!cleaned) return null;
+    const numericValue = Number(cleaned);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
   const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return '₹0';
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function normalizeProductPricing(source = {}) {
+  const getFirstPrice = (keys = []) => {
+    for (const key of keys) {
+      const normalizedValue = normalizeNumericPriceValue(source?.[key]);
+      if (normalizedValue !== null) return normalizedValue;
+    }
+    return null;
+  };
+
+  const mrp = getFirstPrice(['mrp', 'MRP', 'originalPrice', 'original_price', 'regularPrice', 'regular_price', 'price']);
+  const sellingPrice = getFirstPrice(['sellingPrice', 'selling_price', 'salePrice', 'sale_price', 'specialPrice', 'special', 'price']);
+  const effectiveSellingPrice = sellingPrice !== null ? sellingPrice : mrp;
+  const youSave = mrp !== null && effectiveSellingPrice !== null ? mrp - effectiveSellingPrice : null;
+  const discount = mrp !== null && mrp > 0 && youSave !== null ? Math.round((youSave / mrp) * 100) : 0;
+
+  return {
+    mrp,
+    sellingPrice: effectiveSellingPrice,
+    youSave,
+    discount
+  };
+}
+
+function resolvePricingPreference(product = {}, campaignItem = {}, metaEntry = {}) {
+  // Prefer prices from the main product record if available.
+  const fromProduct = normalizeProductPricing(product || {});
+  if (fromProduct.mrp !== null || fromProduct.sellingPrice !== null) {
+    return fromProduct;
+  }
+
+  // Then try campaign item
+  const fromCampaign = normalizeProductPricing(campaignItem || {});
+  if (fromCampaign.mrp !== null || fromCampaign.sellingPrice !== null) {
+    return fromCampaign;
+  }
+
+  // Finally try meta entry
+  const fromMeta = normalizeProductPricing(metaEntry || {});
+  return fromMeta;
+}
+
+function formatMetaCurrency(value) {
+  const numericValue = normalizeNumericPriceValue(value);
+  if (numericValue === null) return '₹0';
   return `₹${numericValue.toLocaleString('en-IN')}`;
 }
 
@@ -338,7 +393,18 @@ async function loadMetaProductDetailData(metaEntry) {
   try {
     const productId = metaEntry?.productId || '';
     const campaignItemId = metaEntry?.campaignItemId || metaEntry?.id;
-    const product = _metaCatalogCache.productsById.get(productId) || null;
+    let product = _metaCatalogCache.productsById.get(productId) || null;
+    // If the product is not in the meta-catalog cache (timing/load issues),
+    // use the campaign item doc's productId as a fallback before fetching.
+    const effectiveProductId = productId || (campaignItemDoc && campaignItemDoc.productId) || '';
+    if (!product && effectiveProductId) {
+      try {
+        const latest = await getLatestProductData(effectiveProductId);
+        if (latest) product = latest;
+      } catch (e) {
+        console.warn('Failed to fetch latest product for meta detail fallback', e);
+      }
+    }
     const campaignItemDoc = _metaCatalogCache.campaignItems.find(item => item.id === campaignItemId) || null;
     const seoHistoryItems = await (
       productId
@@ -384,12 +450,14 @@ async function loadMetaProductDetailData(metaEntry) {
       ''
     ).trim();
 
+    const pricing = resolvePricingPreference(product, campaignItemDoc, metaEntry);
+
     const detail = {
       productName: safeStr(product?.productName || metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
       productDescription: seoDescription || 'Not Added',
       productUrl: buildMetaProductUrl(product || {}, seoSlug),
-      mrp: Number(campaignItemDoc?.mrp ?? product?.mrp ?? metaEntry?.mrp ?? 0),
-      sellingPrice: Number(campaignItemDoc?.sellingPrice ?? product?.sellingPrice ?? metaEntry?.sellingPrice ?? 0),
+      mrp: pricing.mrp ?? 0,
+      sellingPrice: pricing.sellingPrice ?? 0,
       modelNumber: safeStr(product?.modelNumber || metaEntry?.modelNumber || '').trim() || 'Not Added',
       imageUrl: product?.imageUrl || '',
       metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
@@ -401,12 +469,13 @@ async function loadMetaProductDetailData(metaEntry) {
     return detail;
   } catch (error) {
     console.error('Error resolving meta product detail data:', error);
+    const pricing = normalizeProductPricing(metaEntry || {});
     return {
       productName: safeStr(metaEntry?.productName || 'Untitled Product').trim() || 'Untitled Product',
       productDescription: 'Not Added',
       productUrl: 'Not Added',
-      mrp: Number(metaEntry?.mrp ?? 0),
-      sellingPrice: Number(metaEntry?.sellingPrice ?? 0),
+      mrp: pricing.mrp ?? 0,
+      sellingPrice: pricing.sellingPrice ?? 0,
       modelNumber: 'Not Added',
       imageUrl: '',
       metaStatus: normalizeMetaStatus(metaEntry?.metaStatus)
@@ -746,6 +815,7 @@ function buildProductCardMarkup(product, creatorLabels, duplicateProductNameSet,
   const createdDateLabel = escapeHtml(formatProductShortDate(product.createdAt));
   const canEdit = canEditProduct(product);
   const canDelete = canDeleteProduct(product);
+  const pricing = normalizeProductPricing(product);
 
   return `
     <div class="product-card" data-product-id="${escapeHtml(product.id || '')}">
@@ -768,11 +838,11 @@ function buildProductCardMarkup(product, creatorLabels, duplicateProductNameSet,
       <div class="product-name">${escapeHtml(product.productName || 'Untitled Product')}</div>
       <div class="product-model">Model: ${escapeHtml(modelNumberLabel)}</div>
       <div class="product-pricing">
-        <div class="product-mrp">MRP ₹${product.mrp || 0}</div>
-        <div class="product-selling-price">₹${product.sellingPrice || 0}</div>
+        <div class="product-mrp">MRP ${formatMetaCurrency(pricing.mrp)}</div>
+        <div class="product-selling-price">${formatMetaCurrency(pricing.sellingPrice)}</div>
         <div class="product-discount">
-          <span class="you-save">Save ₹${product.youSave || 0}</span>
-          <span class="discount-badge">${normalizeDiscountPercent(product.discount)}% OFF</span>
+          <span class="you-save">Save ${formatMetaCurrency(pricing.youSave)}</span>
+          <span class="discount-badge">${normalizeDiscountPercent(pricing.discount)}% OFF</span>
         </div>
       </div>
       <div class="product-card-meta">
@@ -1076,8 +1146,9 @@ async function editProduct(productId) {
     document.getElementById('product-modal-title').textContent = 'Edit Product';
     document.getElementById('product-name').value = product.productName || '';
     document.getElementById('product-model-number').value = normalizeModelNumber(product.modelNumber || '');
-    document.getElementById('product-mrp').value = product.mrp || '';
-    document.getElementById('product-selling-price').value = product.sellingPrice || '';
+    const pricing = normalizeProductPricing(product);
+    document.getElementById('product-mrp').value = pricing.mrp === null ? '' : pricing.mrp;
+    document.getElementById('product-selling-price').value = pricing.sellingPrice === null ? '' : pricing.sellingPrice;
     const historyBlock = document.getElementById('product-history-block');
     const createdByEl = document.getElementById('product-created-by');
     const createdOnEl = document.getElementById('product-created-on');
