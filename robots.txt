@@ -1,11 +1,4 @@
-<<<<<<< HEAD
 User-agent: *
 Allow: /
 
 Sitemap: https://abrazylo.github.io/abra-zylo-seo-generator-main/sitemap.xml
-=======
-User-agent: *
-Allow: /
-
-Sitemap: https://sagar-psycho.github.io/abra-zylo-seo-generator/sitemap.xml
->>>>>>> 3323ceb (Fix SEO URLs, sitemap and robots configuration)
