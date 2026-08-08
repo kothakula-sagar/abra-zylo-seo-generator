@@ -239,6 +239,18 @@
   color: var(--text3);
 }
 
+/* Allow meta to shrink to prevent long emails from pushing actions outside */
+.product-meta-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.product-meta-user {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .product-meta-user,
 .product-meta-date {
   line-height: 1.4;

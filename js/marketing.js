@@ -213,7 +213,26 @@ async function resolveCreatorLabels(products) {
 
 async function resolveCreatorLabel(product) {
   if (!product) return 'Unknown User';
-  if (product.createdByName) return product.createdByName;
+  if (product.createdByName) {
+    let label = product.createdByName;
+    if (typeof label === 'string' && label.includes('@')) {
+      try {
+        const currentUser = getUser();
+        const currentUserDoc = getUserDoc();
+        if (currentUser && currentUser.email && label.toLowerCase() === currentUser.email.toLowerCase()) {
+          label = getUserDisplayName(currentUserDoc, currentUser.displayName || currentUser.email.split('@')[0]);
+        } else {
+          const local = (label.split('@')[0] || '').replace(/[._\-]+/g, ' ');
+          if (local) {
+            const parts = local.split(' ');
+            const namePart = parts[0] || local;
+            label = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+          }
+        }
+      } catch (e) { /* fall back to raw value */ }
+    }
+    return label;
+  }
   if (!product.createdBy) return product.createdByEmail || 'Unknown User';
   if (_productUserCache[product.createdBy] !== undefined) {
     return _productUserCache[product.createdBy];
@@ -811,7 +830,34 @@ function buildProductCardMarkup(product, creatorLabels, duplicateProductNameSet,
   const isNew = isNewProduct(product.createdAt);
   const isDuplicateName = duplicateProductNameSet.has(normalizeProductName(product.productName));
   const modelNumberLabel = normalizeModelNumber(product.modelNumber || '') || 'Not Added';
-  const addedByLabel = escapeHtml(creatorLabels[product.id] || 'Unknown User');
+  let addedByLabel = creatorLabels[product.id] || 'Unknown User';
+  // Prefer resolving to a human name when possible. If the resolved label
+  // looks like an email and matches the currently authenticated user, use
+  // the user's profile name instead of exposing the email address.
+  try {
+    const currentUser = getUser();
+    const currentUserDoc = getUserDoc();
+    if (typeof addedByLabel === 'string' && addedByLabel.includes('@')) {
+      // If it's the current user, prefer their profile name
+      if (currentUser && currentUser.email && addedByLabel.toLowerCase() === currentUser.email.toLowerCase()) {
+        const resolvedName = getUserDisplayName(currentUserDoc, currentUser.displayName || currentUser.email.split('@')[0]);
+        addedByLabel = resolvedName || addedByLabel;
+      } else {
+        // No profile name available — derive a friendlier label from the email local-part
+        try {
+          const local = (addedByLabel.split('@')[0] || '').replace(/[._\-]+/g, ' ');
+          if (local) {
+            const parts = local.split(' ');
+            const namePart = parts[0] || local;
+            addedByLabel = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+          }
+        } catch (e) { /* keep original email */ }
+      }
+    }
+  } catch (e) {
+    // fallback to whatever label we have
+  }
+  addedByLabel = escapeHtml(addedByLabel);
   const createdDateLabel = escapeHtml(formatProductShortDate(product.createdAt));
   const canEdit = canEditProduct(product);
   const canDelete = canDeleteProduct(product);
@@ -1158,13 +1204,52 @@ async function editProduct(productId) {
       historyBlock.style.display = 'block';
     }
     if (createdByEl) {
-      createdByEl.textContent = await resolveCreatorLabel(product);
+      try {
+        let label = product.createdByName || '';
+        const currentUser = getUser();
+        const currentUserDoc = getUserDoc();
+
+        if (label) {
+          // normalize if it is an email
+          if (typeof label === 'string' && label.includes('@')) {
+            if (currentUser && currentUser.email && label.toLowerCase() === currentUser.email.toLowerCase()) {
+              label = getUserDisplayName(currentUserDoc, currentUser.displayName || currentUser.email.split('@')[0]);
+            } else {
+              const local = (label.split('@')[0] || '').replace(/[._\-]+/g, ' ');
+              const parts = local.split(' ');
+              const namePart = parts[0] || local;
+              label = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+            }
+          }
+        } else if (product.createdBy && currentUser && product.createdBy === currentUser.uid) {
+          label = getUserDisplayName(currentUserDoc, currentUser.displayName || currentUser.email.split('@')[0]);
+        } else if (product.createdByEmail) {
+          const local = (product.createdByEmail.split('@')[0] || '').replace(/[._\-]+/g, ' ');
+          const parts = local.split(' ');
+          const namePart = parts[0] || local;
+          label = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        } else {
+          // fallback to generic resolver which may query Firestore
+          label = await resolveCreatorLabel(product);
+        }
+
+        createdByEl.textContent = label || 'Unknown User';
+      } catch (e) {
+        createdByEl.textContent = await resolveCreatorLabel(product);
+      }
     }
     if (createdOnEl) {
       createdOnEl.textContent = formatProductLongDateTime(product.createdAt) || '—';
     }
     if (updatedByEl) {
-      updatedByEl.textContent = product.updatedByName || product.updatedBy || 'Never';
+      // Use the same resolution logic as createdBy: prefer stored name, then
+      // resolve by uid/email if needed, falling back to a friendly label.
+      const fakeForResolve = {
+        createdBy: product.updatedBy,
+        createdByName: product.updatedByName,
+        createdByEmail: product.updatedByEmail
+      };
+      updatedByEl.textContent = product.updatedAt ? await resolveCreatorLabel(fakeForResolve) : 'Never';
     }
     if (updatedOnEl) {
       updatedOnEl.textContent = product.updatedAt ? formatProductLongDateTime(product.updatedAt) : 'Never';
