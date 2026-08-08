@@ -15,6 +15,10 @@ let _products = [];
 
 // ── RENDER HISTORY LIST (NOW DRIVEN BY PRODUCTS COLLECTION) ───
 export async function render() {
+  console.log('[HISTORY DEBUG] render started', {
+    scrollY: window.scrollY,
+    activeSection: document.querySelector('.tab-section.active')?.id
+  });
   const list = document.getElementById('history-list');
   if (!list) return;
   list.innerHTML = '<p class="empty-msg" style="text-align:center;padding:2rem">Loading generation history...</p>';
@@ -47,6 +51,7 @@ export async function render() {
     list.innerHTML = `<div style="text-align:center;padding:3rem">
       <p style="color:var(--text3);font-size:.875rem">${search || statusFilter ? 'No products match your filters.' : 'No generation history yet. Create your first SEO product to get started.'}</p>
     </div>`;
+    console.log('[HISTORY DEBUG] render completed (empty)', { scrollY: window.scrollY });
     return;
   }
 
@@ -96,6 +101,12 @@ export async function render() {
         </div>
       </div>`;
   }).join('');
+
+  console.log('[HISTORY DEBUG] render completed', {
+    scrollY: window.scrollY,
+    docScrollTop: document.documentElement.scrollTop,
+    bodyScrollTop: document.body.scrollTop
+  });
 }
 
 /**

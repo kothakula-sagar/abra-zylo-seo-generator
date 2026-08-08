@@ -74,27 +74,32 @@ export function hideLoading() {
 
 // ── MODALS ───────────────────────────────────────────────────
 let _activeModalIds = new Set();
+let _savedScrollTarget = null;
 let _savedScrollPosition = { x: 0, y: 0 };
 
 function getScrollTarget() {
-  const windowScrollY = window.scrollY || window.pageYOffset || 0;
-  const documentScrollTop = document.documentElement?.scrollTop || 0;
-  const bodyScrollTop = document.body?.scrollTop || 0;
+  const docEl = document.documentElement;
+  const bodyEl = document.body;
 
-  if (windowScrollY > 0 || documentScrollTop > 0 || bodyScrollTop > 0) {
+  if (docEl && (docEl.scrollTop || docEl.scrollLeft)) {
+    return docEl;
+  }
+
+  if (bodyEl && (bodyEl.scrollTop || bodyEl.scrollLeft)) {
+    return bodyEl;
+  }
+
+  const windowScrollX = window.scrollX || window.pageXOffset || 0;
+  const windowScrollY = window.scrollY || window.pageYOffset || 0;
+  if (windowScrollX || windowScrollY) {
     return window;
   }
 
-  const scrollTarget = document.scrollingElement || document.documentElement || document.body;
-  if (scrollTarget && typeof scrollTarget.scrollTo === 'function' && (scrollTarget.scrollTop > 0 || scrollTarget.scrollHeight > scrollTarget.clientHeight)) {
-    return scrollTarget;
-  }
-
-  return window;
+  const scrollingElement = document.scrollingElement || docEl || bodyEl;
+  return scrollingElement || window;
 }
 
-function getScrollPosition() {
-  const scrollTarget = getScrollTarget();
+function getScrollPosition(scrollTarget) {
   if (scrollTarget === window) {
     return {
       x: window.scrollX || window.pageXOffset || 0,
@@ -129,7 +134,17 @@ function restoreModalScrollPosition(id) {
 
 function lockBodyScroll() {
   if (_activeModalIds.size === 0) {
-    _savedScrollPosition = getScrollPosition();
+    const scrollTarget = getScrollTarget();
+    _savedScrollTarget = scrollTarget;
+    _savedScrollPosition = getScrollPosition(scrollTarget);
+
+    console.log('[MODAL DEBUG] lockBodyScroll', {
+      savedTarget: scrollTarget === window ? 'window' : scrollTarget?.tagName || 'unknown',
+      docScrollTop: document.documentElement.scrollTop,
+      bodyScrollTop: document.body.scrollTop,
+      windowScrollY: window.scrollY,
+      savedScrollPosition: _savedScrollPosition
+    });
 
     const body = document.body;
     const html = document.documentElement;
@@ -147,8 +162,13 @@ function lockBodyScroll() {
     body.style.width = '100%';
     body.style.overflow = 'hidden';
     html.style.overflow = 'hidden';
-    html.style.position = 'relative';
   }
+}
+
+function isSavedScrollTargetValid() {
+  if (!_savedScrollTarget) return false;
+  if (_savedScrollTarget === window) return true;
+  return document.contains(_savedScrollTarget) && typeof _savedScrollTarget.scrollTo === 'function';
 }
 
 function unlockBodyScroll() {
@@ -167,18 +187,49 @@ function unlockBodyScroll() {
     html.style.overflow = '';
     html.style.position = '';
 
+    console.log('[MODAL DEBUG] unlockBodyScroll restore start', {
+      savedScrollTarget: _savedScrollTarget === window ? 'window' : _savedScrollTarget?.tagName || 'unknown',
+      savedScrollPosition: _savedScrollPosition,
+      docScrollTop: document.documentElement.scrollTop,
+      bodyScrollTop: document.body.scrollTop,
+      windowScrollY: window.scrollY
+    });
+
     const restoreScroll = () => {
-      const scrollTarget = getScrollTarget();
-      if (scrollTarget && typeof scrollTarget.scrollTo === 'function') {
-        scrollTarget.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
-      } else {
+      const scrollTarget = isSavedScrollTargetValid() ? _savedScrollTarget : window;
+      console.log('[MODAL DEBUG] restoreScroll executing', {
+        scrollTarget: scrollTarget === window ? 'window' : scrollTarget?.tagName || 'unknown',
+        docScrollTop: document.documentElement.scrollTop,
+        bodyScrollTop: document.body.scrollTop,
+        windowScrollY: window.scrollY,
+        saved: _savedScrollPosition
+      });
+
+      if (scrollTarget === window) {
         window.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
+        document.documentElement.scrollTop = _savedScrollPosition.y;
+        document.body.scrollTop = _savedScrollPosition.y;
+      } else {
+        scrollTarget.scrollTo(_savedScrollPosition.x, _savedScrollPosition.y);
       }
+
+      console.log('[MODAL DEBUG] RESTORE', {
+        scrollY: window.scrollY,
+        docScrollTop: document.documentElement.scrollTop,
+        bodyScrollTop: document.body.scrollTop,
+        target: scrollTarget === window ? 'window' : _savedScrollTarget?.tagName || 'unknown',
+        restoringTo: _savedScrollPosition
+      });
+      _savedScrollTarget = null;
     };
+
+    restoreScroll();
     if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(restoreScroll);
-    } else {
-      setTimeout(restoreScroll, 0);
+      window.requestAnimationFrame(() => {
+        if (window.scrollX !== _savedScrollPosition.x || window.scrollY !== _savedScrollPosition.y) {
+          restoreScroll();
+        }
+      });
     }
   }
 }
@@ -192,9 +243,20 @@ export function openModal(id) {
   if (!el) return;
   if (_activeModalIds.has(id) || el.style.display === 'flex' || el.style.display === 'block') return;
 
+  console.log('[MODAL DEBUG] shared openModal', {
+    id,
+    scrollY: window.scrollY,
+    activeModals: Array.from(_activeModalIds)
+  });
+
+  if (_activeModalIds.size === 0) {
+      // Capture and lock the current scroll position before registering
+      // this modal as active so the first opened modal saves scroll.
+      lockBodyScroll();
+  }
+
   el.style.display = 'flex';
-  _activeModalIds.add(id);
-  lockBodyScroll();
+    _activeModalIds.add(id);
 }
 
 export function closeModal(id) {
@@ -203,6 +265,12 @@ export function closeModal(id) {
 
   const wasVisible = _activeModalIds.has(id) || el.style.display === 'flex' || el.style.display === 'block';
   if (!wasVisible) return;
+
+  console.log('[MODAL DEBUG] CLOSE START', {
+    id,
+    scrollY: window.scrollY,
+    activeModalsBefore: Array.from(_activeModalIds)
+  });
 
   el.style.display = 'none';
   _activeModalIds.delete(id);
@@ -214,6 +282,7 @@ export function closeModal(id) {
 }
 
 export function closeAllModals() {
+  const activeModalIds = Array.from(_activeModalIds);
   const modalEls = Array.from(document.querySelectorAll('.overlay'));
   modalEls.forEach(el => {
     if (el.style.display !== 'none') {
@@ -224,6 +293,9 @@ export function closeAllModals() {
   _activeModalIds.clear();
   if (_activeModalIds.size === 0) {
     unlockBodyScroll();
+    if (activeModalIds.length > 0) {
+      restoreModalScrollPosition(activeModalIds[activeModalIds.length - 1]);
+    }
   }
 }
 
@@ -253,6 +325,7 @@ const TAB_TITLES = {
 };
 
 export function switchTab(name) {
+  console.log('[TAB DEBUG] switchTab', { section: name, scrollY: window.scrollY });
   document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const section = document.getElementById(`tab-${name}`);
