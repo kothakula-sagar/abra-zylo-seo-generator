@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /main.html
 
-Sitemap: https://abrazylo.github.io/abra-zylo-seo-generator-main/sitemap.xml
+Sitemap: https://sagar-psycho.github.io/abra-zylo-seo-generator/sitemap.xml

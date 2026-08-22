@@ -1,3 +1,23 @@
+# Abra Zylo SEO Generator - Page Architecture
+
+## Important: Landing Page vs Application
+
+The project intentionally uses two separate HTML entry points:
+
+- **`index.html`** - Public landing page. This is the page you can manually edit for marketing content, headings, feature descriptions, FAQs, CTA copy, SEO metadata, and other public content. It does not load Firebase or the protected application.
+- **`main.html`** - Main SEO Generator application. This contains authentication, dashboard, SEO generation, audits, products, campaigns, Meta catalog, settings, history, and all application functionality.
+
+### Navigation
+
+Landing page CTAs open `main.html`. If a user is not authenticated, `main.html` displays the login/register screen. After successful authentication, the protected application is displayed.
+
+### Files to edit
+
+If you only want to change the website/landing-page content, edit **`index.html`**.
+If you want to change application functionality, edit the files under **`js/`** and the corresponding application CSS under **`css/`**.
+
+---
+
 # Abra Zylo AI SEO Generator
 
 <p align="center">

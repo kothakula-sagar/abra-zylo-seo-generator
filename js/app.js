@@ -114,7 +114,7 @@ Auth.onAuthReady(async user => {
     await _enterApp();
   } else {
     _dismissInitScreen();
-    _showLandingPage();
+    _showAuthPage();
   }
 });
 
@@ -185,28 +185,11 @@ async function _enterApp() {
   Generator.initDragDrop();
 }
 
-// ── SHOW PUBLIC LANDING PAGE ─────────────────────────────────
-function _showLandingPage() {
-  const appPage = document.getElementById('page-app');
-  if (appPage) { appPage.classList.remove('active'); appPage.style.display = 'none'; }
-
-  const authPage = document.getElementById('page-auth');
-  if (authPage) { authPage.classList.remove('active'); authPage.style.display = 'none'; }
-
-  const publicPage = document.getElementById('page-public');
-  if (publicPage) { publicPage.classList.add('active'); publicPage.style.display = 'block'; }
-
-  document.body.removeAttribute('data-app-ready');
-  document.body.classList.remove('app-ready');
-}
-
 // ── SHOW AUTH PAGE ────────────────────────────────────────────
 function _showAuthPage() {
   const appPage = document.getElementById('page-app');
   if (appPage) { appPage.classList.remove('active'); appPage.style.display = 'none'; }
 
-  const publicPage = document.getElementById('page-public');
-  if (publicPage) { publicPage.classList.remove('active'); publicPage.style.display = 'none'; }
 
   document.body.removeAttribute('data-app-ready');
   document.body.classList.remove('app-ready');

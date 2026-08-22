@@ -40,6 +40,144 @@ const pipelineSteps = [
 
 
 /* =========================================
+   SMOOTH ANCHOR SCROLL
+========================================= */
+
+function getHeaderOffset() {
+  const header = document.getElementById('public-header');
+  const extraGap = 18;
+  return header ? header.getBoundingClientRect().height + extraGap : 0;
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function smoothScrollTo(targetY, duration) {
+  const startY = window.scrollY;
+  const distance = targetY - startY;
+  const startTime = performance.now();
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    window.scrollTo(0, startY + distance * easeInOutCubic(progress));
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
+function pulseTargetSection(target) {
+  const card = target.querySelector('.public-section-card, .public-cta-card') || target;
+
+  card.classList.add('public-anchor-pulse');
+
+  window.setTimeout(() => {
+    card.classList.remove('public-anchor-pulse');
+  }, 900);
+}
+
+function scrollToAnchor(hash) {
+  if (!hash || hash === '#') return;
+
+  const id = hash.slice(1);
+  const target = document.getElementById(id);
+
+  if (!target) return;
+
+  const targetY = Math.max(
+    target.getBoundingClientRect().top + window.scrollY - getHeaderOffset(),
+    0
+  );
+
+  if (prefersReducedMotion()) {
+    window.scrollTo(0, targetY);
+  } else {
+    smoothScrollTo(targetY, 650);
+  }
+
+  pulseTargetSection(target);
+
+  if (history.pushState) {
+    history.pushState(null, '', hash);
+  }
+
+  // Close mobile menu after navigating, if open
+  const nav = document.getElementById('public-nav');
+  if (nav) {
+    nav.classList.remove('is-open');
+  }
+}
+
+function initAnchorScroll() {
+  const links = document.querySelectorAll('a[href^="#"]');
+
+  links.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const hash = link.getAttribute('href');
+
+      if (!hash || hash === '#') return;
+
+      const target = document.getElementById(hash.slice(1));
+
+      if (!target) return;
+
+      event.preventDefault();
+      scrollToAnchor(hash);
+    });
+  });
+}
+
+
+/* =========================================
+   ACTIVE NAV LINK ON SCROLL
+========================================= */
+
+function initActiveNavTracking() {
+  const navLinks = Array.from(document.querySelectorAll('#public-nav a[href^="#"]'));
+
+  if (!navLinks.length) return;
+
+  const sections = navLinks
+    .map((link) => document.getElementById(link.getAttribute('href').slice(1)))
+    .filter(Boolean);
+
+  if (!sections.length) return;
+
+  const setActiveLink = (id) => {
+    navLinks.forEach((link) => {
+      link.classList.toggle('is-active-link', link.getAttribute('href') === `#${id}`);
+    });
+  };
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActiveLink(entry.target.id);
+        }
+      });
+    },
+    {
+      rootMargin: `-${getHeaderOffset() + 10}px 0px -60% 0px`,
+      threshold: 0
+    }
+  );
+
+  sections.forEach((section) => observer.observe(section));
+}
+
+
+/* =========================================
    PIPELINE
 ========================================= */
 
@@ -162,35 +300,9 @@ function toggleMenu() {
 ========================================= */
 
 function showAuth() {
-  const publicPage = document.getElementById('page-public');
-  const authPage = document.getElementById('page-auth');
-  const appPage = document.getElementById('page-app');
-
-  // Hide public landing page
-  if (publicPage) {
-    publicPage.classList.remove('active');
-  }
-
-  // Show authentication page
-  if (authPage) {
-    authPage.classList.add('active');
-    authPage.style.display = 'block';
-  }
-
-  // Hide application dashboard
-  if (appPage) {
-    appPage.classList.remove('active');
-    appPage.style.display = 'none';
-  }
-
-  // Reset application-ready state
-  document.body.removeAttribute('data-app-ready');
-  document.body.classList.remove('app-ready');
-
-  // Open login view if Auth module exists
-  if (window.Auth && typeof window.Auth.showView === 'function') {
-    window.Auth.showView('login');
-  }
+  // The landing page is intentionally independent from the application.
+  // Authentication and all protected functionality live in main.html.
+  window.location.href = 'main.html';
 }
 
 
@@ -199,9 +311,17 @@ function showAuth() {
 ========================================= */
 
 function init() {
+  const publicPage = document.getElementById('page-public');
+
+  if (publicPage) {
+    publicPage.classList.add('active');
+  }
+
   initHeader();
   initPipeline();
   initReveal();
+  initAnchorScroll();
+  initActiveNavTracking();
 }
 
 
