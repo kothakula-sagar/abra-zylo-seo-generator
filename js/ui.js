@@ -321,7 +321,10 @@ const TAB_TITLES = {
   products:  'Products',
   campaigns: 'Sale Campaigns',
   'meta-catalog': 'Meta Product Catalog',
-  'campaign-detail': 'Campaign Details'
+  'campaign-detail': 'Campaign Details',
+  customers: 'Customer Details',
+  'whatsapp-marketing': 'WhatsApp Marketing',
+  'whatsapp-campaign-detail': 'WhatsApp Campaign'
 };
 
 export function switchTab(name) {

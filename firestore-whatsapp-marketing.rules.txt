@@ -1,0 +1,33 @@
+// Add these helper functions inside your existing
+// match /databases/{database}/documents { ... } block.
+
+function isAbraZyloAdmin() {
+  return request.auth != null && request.auth.token.email == 'kothakulasagar2002@gmail.com';
+}
+
+function isApprovedAbraZyloMember() {
+  return request.auth != null && (
+    isAbraZyloAdmin() ||
+    (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.approved == true &&
+     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.blocked != true)
+  );
+}
+
+// Shared customer directory
+match /customers/{customerId} {
+  allow read, create, update: if isApprovedAbraZyloMember();
+  allow delete: if isAbraZyloAdmin();
+}
+
+// WhatsApp campaign definitions
+match /whatsappCampaigns/{campaignId} {
+  allow read, create, update: if isApprovedAbraZyloMember();
+  allow delete: if isAbraZyloAdmin();
+
+  // Per-campaign sent status for each customer
+  match /recipients/{recipientId} {
+    allow read, create, update: if isApprovedAbraZyloMember();
+    allow delete: if isAbraZyloAdmin();
+  }
+}

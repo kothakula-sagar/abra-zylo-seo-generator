@@ -24,6 +24,7 @@ import * as Settings  from './settings.js';
 import * as Accounts  from './accounts.js';
 import * as AuditHistory from './audit-history.js';
 import * as Marketing from './marketing.js';
+import * as Customers from './customers.js';
 
 // ── EXPOSE MODULES TO window (required by HTML onclick attrs) ─
 window.Auth      = Auth;
@@ -36,6 +37,7 @@ window.Settings  = Settings;
 window.Accounts  = Accounts;
 window.AuditHistory = AuditHistory;
 window.Marketing = Marketing;
+window.Customers = Customers;
 
 // ── APP CONTROLLER ────────────────────────────────────────────
 const App = {
@@ -84,6 +86,9 @@ const App = {
     if (tab === 'campaigns') Marketing.renderCampaigns();
     if (tab === 'meta-catalog') Marketing.renderMetaCatalog();
     if (tab === 'campaign-detail') Marketing.renderCampaignDetail();
+    if (tab === 'customers') Customers.renderCustomers();
+    if (tab === 'whatsapp-marketing') Customers.renderWhatsappMarketing();
+    if (tab === 'whatsapp-campaign-detail') Customers.renderWhatsappCampaignDetail();
   },
 
   setLang(lang) {

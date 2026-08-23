@@ -16,14 +16,15 @@ export async function loadStats() {
   _renderLoadingState();
 
   try {
-    const [products, metaData, seoHistory] = await Promise.all([
+    const [products, metaData, seoHistory, whatsappData] = await Promise.all([
       _loadProducts(),
       _loadMetaData(),
-      _fetchSeoHistory()
+      _fetchSeoHistory(),
+      _loadWhatsappData()
     ]);
 
     const calcStart = performance.now();
-    const dashboardData = _calculateDashboardData(products, metaData, seoHistory);
+    const dashboardData = _calculateDashboardData(products, metaData, seoHistory, whatsappData);
     console.log(`[PERF] Dashboard Calculations: ${(performance.now() - calcStart).toFixed(2)}ms`);
     _renderDashboard(dashboardData);
     _updateHistoryBadge(products.length);
@@ -64,10 +65,53 @@ async function _fetchSeoHistory() {
   }
 }
 
-function _calculateDashboardData(products, metaData, seoHistory) {
+async function _loadWhatsappData() {
+  const start = performance.now();
+  try {
+    const [customerSnap, campaignSnap] = await Promise.all([
+      FB.getDocs(FB.col('customers')),
+      FB.getDocs(FB.col('whatsappCampaigns'))
+    ]);
+    const customers = customerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const campaigns = campaignSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const subscribedCustomers = customers.filter(customer => customer.status !== 'not-interested');
+
+    const campaignProgress = await Promise.all(campaigns.map(async campaign => {
+      let sent = 0;
+      try {
+        const recipientsSnap = await FB.getDocs(FB.col(`whatsappCampaigns/${campaign.id}/recipients`));
+        sent = recipientsSnap.size;
+      } catch (error) {
+        console.warn(`[Dashboard] WhatsApp recipients unavailable for ${campaign.id}:`, error.message);
+      }
+      const eligible = subscribedCustomers.filter(customer => {
+        const gender = String(customer.gender || '').toLowerCase();
+        const target = String(campaign.gender || 'all').toLowerCase();
+        return target === 'all' || gender === target;
+      }).length;
+      return { ...campaign, eligible, sent: Math.min(sent, eligible), pending: Math.max(eligible - sent, 0), percent: eligible ? Math.min(100, Math.round((sent / eligible) * 100)) : 0 };
+    }));
+
+    const totalEligible = campaignProgress.reduce((sum, campaign) => sum + campaign.eligible, 0);
+    const totalSent = campaignProgress.reduce((sum, campaign) => sum + campaign.sent, 0);
+    console.log(`[PERF] Dashboard WhatsApp Data: ${(performance.now() - start).toFixed(2)}ms`);
+    return { customers, subscribedCustomers, campaigns, campaignProgress, totalEligible, totalSent };
+  } catch (error) {
+    console.warn('[Dashboard] WhatsApp data unavailable:', error.message);
+    return { customers: [], subscribedCustomers: [], campaigns: [], campaignProgress: [], totalEligible: 0, totalSent: 0 };
+  }
+}
+
+function _calculateDashboardData(products, metaData, seoHistory, whatsappData = {}) {
   const campaigns = metaData?.campaigns || [];
   const campaignItems = metaData?.campaignItems || [];
   const metaItems = metaData?.metaItems || [];
+  const customers = whatsappData.customers || [];
+  const subscribedCustomers = whatsappData.subscribedCustomers || [];
+  const whatsappCampaigns = whatsappData.campaigns || [];
+  const whatsappProgress = whatsappData.campaignProgress || [];
+  const whatsappTotalEligible = whatsappData.totalEligible || 0;
+  const whatsappTotalSent = whatsappData.totalSent || 0;
   const productsById = new Map(products.map(product => [product.id, product]));
   const historyByProduct = new Map();
 
@@ -132,6 +176,8 @@ function _calculateDashboardData(products, metaData, seoHistory) {
       product.updatedAt && product.updatedAt !== product.createdAt ? { icon: '✏️', title: `${product.productName || 'Product'} — Product updated`, date: product.updatedAt, by: product.updatedByName } : null
     ]),
     ...campaigns.map(campaign => campaign.createdAt ? { icon: '🛍️', title: `${campaign.saleName || 'Campaign'} — Campaign created`, date: campaign.createdAt, by: campaign.createdByName } : null),
+    ...customers.map(customer => customer.addedAt ? { icon: '👤', title: `${customer.name || 'Customer'} — Customer added`, date: customer.addedAt, by: customer.addedByName || customer.addedByEmail } : null),
+    ...whatsappProgress.flatMap(campaign => campaign.sent ? [{ icon: '💬', title: `${campaign.name || 'WhatsApp Campaign'} — ${campaign.sent} message${campaign.sent === 1 ? '' : 's'} sent`, date: campaign.updatedAt || campaign.createdAt, by: campaign.updatedByName || campaign.createdByName }] : []),
     ...completedItems.map(item => item.completedAt ? { icon: '🖼️', title: `${item.productName || 'Product'} — Creative completed`, date: item.completedAt } : null),
     ...metaAddedItems.map(item => metaByItemId.get(item.id)?.updatedAt ? { icon: '📘', title: `${item.productName || 'Product'} — Added to Meta Catalog`, date: metaByItemId.get(item.id).updatedAt } : null),
     ...seoHistory.filter(history => productsById.has(history.productId)).map(history => history.generatedAt ? { icon: '✨', title: `${productsById.get(history.productId).productName || 'Product'} — SEO generated`, date: history.generatedAt } : null)
@@ -142,6 +188,9 @@ function _calculateDashboardData(products, metaData, seoHistory) {
       { icon: '📦', label: 'Total Products', value: products.length, sub: 'Master products' },
       { icon: '✨', label: 'SEO Generated', value: seoGeneratedCount, sub: `${Math.max(products.length - seoGeneratedCount, 0)} remaining` },
       { icon: '🛍️', label: 'Sale Campaigns', value: campaigns.length, sub: 'Active campaigns' },
+      { icon: '👥', label: 'Total Customers', value: customers.length, sub: 'Customer directory' },
+      { icon: '💚', label: 'Active Customers', value: subscribedCustomers.length, sub: 'Subscribed customers' },
+      { icon: '💬', label: 'WhatsApp Campaigns', value: whatsappCampaigns.length, sub: 'Marketing campaigns' },
       { icon: '🖼️', label: 'Campaign Creatives', value: completedItems.length, sub: 'Completed' },
       { icon: '🟠', label: 'Meta Pending', value: metaPendingItems.length, sub: 'Waiting to be added' },
       { icon: '✅', label: 'Meta Added', value: metaAddedItems.length, sub: 'Added to catalog' }
@@ -156,6 +205,8 @@ function _calculateDashboardData(products, metaData, seoHistory) {
     ],
     readiness: { added: metaAddedItems.length, total: completedItems.length, pending: metaPendingItems.length },
     campaignProgress,
+    whatsappReadiness: { sent: whatsappTotalSent, eligible: whatsappTotalEligible, pending: Math.max(whatsappTotalEligible - whatsappTotalSent, 0), percent: whatsappTotalEligible ? Math.min(100, Math.round((whatsappTotalSent / whatsappTotalEligible) * 100)) : 0 },
+    whatsappProgress: whatsappProgress.sort((a, b) => _timestamp(b.createdAt) - _timestamp(a.createdAt)).slice(0, 5),
     activities
   };
 }
@@ -185,6 +236,17 @@ function _renderDashboard(data) {
   if (readiness) {
     const percent = data.readiness.total ? Math.round((data.readiness.added / data.readiness.total) * 100) : 0;
     readiness.innerHTML = data.readiness.total ? `<div class="readiness-count">${data.readiness.added} <span>/ ${data.readiness.total} Added</span></div><div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div><div class="readiness-percent">${percent}% Complete</div><div class="readiness-meta"><span>${data.readiness.pending} Pending</span><span>${data.readiness.added} Added</span></div>` : '<p class="empty-msg">No catalog products yet.</p>';
+  }
+
+  const whatsappReadiness = document.getElementById('whatsapp-readiness-content');
+  if (whatsappReadiness) {
+    const progress = data.whatsappReadiness || { sent: 0, eligible: 0, pending: 0, percent: 0 };
+    whatsappReadiness.innerHTML = progress.eligible ? `<div class="readiness-count">${progress.sent} <span>/ ${progress.eligible} Sent</span></div><div class="progress-track"><div class="progress-fill whatsapp-progress-fill" style="width:${progress.percent}%"></div></div><div class="readiness-percent">${progress.percent}% Complete</div><div class="readiness-meta"><span>${progress.pending} Pending</span><span>${progress.sent} Sent</span></div>` : '<p class="empty-msg">No eligible WhatsApp recipients yet.</p>';
+  }
+
+  const whatsappCampaignsEl = document.getElementById('dashboard-whatsapp-progress');
+  if (whatsappCampaignsEl) {
+    whatsappCampaignsEl.innerHTML = data.whatsappProgress?.length ? data.whatsappProgress.map(campaign => `<article class="campaign-progress-item"><div class="campaign-progress-head"><div><h3>${escapeHtml(campaign.name || 'WhatsApp Campaign')}</h3><span>${campaign.eligible} Eligible · ${campaign.sent} Sent · ${campaign.pending} Pending</span></div><button class="btn btn-outline btn-sm" onclick="window.App.go('whatsapp-marketing')">Open Campaign</button></div><div class="campaign-progress-line"><span>WhatsApp Sending</span><b>${campaign.percent}%</b><div class="progress-track"><div class="progress-fill whatsapp-progress-fill" style="width:${campaign.percent}%"></div></div></div></article>`).join('') : '<p class="empty-msg">No WhatsApp campaigns yet.</p>';
   }
 
   const campaigns = document.getElementById('dashboard-campaign-progress');
