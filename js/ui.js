@@ -281,6 +281,14 @@ export function closeModal(id) {
   }
 }
 
+/** Closes only the most recently opened modal (used by the Esc key handler). */
+export function closeTopModal() {
+  if (_activeModalIds.size === 0) return false;
+  const topId = Array.from(_activeModalIds).pop();
+  closeModal(topId);
+  return true;
+}
+
 export function closeAllModals() {
   const activeModalIds = Array.from(_activeModalIds);
   const modalEls = Array.from(document.querySelectorAll('.overlay'));

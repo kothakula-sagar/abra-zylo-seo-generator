@@ -243,13 +243,24 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  // Alt + / → Add Customer, only while the Customers tab is open
+  // Alt + / → context-aware "Add" shortcut per active tab
   if (e.altKey && e.key === '/') {
-    const customersTab = document.getElementById('tab-customers');
-    if (customersTab?.classList.contains('active') && window.Customers?.showAddCustomer) {
+    const activeTabAdd = [
+      { tabId: 'tab-customers', action: () => window.Customers?.showAddCustomer?.() },
+      { tabId: 'tab-products',  action: () => window.Marketing?.showAddProduct?.() },
+      { tabId: 'tab-campaigns', action: () => window.Marketing?.showCreateCampaign?.() }
+    ].find(entry => document.getElementById(entry.tabId)?.classList.contains('active'));
+
+    if (activeTabAdd) {
       e.preventDefault();
-      window.Customers.showAddCustomer();
+      activeTabAdd.action();
     }
+    return;
+  }
+
+  // Esc → close the topmost open modal
+  if (e.key === 'Escape') {
+    UI.closeTopModal();
   }
 });
 
