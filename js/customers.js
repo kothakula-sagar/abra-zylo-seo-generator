@@ -63,20 +63,35 @@ function normalizeGender(value) {
 }
 
 function normalizePhone(value) {
-  const digits = String(value || '').replace(/\D/g, '');
+  const raw = String(value || '').trim();
+  const digits = raw.replace(/\D/g, '');
   if (!digits) return '';
+  if (raw.startsWith('+')) return `+${digits}`;
   if (digits.length === 10) return `91${digits}`;
   return digits;
 }
 
-function sanitizeMobileInput(value) {
-  return String(value || '')
-    .replace(/\D/g, '')
-    .slice(0, 10);
-}
-
 function phoneForWhatsApp(value) {
   return normalizePhone(value).replace(/^\+/, '');
+}
+
+function formatPhoneDisplay(value) {
+  const raw = String(value || '').trim();
+  const hasCountryCode = raw.replace(/\D/g, '').length > 10 || raw.startsWith('+');
+  const digits = raw.replace(/\D/g, '');
+
+  if (digits.length === 10) {
+    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+
+  if (hasCountryCode && digits.length >= 12 && digits.startsWith('91')) {
+    const local = digits.slice(2);
+    if (local.length === 10) {
+      return `+91 ${local.slice(0, 5)} ${local.slice(5)}`;
+    }
+  }
+
+  return raw || '-';
 }
 
 function customerStatus(customer) {
@@ -155,7 +170,7 @@ function renderCustomerTableRows(filtered) {
           <td>${index + 1}</td>
           <td>${formatDate(customer.addedAt)}</td>
           <td><strong>${escapeHtml(name)}</strong></td>
-          <td>${escapeHtml(customer.number || '-')}</td>
+          <td>${escapeHtml(formatPhoneDisplay(customer.number))}</td>
           <td>${escapeHtml(customer.gender ? customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1) : '-')}</td>
           <td>${escapeHtml(customer.addedByName || customer.addedByEmail || 'Unknown')}</td>
           <td>
@@ -227,80 +242,47 @@ export function searchCustomers(value) {
 export function showAddCustomer() {
   const form = document.getElementById('customer-form');
   if (form) form.reset();
-
   const gender = document.getElementById('customer-gender');
   if (gender) gender.value = '';
-
   const alert = document.getElementById('customer-alert');
   if (alert) alert.style.display = 'none';
-
-  setupCustomerNumberInput();
-
+  document.getElementById('customer-modal').style.display = 'flex';
   const numberInput = document.getElementById('customer-number');
   if (numberInput) {
-    numberInput.setAttribute('type', 'tel');
+    numberInput.setAttribute('maxlength', '11');
     numberInput.setAttribute('inputmode', 'numeric');
-    numberInput.setAttribute('maxlength', '10');
-    numberInput.setAttribute('minlength', '10');
-    numberInput.setAttribute('pattern', '[0-9]{10}');
-    numberInput.setAttribute('autocomplete', 'tel');
-    numberInput.value = '';
+    numberInput.setAttribute('type', 'tel');
+    if (!numberInput.dataset.customerNumberHandler) {
+      numberInput.addEventListener('input', handleCustomerNumberInput);
+      numberInput.dataset.customerNumberHandler = 'true';
+    }
   }
+  document.getElementById('customer-name')?.focus();
+}
 
-  document.getElementById('customer-modal').style.display = 'flex';
-
-  setTimeout(() => {
-    document.getElementById('customer-name')?.focus();
-  }, 50);
+function handleCustomerNumberInput(event) {
+  const input = event.target;
+  const digits = input.value.replace(/\D/g, '').slice(0, 10);
+  input.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
 }
 
 export function hideCustomerModal() {
   document.getElementById('customer-modal').style.display = 'none';
 }
 
-function setupCustomerNumberInput() {
-  const numberInput = document.getElementById('customer-number');
-  if (!numberInput || numberInput.dataset.mobileValidationBound === 'true') return;
-
-  numberInput.dataset.mobileValidationBound = 'true';
-  numberInput.setAttribute('type', 'tel');
-  numberInput.setAttribute('inputmode', 'numeric');
-  numberInput.setAttribute('maxlength', '10');
-  numberInput.setAttribute('minlength', '10');
-  numberInput.setAttribute('pattern', '[0-9]{10}');
-  numberInput.setAttribute('autocomplete', 'tel');
-
-  numberInput.addEventListener('input', () => {
-    const cleaned = sanitizeMobileInput(numberInput.value);
-    if (numberInput.value !== cleaned) {
-      numberInput.value = cleaned;
-    }
-  });
-}
-
 export async function saveCustomer(event) {
   event?.preventDefault();
-
   const name = cleanCustomerName(document.getElementById('customer-name')?.value || '');
-  const numberInput = document.getElementById('customer-number');
-  const number = sanitizeMobileInput(numberInput?.value || '');
+  const number = document.getElementById('customer-number')?.value.trim() || '';
   const gender = normalizeGender(document.getElementById('customer-gender')?.value);
   const alert = document.getElementById('customer-alert');
 
+  const numberDigits = number.replace(/\D/g, '');
+
   if (!name) return showCustomerAlert(alert, 'Please enter the customer name.');
-
-  if (numberInput) {
-    numberInput.value = number;
+  if (!/^\d{10}$/.test(numberDigits) || !/^[6-9]\d{9}$/.test(numberDigits)) {
+    return showCustomerAlert(alert, 'Mobile number must be exactly 10 digits and start with 6, 7, 8, or 9.');
   }
-
-  if (number.length !== 10) {
-    return showCustomerAlert(alert, 'Mobile number must be exactly 10 digits.');
-  }
-
-  if (!/^[6-9]\d{9}$/.test(number)) {
-    return showCustomerAlert(alert, 'Please enter a valid 10-digit Indian mobile number.');
-  }
-
   if (!gender) return showCustomerAlert(alert, 'Please select the customer gender.');
 
   const button = document.querySelector('#customer-form button[type="submit"]');
@@ -327,7 +309,7 @@ export async function saveCustomer(event) {
     if (button) button.textContent = 'Adding...';
     await FB.addDoc(FB.col(CUSTOMER_COLLECTION), {
       name,
-      number,
+      number: `${numberDigits.slice(0, 5)} ${numberDigits.slice(5)}`,
       normalizedNumber,
       gender,
       status: 'interested',
@@ -634,6 +616,7 @@ function buildPersonalizedMessage(customer) {
 function renderCampaignRecipients() {
   const target = document.getElementById('whatsapp-recipients-wrap');
   if (!target || !_activeCampaign) return;
+  const previousScrollTop = target.querySelector('.whatsapp-table-wrap')?.scrollTop || 0;
   const recipients = getCampaignRecipients();
   const count = document.getElementById('whatsapp-recipient-count');
   if (count) count.textContent = `${recipients.length} subscribed recipient${recipients.length === 1 ? '' : 's'}`;
@@ -654,7 +637,7 @@ function renderCampaignRecipients() {
             return `<tr>
               <td>${index + 1}</td>
               <td><strong>${escapeHtml(displayCustomerName(customer))}</strong></td>
-              <td>${escapeHtml(customer.number || '-')}</td>
+              <td>${escapeHtml(formatPhoneDisplay(customer.number))}</td>
               <td>${escapeHtml(customer.gender ? customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1) : '-')}</td>
               <td><button class="btn btn-whatsapp btn-sm" onclick="window.Customers.openWhatsApp('${customer.id}')">Open WhatsApp</button></td>
               <td><span class="sent-status ${sent ? 'sent' : 'pending'}">${sent ? 'Sent' : 'Not Sent'}</span></td>
@@ -664,6 +647,13 @@ function renderCampaignRecipients() {
         </tbody>
       </table>
     </div>`;
+
+  const tableWrap = target.querySelector('.whatsapp-table-wrap');
+  if (tableWrap) {
+    requestAnimationFrame(() => {
+      tableWrap.scrollTop = previousScrollTop;
+    });
+  }
 }
 
 export async function openWhatsApp(customerId) {
@@ -676,6 +666,9 @@ export async function openWhatsApp(customerId) {
   }
   const phone = phoneForWhatsApp(customer.number);
   if (!phone) return showToast('Customer number is invalid.');
+  const campaignTable = document.querySelector('.whatsapp-table-wrap');
+  const campaignTableScrollTop = campaignTable?.scrollTop || 0;
+  const pageScrollTop = window.scrollY || document.documentElement.scrollTop || 0;
   const message = buildPersonalizedMessage(customer);
   const url = `https://web.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(message)}`;
 
@@ -693,6 +686,12 @@ export async function openWhatsApp(customerId) {
     _campaignSent.add(customer.id);
     _campaignSentBy.set(customer.id, currentUserMeta().name);
     renderCampaignRecipients();
+
+    requestAnimationFrame(() => {
+      const restoredTable = document.querySelector('.whatsapp-table-wrap');
+      if (restoredTable) restoredTable.scrollTop = campaignTableScrollTop;
+      window.scrollTo(0, pageScrollTop);
+    });
   } catch (error) {
     console.error('[WhatsApp] sent status update error:', error);
     showToast('WhatsApp opened, but sent status could not be saved.');
@@ -709,42 +708,3 @@ export function backToWhatsappMarketing() {
 export function getDefaultWhatsappMessage() {
   return DEFAULT_MESSAGE;
 }
-
-
-/* =========================================================
-   CUSTOMER KEYBOARD SHORTCUT
-   Alt + / -> Open Add Customer
-========================================================= */
-
-document.addEventListener('keydown', event => {
-  if (
-    !event.altKey ||
-    (event.key !== '/' && event.code !== 'Slash')
-  ) {
-    return;
-  }
-
-  const activeElement = document.activeElement;
-
-  if (
-    activeElement &&
-    (
-      activeElement.tagName === 'INPUT' ||
-      activeElement.tagName === 'TEXTAREA' ||
-      activeElement.tagName === 'SELECT' ||
-      activeElement.isContentEditable
-    )
-  ) {
-    return;
-  }
-
-  const customerPage =
-    document.getElementById('customers-section') ||
-    document.getElementById('customers-page') ||
-    document.getElementById('customers-table-wrap');
-
-  if (!customerPage) return;
-
-  event.preventDefault();
-  showAddCustomer();
-});
