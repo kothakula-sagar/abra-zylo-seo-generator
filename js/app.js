@@ -234,11 +234,22 @@ function _hideAccessOverlay() {
 
 // ── KEYBOARD ──────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  const authPage  = document.getElementById('page-auth');
-  const loginView = document.getElementById('view-login');
-  if (authPage?.classList.contains('active') && loginView?.classList.contains('active')) {
-    Auth.login();
+  if (e.key === 'Enter') {
+    const authPage  = document.getElementById('page-auth');
+    const loginView = document.getElementById('view-login');
+    if (authPage?.classList.contains('active') && loginView?.classList.contains('active')) {
+      Auth.login();
+    }
+    return;
+  }
+
+  // Alt + / → Add Customer, only while the Customers tab is open
+  if (e.altKey && e.key === '/') {
+    const customersTab = document.getElementById('tab-customers');
+    if (customersTab?.classList.contains('active') && window.Customers?.showAddCustomer) {
+      e.preventDefault();
+      window.Customers.showAddCustomer();
+    }
   }
 });
 
