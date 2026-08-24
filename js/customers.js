@@ -63,12 +63,16 @@ function normalizeGender(value) {
 }
 
 function normalizePhone(value) {
-  const raw = String(value || '').trim();
-  const digits = raw.replace(/\D/g, '');
+  const digits = String(value || '').replace(/\D/g, '');
   if (!digits) return '';
-  if (raw.startsWith('+')) return `+${digits}`;
   if (digits.length === 10) return `91${digits}`;
   return digits;
+}
+
+function sanitizeMobileInput(value) {
+  return String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10);
 }
 
 function phoneForWhatsApp(value) {
@@ -223,27 +227,80 @@ export function searchCustomers(value) {
 export function showAddCustomer() {
   const form = document.getElementById('customer-form');
   if (form) form.reset();
+
   const gender = document.getElementById('customer-gender');
   if (gender) gender.value = '';
+
   const alert = document.getElementById('customer-alert');
   if (alert) alert.style.display = 'none';
+
+  setupCustomerNumberInput();
+
+  const numberInput = document.getElementById('customer-number');
+  if (numberInput) {
+    numberInput.setAttribute('type', 'tel');
+    numberInput.setAttribute('inputmode', 'numeric');
+    numberInput.setAttribute('maxlength', '10');
+    numberInput.setAttribute('minlength', '10');
+    numberInput.setAttribute('pattern', '[0-9]{10}');
+    numberInput.setAttribute('autocomplete', 'tel');
+    numberInput.value = '';
+  }
+
   document.getElementById('customer-modal').style.display = 'flex';
-  document.getElementById('customer-name')?.focus();
+
+  setTimeout(() => {
+    document.getElementById('customer-name')?.focus();
+  }, 50);
 }
 
 export function hideCustomerModal() {
   document.getElementById('customer-modal').style.display = 'none';
 }
 
+function setupCustomerNumberInput() {
+  const numberInput = document.getElementById('customer-number');
+  if (!numberInput || numberInput.dataset.mobileValidationBound === 'true') return;
+
+  numberInput.dataset.mobileValidationBound = 'true';
+  numberInput.setAttribute('type', 'tel');
+  numberInput.setAttribute('inputmode', 'numeric');
+  numberInput.setAttribute('maxlength', '10');
+  numberInput.setAttribute('minlength', '10');
+  numberInput.setAttribute('pattern', '[0-9]{10}');
+  numberInput.setAttribute('autocomplete', 'tel');
+
+  numberInput.addEventListener('input', () => {
+    const cleaned = sanitizeMobileInput(numberInput.value);
+    if (numberInput.value !== cleaned) {
+      numberInput.value = cleaned;
+    }
+  });
+}
+
 export async function saveCustomer(event) {
   event?.preventDefault();
+
   const name = cleanCustomerName(document.getElementById('customer-name')?.value || '');
-  const number = document.getElementById('customer-number')?.value.trim() || '';
+  const numberInput = document.getElementById('customer-number');
+  const number = sanitizeMobileInput(numberInput?.value || '');
   const gender = normalizeGender(document.getElementById('customer-gender')?.value);
   const alert = document.getElementById('customer-alert');
 
   if (!name) return showCustomerAlert(alert, 'Please enter the customer name.');
-  if (!number || normalizePhone(number).length < 10) return showCustomerAlert(alert, 'Please enter a valid WhatsApp number.');
+
+  if (numberInput) {
+    numberInput.value = number;
+  }
+
+  if (number.length !== 10) {
+    return showCustomerAlert(alert, 'Mobile number must be exactly 10 digits.');
+  }
+
+  if (!/^[6-9]\d{9}$/.test(number)) {
+    return showCustomerAlert(alert, 'Please enter a valid 10-digit Indian mobile number.');
+  }
+
   if (!gender) return showCustomerAlert(alert, 'Please select the customer gender.');
 
   const button = document.querySelector('#customer-form button[type="submit"]');
@@ -653,12 +710,13 @@ export function getDefaultWhatsappMessage() {
   return DEFAULT_MESSAGE;
 }
 
+
 /* =========================================================
    CUSTOMER KEYBOARD SHORTCUT
    Alt + / -> Open Add Customer
 ========================================================= */
 
-document.addEventListener('keydown', (event) => {
+document.addEventListener('keydown', event => {
   if (
     !event.altKey ||
     (event.key !== '/' && event.code !== 'Slash')
@@ -666,29 +724,26 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  // Do not steal the shortcut while the user is typing.
-  const active = document.activeElement;
+  const activeElement = document.activeElement;
+
   if (
-    active &&
+    activeElement &&
     (
-      active.tagName === 'INPUT' ||
-      active.tagName === 'TEXTAREA' ||
-      active.tagName === 'SELECT' ||
-      active.isContentEditable
+      activeElement.tagName === 'INPUT' ||
+      activeElement.tagName === 'TEXTAREA' ||
+      activeElement.tagName === 'SELECT' ||
+      activeElement.isContentEditable
     )
   ) {
     return;
   }
 
-  // Customers page is active when its table container exists.
   const customerPage =
-    document.getElementById('customers-table-wrap') ||
     document.getElementById('customers-section') ||
-    document.getElementById('customers-page');
+    document.getElementById('customers-page') ||
+    document.getElementById('customers-table-wrap');
 
-  if (!customerPage) {
-    return;
-  }
+  if (!customerPage) return;
 
   event.preventDefault();
   showAddCustomer();
