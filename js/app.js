@@ -40,6 +40,46 @@ window.Marketing = Marketing;
 window.Customers = Customers;
 
 // ── APP CONTROLLER ────────────────────────────────────────────
+// ── DOCS PAGE ────────────────────────────────────────────────
+const Docs = {
+  _wired: false,
+
+  init() {
+    this._wireNav();
+    // Open the section matching the current URL hash, else the first topic
+    const requested = (location.hash || '').replace('#', '');
+    this.show(document.getElementById(requested) ? requested : 'doc-overview');
+  },
+
+  _wireNav() {
+    if (this._wired) return;
+    this._wired = true;
+    document.querySelectorAll('#docs-nav .docs-nav-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        this.show(link.dataset.doc);
+      });
+    });
+    // In-content cross-links (e.g. "See Settings") also switch topics
+    document.getElementById('docs-content')?.addEventListener('click', e => {
+      const link = e.target.closest('[data-doc-link]');
+      if (!link) return;
+      e.preventDefault();
+      this.show(link.dataset.docLink);
+    });
+  },
+
+  show(docId) {
+    document.querySelectorAll('.docs-article').forEach(a => a.classList.remove('active'));
+    document.querySelectorAll('#docs-nav .docs-nav-link').forEach(l => l.classList.remove('active'));
+    document.getElementById(docId)?.classList.add('active');
+    document.querySelector(`#docs-nav .docs-nav-link[data-doc="${docId}"]`)?.classList.add('active');
+    document.getElementById('docs-content')?.scrollTo(0, 0);
+    history.replaceState(null, '', `#${docId}`);
+  }
+};
+window.Docs = Docs;
+
 const App = {
   _lang:          'en',
   _authConfirmed: false,   // true once onAuthStateChanged has fired at least once
@@ -89,6 +129,7 @@ const App = {
     if (tab === 'customers') Customers.renderCustomers();
     if (tab === 'whatsapp-marketing') Customers.renderWhatsappMarketing();
     if (tab === 'whatsapp-campaign-detail') Customers.renderWhatsappCampaignDetail();
+    if (tab === 'docs') Docs.init();
   },
 
   setLang(lang) {

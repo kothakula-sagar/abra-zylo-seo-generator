@@ -246,3 +246,41 @@ body.modal-open{overflow:hidden;position:fixed;top:0;left:0;width:100%}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .fade-in{animation:fadeIn .3s ease forwards}
+/* ── DOCS PAGE ──────────────────────────────────────────────── */
+.docs-layout{display:flex;align-items:flex-start;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:calc(100vh - var(--topbar) - 3rem)}
+.docs-nav{width:230px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface2);padding:1.25rem .75rem;position:sticky;top:calc(var(--topbar) + 1.25rem);align-self:flex-start;max-height:calc(100vh - var(--topbar) - 2.5rem);overflow-y:auto}
+.docs-nav-group{margin-bottom:1.25rem}
+.docs-nav-group:last-child{margin-bottom:0}
+.docs-nav-label{display:block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);padding:0 .6rem;margin-bottom:.4rem}
+.docs-nav-link{display:block;padding:.4rem .6rem;border-radius:var(--radius-xs);font-size:.83rem;color:var(--text2);text-decoration:none;line-height:1.4;transition:background .15s,color .15s}
+.docs-nav-link:hover{background:var(--surface);color:var(--text)}
+.docs-nav-link.active{background:rgba(245,158,11,.12);color:var(--accent);font-weight:600}
+.docs-content{flex:1;min-width:0;padding:2rem 2.5rem;max-width:760px}
+.docs-article{display:none;animation:fadeIn .2s ease}
+.docs-article.active{display:block}
+.docs-kicker{font-size:.72rem;font-weight:700;letter-spacing:.06em;color:var(--accent);text-transform:uppercase;margin-bottom:.4rem}
+.docs-article h1{font-size:1.7rem;font-weight:800;color:var(--heading);margin-bottom:.6rem;letter-spacing:-.01em}
+.docs-lead{font-size:1rem;color:var(--text2);line-height:1.6;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
+.docs-article h2{font-size:1.1rem;font-weight:700;color:var(--heading);margin:1.5rem 0 .6rem}
+.docs-article p{font-size:.9rem;color:var(--text2);line-height:1.7;margin-bottom:.9rem}
+.docs-article ul,.docs-article ol{margin:0 0 1rem 1.25rem;padding:0}
+.docs-article ul{list-style:disc}
+.docs-article ol.docs-steps{list-style:none;counter-reset:docstep;margin-left:0}
+.docs-article ol.docs-steps li{counter-increment:docstep;position:relative;padding-left:2.1rem;margin-bottom:.75rem}
+.docs-article ol.docs-steps li::before{content:counter(docstep);position:absolute;left:0;top:0;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--accent);color:var(--brand);font-size:.75rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.docs-article li{font-size:.9rem;color:var(--text2);line-height:1.65;margin-bottom:.4rem}
+.docs-article li strong{color:var(--text)}
+.docs-article a{color:var(--accent);text-decoration:none;font-weight:600}
+.docs-article a:hover{text-decoration:underline}
+.docs-tip{background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);border-radius:var(--radius-sm);padding:.75rem 1rem;font-size:.85rem;line-height:1.6}
+.docs-table{width:100%;border-collapse:collapse;font-size:.85rem;margin:.75rem 0 1.25rem;border:1px solid var(--border);border-radius:var(--radius-xs);overflow:hidden}
+.docs-table th{text-align:left;padding:.65rem .9rem;background:var(--surface2);color:var(--text2);font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--border)}
+.docs-table td{padding:.65rem .9rem;border-bottom:1px solid var(--border);color:var(--text2)}
+.docs-table tr:last-child td{border-bottom:none}
+.shortcut-key{display:inline-block;padding:2px 8px;border:1.5px solid var(--border2);border-radius:var(--radius-xs);background:var(--surface2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;box-shadow:0 1.5px 0 var(--border2)}
+@media (max-width:900px){
+  .docs-layout{flex-direction:column}
+  .docs-nav{width:100%;position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:0 .5rem}
+  .docs-nav-group{margin-bottom:.5rem}
+  .docs-content{padding:1.5rem}
+}

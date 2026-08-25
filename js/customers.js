@@ -4,7 +4,7 @@
  */
 import { FB } from './firebase.js';
 import { getUser, getUserDoc, isAdmin } from './auth.js';
-import { showToast } from './ui.js';
+import { showToast, openModal, closeModal } from './ui.js';
 import { escapeHtml } from './utils.js';
 
 const CUSTOMER_COLLECTION = 'customers';
@@ -246,7 +246,7 @@ export function showAddCustomer() {
   if (gender) gender.value = '';
   const alert = document.getElementById('customer-alert');
   if (alert) alert.style.display = 'none';
-  document.getElementById('customer-modal').style.display = 'flex';
+  openModal('customer-modal');
   const numberInput = document.getElementById('customer-number');
   if (numberInput) {
     numberInput.setAttribute('maxlength', '11');
@@ -267,7 +267,7 @@ function handleCustomerNumberInput(event) {
 }
 
 export function hideCustomerModal() {
-  document.getElementById('customer-modal').style.display = 'none';
+  closeModal('customer-modal');
 }
 
 export async function saveCustomer(event) {
@@ -424,7 +424,7 @@ export function showCreateWhatsappCampaign() {
   if (submit) submit.textContent = 'Create Campaign';
   const alert = document.getElementById('whatsapp-campaign-alert');
   if (alert) alert.style.display = 'none';
-  document.getElementById('whatsapp-campaign-modal').style.display = 'flex';
+  openModal('whatsapp-campaign-modal');
   document.getElementById('whatsapp-campaign-name')?.focus();
 }
 
@@ -444,12 +444,12 @@ export function editWhatsappCampaign(campaignId) {
   if (submit) submit.textContent = 'Save Changes';
   const alert = document.getElementById('whatsapp-campaign-alert');
   if (alert) alert.style.display = 'none';
-  document.getElementById('whatsapp-campaign-modal').style.display = 'flex';
+  openModal('whatsapp-campaign-modal');
   document.getElementById('whatsapp-campaign-name')?.focus();
 }
 
 export function hideWhatsappCampaignModal() {
-  document.getElementById('whatsapp-campaign-modal').style.display = 'none';
+  closeModal('whatsapp-campaign-modal');
   _editingCampaignId = null;
 }
 

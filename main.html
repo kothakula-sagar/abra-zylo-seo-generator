@@ -183,6 +183,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>
         Settings
       </a>
+      <a class="nav-item" id="nav-docs" onclick="window.App.go('docs')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Docs
+      </a>
     </nav>
     <div class="sidebar-ai-tag">
       <strong id="sidebar-ai-model">Llama 3.3 70B</strong>
@@ -523,6 +527,284 @@
       <section id="tab-settings" class="tab-section">
         <div id="settings-container"></div>
       </section>
+
+      <!-- SHORTCUTS -->
+      <!-- DOCUMENTATION -->
+      <section id="tab-docs" class="tab-section">
+        <div class="docs-layout">
+          <!-- LEFT: doc topic nav -->
+          <nav class="docs-nav" id="docs-nav">
+            <div class="docs-nav-group">
+              <span class="docs-nav-label">Getting Started</span>
+              <a href="#doc-overview" class="docs-nav-link active" data-doc="doc-overview">Overview</a>
+              <a href="#doc-roles" class="docs-nav-link" data-doc="doc-roles">Roles &amp; Access</a>
+              <a href="#doc-workflow" class="docs-nav-link" data-doc="doc-workflow">Typical Workflow</a>
+            </div>
+            <div class="docs-nav-group">
+              <span class="docs-nav-label">Main</span>
+              <a href="#doc-dashboard" class="docs-nav-link" data-doc="doc-dashboard">Dashboard</a>
+              <a href="#doc-generate" class="docs-nav-link" data-doc="doc-generate">Generate SEO</a>
+              <a href="#doc-history" class="docs-nav-link" data-doc="doc-history">History</a>
+              <a href="#doc-audit" class="docs-nav-link" data-doc="doc-audit">SEO Audit</a>
+              <a href="#doc-audit-history" class="docs-nav-link" data-doc="doc-audit-history">Audit History</a>
+            </div>
+            <div class="docs-nav-group">
+              <span class="docs-nav-label">AI Marketing</span>
+              <a href="#doc-products" class="docs-nav-link" data-doc="doc-products">Products</a>
+              <a href="#doc-campaigns" class="docs-nav-link" data-doc="doc-campaigns">Sale Campaigns</a>
+              <a href="#doc-meta-catalog" class="docs-nav-link" data-doc="doc-meta-catalog">Meta Product Catalog</a>
+            </div>
+            <div class="docs-nav-group">
+              <span class="docs-nav-label">WhatsApp Marketing</span>
+              <a href="#doc-customers" class="docs-nav-link" data-doc="doc-customers">Customers</a>
+              <a href="#doc-whatsapp" class="docs-nav-link" data-doc="doc-whatsapp">WhatsApp Marketing</a>
+            </div>
+            <div class="docs-nav-group">
+              <span class="docs-nav-label">Account</span>
+              <a href="#doc-accounts" class="docs-nav-link" data-doc="doc-accounts">Accounts</a>
+              <a href="#doc-settings" class="docs-nav-link" data-doc="doc-settings">Settings</a>
+            </div>
+            <div class="docs-nav-group">
+              <span class="docs-nav-label">Reference</span>
+              <a href="#doc-shortcuts" class="docs-nav-link" data-doc="doc-shortcuts">Keyboard Shortcuts</a>
+            </div>
+          </nav>
+
+          <!-- RIGHT: doc content -->
+          <div class="docs-content" id="docs-content">
+
+            <article class="docs-article" id="doc-overview">
+              <p class="docs-kicker">GETTING STARTED</p>
+              <h1>Abra Zylo AI SEO Portal</h1>
+              <p class="docs-lead">One place to generate SEO content, audit pages, manage products, run sale campaigns, prepare the Meta catalog, and market to customers on WhatsApp — all for Abra Zylo.</p>
+
+              <h2>What this app does</h2>
+              <p>The portal takes a product image and a few details, and uses AI to generate a complete, scored SEO package for it: meta title, meta description, focus keywords, alt text, product description, slug, and tags. From there, the same product can flow into a Sale Campaign, the Meta Product Catalog, and WhatsApp marketing — so you do the SEO work once and reuse it everywhere.</p>
+
+              <h2>The three data flows</h2>
+              <ul>
+                <li><strong>SEO flow</strong> — Generate SEO → History (every generation is saved and reusable)</li>
+                <li><strong>Marketing flow</strong> — Products → Sale Campaigns → Meta Product Catalog</li>
+                <li><strong>Outreach flow</strong> — Customers → WhatsApp Marketing</li>
+              </ul>
+              <p>All three are backed by the same Firebase project, so anything you add is visible to the rest of the team instantly.</p>
+            </article>
+
+            <article class="docs-article" id="doc-roles">
+              <p class="docs-kicker">GETTING STARTED</p>
+              <h1>Roles &amp; Access</h1>
+              <p class="docs-lead">The app has two roles: <strong>Member</strong> and <strong>Admin</strong>. Most day-to-day work is open to both.</p>
+              <table class="docs-table">
+                <thead><tr><th>Area</th><th>Member</th><th>Admin</th></tr></thead>
+                <tbody>
+                  <tr><td>Generate SEO, History, SEO Audit, Products</td><td>✅ Full access</td><td>✅ Full access</td></tr>
+                  <tr><td>Customers, WhatsApp Marketing</td><td>✅ Add &amp; edit</td><td>✅ Add, edit &amp; delete</td></tr>
+                  <tr><td>Sale Campaigns, Meta Product Catalog</td><td>🚫 Hidden</td><td>✅ Full access</td></tr>
+                  <tr><td>Accounts (approve/block users)</td><td>🚫 Hidden</td><td>✅ Full access</td></tr>
+                  <tr><td>Google APIs (PageSpeed key)</td><td>🚫 Hidden</td><td>✅ Configure</td></tr>
+                </tbody>
+              </table>
+              <p>New sign-ups need admin approval before they can use the app — see <a href="#doc-accounts" data-doc-link="doc-accounts">Accounts</a>.</p>
+            </article>
+
+            <article class="docs-article" id="doc-workflow">
+              <p class="docs-kicker">GETTING STARTED</p>
+              <h1>Typical Workflow</h1>
+              <p class="docs-lead">Here's the path most product SEO work follows, start to finish.</p>
+              <ol class="docs-steps">
+                <li><strong>Generate SEO</strong> — upload a product photo, add its name and category, generate a full SEO package, and save it. It now appears in <strong>History</strong> and in <strong>Products</strong>.</li>
+                <li><strong>Improve if needed</strong> — if the SEO score is low, use AI Improve on the weak field instead of regenerating everything.</li>
+                <li><strong>Add to a campaign</strong> — when a sale is coming up, create a <strong>Sale Campaign</strong> and add the relevant products to it.</li>
+                <li><strong>Move to Meta Catalog</strong> — once a campaign product's content is ready, it becomes available in the <strong>Meta Product Catalog</strong> for ad use.</li>
+                <li><strong>Tell customers</strong> — add or update customers in <strong>Customers</strong>, then send them a <strong>WhatsApp Marketing</strong> campaign about the sale.</li>
+                <li><strong>Check the site itself</strong> — periodically run a <strong>SEO Audit</strong> on live product pages to catch performance or on-page issues.</li>
+              </ol>
+              <p>The <a href="#doc-dashboard" data-doc-link="doc-dashboard">Dashboard</a> gives you a single view of where every one of these is at, and shortcuts to jump straight into any of them.</p>
+            </article>
+
+            <article class="docs-article" id="doc-dashboard">
+              <p class="docs-kicker">MAIN</p>
+              <h1>Dashboard</h1>
+              <p class="docs-lead">Your control center — a snapshot of what needs attention and quick links into everything else.</p>
+              <h2>What's on it</h2>
+              <ul>
+                <li><strong>Needs Attention</strong> — flags things worth a look, like incomplete SEO or stalled campaign items.</li>
+                <li><strong>Meta Catalog Readiness</strong> — how many campaign products are catalog-ready vs. still pending.</li>
+                <li><strong>WhatsApp Marketing Progress</strong> — how outreach to your customer list is progressing.</li>
+                <li><strong>Campaign Progress</strong> and <strong>WhatsApp Campaign Progress</strong> — status of active campaigns at a glance.</li>
+                <li><strong>Quick Actions</strong> — one-click shortcuts to Add Product, Generate SEO, Create Campaign, Meta Catalog, and Run SEO Audit.</li>
+                <li><strong>Recent Activity</strong> — the latest things done in the app across the team.</li>
+              </ul>
+              <p class="docs-tip">Start here each session — it tells you what's waiting before you go looking for it.</p>
+            </article>
+
+            <article class="docs-article" id="doc-generate">
+              <p class="docs-kicker">MAIN</p>
+              <h1>Generate SEO</h1>
+              <p class="docs-lead">The core tool — turns a product photo and a few details into a complete, scored SEO package.</p>
+              <h2>Required fields</h2>
+              <ul>
+                <li><strong>Product image</strong> — JPG/PNG/WEBP, up to 10MB. Required — the AI uses it for context.</li>
+                <li><strong>Product name</strong> — the exact name you want to appear in search results.</li>
+                <li><strong>Category</strong> — helps the AI understand what kind of product this is.</li>
+              </ul>
+              <h2>Optional fields</h2>
+              <p>Output language (English, Hindi, Telugu), AI provider (Groq, Gemini, or OpenRouter), and pricing fields (Model Number, MRP, Selling Price) — discount % and savings are calculated automatically for reference.</p>
+              <h2>What you get back</h2>
+              <p>Meta title, meta description, focus keywords, image alt text, product description, short description, SEO-friendly URL/slug, product tags, and an <strong>SEO Score out of 100</strong>.</p>
+              <h2>AI Improve vs Full Regenerate</h2>
+              <p><strong>AI Improve</strong> regenerates just one weak field (e.g. only the meta title) and keeps everything else. <strong>Full Regenerate</strong> rebuilds the whole package — use it when the product info changed or the whole direction is wrong. Improvements are validated before they replace existing content, so a bad AI attempt never overwrites something usable.</p>
+              <p class="docs-tip">Use <strong>+ New Product</strong> in the top-right of the card to clear the form and start the next product without leaving the page.</p>
+            </article>
+
+            <article class="docs-article" id="doc-history">
+              <p class="docs-kicker">MAIN</p>
+              <h1>History</h1>
+              <p class="docs-lead">Every SEO generation is saved here, so you never have to regenerate something that already exists.</p>
+              <ul>
+                <li>Search by product name or filter by language.</li>
+                <li><strong>Export JSON</strong> — download your generation history as a file.</li>
+                <li><strong>Clear All</strong> — admin-only, wipes the saved history.</li>
+              </ul>
+              <p class="docs-tip">Check History before generating — the product may already have SEO content ready to reuse or improve.</p>
+            </article>
+
+            <article class="docs-article" id="doc-audit">
+              <p class="docs-kicker">MAIN</p>
+              <h1>SEO Audit</h1>
+              <p class="docs-lead">Two tools in one page: a live site performance check, and a quick on-page SEO checklist.</p>
+              <h2>Performance tab</h2>
+              <p>Runs a real Google PageSpeed Insights / Lighthouse audit against any Abra Zylo page. Choose Mobile or Desktop, optionally turn on AI Performance Analysis for plain-English recommendations, and get back Performance, Accessibility, Best Practices, and SEO scores plus Core Web Vitals (LCP, CLS, FCP, Speed Index, TTFB). Requires a PageSpeed API key configured in <a href="#doc-settings" data-doc-link="doc-settings">Settings</a> by an admin.</p>
+              <h2>SEO Checker tab</h2>
+              <p>A manual checklist — paste in a page title, meta description, focus keyword, content, and URL, and get an instant on-page SEO score. Useful for checking a page before it goes live, without needing an API key. Results can be saved to Audit History.</p>
+            </article>
+
+            <article class="docs-article" id="doc-audit-history">
+              <p class="docs-kicker">MAIN</p>
+              <h1>Audit History</h1>
+              <p class="docs-lead">Every saved audit — performance or SEO checker — lives here so you can track a page's progress over time instead of only seeing the latest run.</p>
+              <p>Admins can clear all saved reports from this page.</p>
+            </article>
+
+            <article class="docs-article" id="doc-products">
+              <p class="docs-kicker">AI MARKETING</p>
+              <h1>Products</h1>
+              <p class="docs-lead">Every product that's been through SEO generation lives here, and can be reused across campaigns and the Meta catalog without re-entering its data.</p>
+              <h2>Finding a product</h2>
+              <ul>
+                <li>Search by name or by who added it.</li>
+                <li>Sort: Newest, Oldest, Recently Updated, Name A–Z / Z–A.</li>
+                <li>Quick filters: Added by Me, Added Today, Updated Today.</li>
+                <li><strong>Compare Selected</strong> — tick two or more products to compare them side by side.</li>
+              </ul>
+              <p class="docs-tip">Open a product from here to jump straight into it for a Sale Campaign or the Meta Catalog — no need to search again.</p>
+            </article>
+
+            <article class="docs-article" id="doc-campaigns">
+              <p class="docs-kicker">AI MARKETING &middot; ADMIN ONLY</p>
+              <h1>Sale Campaigns</h1>
+              <p class="docs-lead">Group products together for a promotional push — a festival sale, a clearance, a launch — and track each product's SEO/content status through it.</p>
+              <h2>How it works</h2>
+              <ol class="docs-steps">
+                <li>Create a campaign with a name and a prompt describing the look/theme you want.</li>
+                <li>Add products to it from your Products list.</li>
+                <li>Each campaign item moves through <strong>Pending → Generating → Completed</strong> as its promotional content is produced.</li>
+                <li>Once completed, campaign products become available for the Meta Product Catalog.</li>
+              </ol>
+              <p>Campaign items track MRP, sale price, discount %, and savings alongside their SEO/content status.</p>
+            </article>
+
+            <article class="docs-article" id="doc-meta-catalog">
+              <p class="docs-kicker">AI MARKETING &middot; ADMIN ONLY</p>
+              <h1>Meta Product Catalog</h1>
+              <p class="docs-lead">The last step before products go into Meta (Facebook/Instagram) ads — organizes campaign-ready products by catalog status.</p>
+              <ul>
+                <li>Browse by completed Sale Campaign, then filter products within it by <strong>All / Pending / Added</strong>.</li>
+                <li>Stat cards show Total, Pending, and Added counts for the open campaign at a glance.</li>
+                <li>Mark a product as <strong>Added</strong> once you've placed it in Meta Business Suite, so the team knows it's live.</li>
+              </ul>
+            </article>
+
+            <article class="docs-article" id="doc-customers">
+              <p class="docs-kicker">WHATSAPP MARKETING</p>
+              <h1>Customers</h1>
+              <p class="docs-lead">A shared customer directory the whole team adds to and uses for WhatsApp outreach.</p>
+              <ul>
+                <li>Search by name or phone number.</li>
+                <li>Set each customer's status to <strong>Interested</strong> or <strong>Not Interested</strong> — this controls who gets included in WhatsApp campaigns.</li>
+                <li>Members and admins can add customers and change status; <strong>deleting a customer is admin-only</strong>.</li>
+              </ul>
+            </article>
+
+            <article class="docs-article" id="doc-whatsapp">
+              <p class="docs-kicker">WHATSAPP MARKETING</p>
+              <h1>WhatsApp Marketing</h1>
+              <p class="docs-lead">Create a WhatsApp outreach campaign and open personalized, pre-filled messages for every subscribed (Interested) customer.</p>
+              <ul>
+                <li>Create a campaign with a message template and an optional link.</li>
+                <li>Filter by gender if the campaign is targeted.</li>
+                <li>Open a campaign to see its recipient list, pulled from customers marked <strong>Interested</strong>.</li>
+              </ul>
+              <p class="docs-tip">Keep the <a href="#doc-customers" data-doc-link="doc-customers">Customers</a> list up to date — WhatsApp campaigns only reach customers currently marked Interested.</p>
+            </article>
+
+            <article class="docs-article" id="doc-accounts">
+              <p class="docs-kicker">ACCOUNT &middot; ADMIN ONLY</p>
+              <h1>Accounts</h1>
+              <p class="docs-lead">Where admins approve new sign-ups and manage who has access to the app.</p>
+              <ul>
+                <li>New users appear as <strong>pending</strong> until an admin approves them — they can't use the app until then.</li>
+                <li>Approved users can be blocked if needed.</li>
+                <li>Shows each user's email and role.</li>
+              </ul>
+            </article>
+
+            <article class="docs-article" id="doc-settings">
+              <p class="docs-kicker">ACCOUNT</p>
+              <h1>Settings</h1>
+              <p class="docs-lead">Where you configure your own AI provider keys and preferences.</p>
+              <h2>Sections</h2>
+              <ul>
+                <li><strong>Groq API Key</strong> — free tier, the default AI provider used for generation.</li>
+                <li><strong>Google Gemini API Key</strong> and <strong>OpenRouter API Key</strong> — alternate providers you can switch to per generation.</li>
+                <li><strong>Google APIs</strong> <em>(admin only)</em> — the PageSpeed Insights key that powers the Performance tab in SEO Audit for the whole team.</li>
+                <li><strong>Preferences</strong> — your default AI provider and other personal defaults.</li>
+                <li><strong>Profile</strong> — your account details.</li>
+                <li><strong>Firebase</strong> — connection status, useful for confirming the app is synced.</li>
+                <li><strong>Data</strong> — export/manage your stored data.</li>
+              </ul>
+              <p class="docs-tip">Each provider key is independent — if Groq is rate-limited, switch the AI Provider dropdown on the Generate SEO page to Gemini or OpenRouter without losing anything.</p>
+            </article>
+
+            <article class="docs-article" id="doc-shortcuts">
+              <p class="docs-kicker">REFERENCE</p>
+              <h1>Keyboard Shortcuts</h1>
+              <p class="docs-lead">Use these while you work to save clicks and finish tasks faster.</p>
+
+              <h2><kbd class="shortcut-key">Alt</kbd> + <kbd class="shortcut-key">/</kbd> — Add shortcut</h2>
+              <p>Opens the "Add" form for whichever page you're currently on. No need to move your mouse to the button.</p>
+              <table class="docs-table">
+                <thead><tr><th>When you're on this page</th><th>Alt + / opens</th></tr></thead>
+                <tbody>
+                  <tr><td>Products</td><td>Add Product</td></tr>
+                  <tr><td>Sale Campaigns</td><td>Create Campaign</td></tr>
+                  <tr><td>Customer Details</td><td>Add Customer</td></tr>
+                </tbody>
+              </table>
+
+              <h2><kbd class="shortcut-key">Esc</kbd> — Close shortcut</h2>
+              <p>Closes whichever form or popup is currently open — Add Product, Add Customer, Create Campaign, and every other modal in the app. Works from anywhere, no need to click Cancel.</p>
+
+              <h2><kbd class="shortcut-key">Enter</kbd> — Login shortcut</h2>
+              <p>On the sign-in screen, press Enter instead of clicking the Login button.</p>
+
+              <p class="docs-tip">Build the habit: open the page you work on most, use <kbd class="shortcut-key">Alt</kbd> + <kbd class="shortcut-key">/</kbd> → fill the form → <kbd class="shortcut-key">Esc</kbd> to close if you change your mind. Repeating this instead of reaching for the mouse adds up fast across a full day of data entry.</p>
+            </article>
+
+          </div>
+        </div>
+      </section>
+
 
       <!-- CUSTOMERS -->
       <section id="tab-customers" class="tab-section">
