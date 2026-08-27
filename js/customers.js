@@ -19,6 +19,15 @@ let _campaignSentBy = new Map();
 let _editingCampaignId = null;
 let _customerSearch = '';
 
+// Temporary WhatsApp campaign pacing guard. This is a client-side UX safety
+// control only; it does not bypass WhatsApp restrictions or replace the
+// official WhatsApp Business Platform.
+const WHATSAPP_BATCH_SIZE = 10;
+const WHATSAPP_COOLDOWN_MS = 5 * 60 * 1000;
+const WHATSAPP_PACING_STORAGE_KEY = 'abraZyloWhatsAppPacingV1';
+let _campaignCooldownTimer = null;
+let _campaignSending = new Set();
+
 function currentUserMeta() {
   const user = getUser();
   const doc = getUserDoc() || {};
@@ -175,8 +184,8 @@ function renderCustomerTableRows(filtered) {
           <td>${escapeHtml(customer.addedByName || customer.addedByEmail || 'Unknown')}</td>
           <td>
             <select class="customer-status-select ${status === 'interested' ? 'status-subscribed' : 'status-unsubscribed'}" onchange="window.Customers.updateStatus('${customer.id}', this.value)">
-              <option value="interested" ${status === 'interested' ? 'selected' : ''}>Interested</option>
-              <option value="not-interested" ${status === 'not-interested' ? 'selected' : ''}>Not Interested</option>
+              <option value="interested" ${status === 'interested' ? 'selected' : ''}>Subscribed</option>
+              <option value="not-interested" ${status === 'not-interested' ? 'selected' : ''}>Unsubscribed</option>
             </select>
           </td>
           <td>${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="window.Customers.deleteCustomer('${customer.id}')">Delete</button>` : '<span class="text-muted">Admin only</span>'}</td>
@@ -208,7 +217,7 @@ function renderCustomersTable() {
       </div>
       <div class="data-table-wrap customer-table-wrap">
         <table class="data-table customers-table">
-          <thead><tr><th>Sl No</th><th>Added Date</th><th>Name</th><th>Number</th><th>Gender</th><th>Added By</th><th>Sub / Unsub</th><th>Delete</th></tr></thead>
+          <thead><tr><th>Sl No</th><th>Added Date</th><th>Name</th><th>Number</th><th>Gender</th><th>Added By</th><th>Subscription</th><th>Delete</th></tr></thead>
           <tbody id="customers-table-body"></tbody>
         </table>
       </div>`;
@@ -613,6 +622,96 @@ function buildPersonalizedMessage(customer) {
     .replace(/\{\{URL\}\}/gi, _activeCampaign?.url || '');
 }
 
+function readWhatsappPacingStore() {
+  try {
+    const raw = localStorage.getItem(WHATSAPP_PACING_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.warn('[WhatsApp] pacing state read failed:', error);
+    return {};
+  }
+}
+
+function writeWhatsappPacingStore(store) {
+  try {
+    localStorage.setItem(WHATSAPP_PACING_STORAGE_KEY, JSON.stringify(store));
+  } catch (error) {
+    console.warn('[WhatsApp] pacing state write failed:', error);
+  }
+}
+
+function getCampaignPacing() {
+  if (!_activeCampaign?.id) return { batchCount: 0, cooldownUntil: 0 };
+  const store = readWhatsappPacingStore();
+  const state = store[_activeCampaign.id] || {};
+  const batchCount = Math.max(0, Number(state.batchCount) || 0);
+  const cooldownUntil = Math.max(0, Number(state.cooldownUntil) || 0);
+
+  // A stale cooldown is cleared lazily so a reload cannot leave the campaign locked.
+  if (cooldownUntil && cooldownUntil <= Date.now()) {
+    delete store[_activeCampaign.id];
+    writeWhatsappPacingStore(store);
+    return { batchCount, cooldownUntil: 0 };
+  }
+
+  return { batchCount: Math.min(batchCount, WHATSAPP_BATCH_SIZE - 1), cooldownUntil };
+}
+
+function setCampaignPacing(nextState) {
+  if (!_activeCampaign?.id) return;
+  const store = readWhatsappPacingStore();
+  store[_activeCampaign.id] = {
+    batchCount: Math.max(0, Math.min(Number(nextState.batchCount) || 0, WHATSAPP_BATCH_SIZE - 1)),
+    cooldownUntil: Math.max(0, Number(nextState.cooldownUntil) || 0)
+  };
+  writeWhatsappPacingStore(store);
+}
+
+function formatCountdown(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function stopCampaignCooldownTimer() {
+  if (_campaignCooldownTimer) {
+    clearInterval(_campaignCooldownTimer);
+    _campaignCooldownTimer = null;
+  }
+}
+
+function updateCampaignPacingUI(pacing = getCampaignPacing()) {
+  const title = document.getElementById('whatsapp-detail-name');
+  const baseTitle = _activeCampaign?.name || 'WhatsApp Campaign';
+  const cooldown = pacing.cooldownUntil > Date.now();
+
+  if (title) {
+    title.innerHTML = `${escapeHtml(baseTitle)}${cooldown ? ` <span class="whatsapp-cooldown-badge">Cooldown <span id="whatsapp-cooldown-countdown">${formatCountdown(pacing.cooldownUntil - Date.now())}</span></span>` : ''}`;
+  }
+
+  stopCampaignCooldownTimer();
+  if (!cooldown) return;
+
+  _campaignCooldownTimer = window.setInterval(() => {
+    const current = getCampaignPacing();
+    const remaining = current.cooldownUntil - Date.now();
+    const countdown = document.getElementById('whatsapp-cooldown-countdown');
+
+    if (remaining <= 0) {
+      stopCampaignCooldownTimer();
+      const store = readWhatsappPacingStore();
+      if (_activeCampaign?.id) delete store[_activeCampaign.id];
+      writeWhatsappPacingStore(store);
+      renderCampaignRecipients();
+      return;
+    }
+
+    if (countdown) countdown.textContent = formatCountdown(remaining);
+  }, 1000);
+}
+
 function renderCampaignRecipients() {
   const target = document.getElementById('whatsapp-recipients-wrap');
   if (!target || !_activeCampaign) return;
@@ -621,8 +720,11 @@ function renderCampaignRecipients() {
   const count = document.getElementById('whatsapp-recipient-count');
   if (count) count.textContent = `${recipients.length} subscribed recipient${recipients.length === 1 ? '' : 's'}`;
 
+  const pacing = getCampaignPacing();
+  updateCampaignPacingUI(pacing);
+
   if (!recipients.length) {
-    target.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><h3>No eligible customers</h3><p>Customers who are marked Not Interested are automatically excluded from this campaign.</p></div>';
+    target.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><h3>No eligible customers</h3><p>Customers who are marked Unsubscribed are automatically excluded from this campaign.</p></div>';
     return;
   }
 
@@ -634,12 +736,17 @@ function renderCampaignRecipients() {
           ${recipients.map((customer, index) => {
             const sent = _campaignSent.has(customer.id);
             const sentBy = _campaignSentBy.get(customer.id) || '-';
+            const pacing = getCampaignPacing();
+            const cooldown = pacing.cooldownUntil > Date.now();
+            const buttonClass = cooldown ? 'btn btn-whatsapp btn-sm whatsapp-cooldown-btn' : 'btn btn-whatsapp btn-sm';
+            const buttonText = cooldown ? 'Wait' : 'Open WhatsApp';
+            const buttonDisabled = cooldown || sent ? 'disabled' : '';
             return `<tr>
               <td>${index + 1}</td>
               <td><strong>${escapeHtml(displayCustomerName(customer))}</strong></td>
               <td>${escapeHtml(formatPhoneDisplay(customer.number))}</td>
               <td>${escapeHtml(customer.gender ? customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1) : '-')}</td>
-              <td><button class="btn btn-whatsapp btn-sm" onclick="window.Customers.openWhatsApp('${customer.id}')">Open WhatsApp</button></td>
+              <td><button class="${buttonClass}" ${buttonDisabled} onclick="window.Customers.openWhatsApp('${customer.id}')">${buttonText}</button></td>
               <td><span class="sent-status ${sent ? 'sent' : 'pending'}">${sent ? 'Sent' : 'Not Sent'}</span></td>
               <td>${escapeHtml(sentBy)}</td>
             </tr>`;
@@ -658,22 +765,49 @@ function renderCampaignRecipients() {
 
 export async function openWhatsApp(customerId) {
   if (!_activeCampaign) return;
+  const pacing = getCampaignPacing();
+  if (pacing.cooldownUntil > Date.now()) {
+    showToast(`Please wait ${formatCountdown(pacing.cooldownUntil - Date.now())}.`);
+    updateCampaignPacingUI(pacing);
+    renderCampaignRecipients();
+    return;
+  }
+
   const customer = _customers.find(item => item.id === customerId);
   if (!customer || !isSubscribed(customer) || !genderMatches(customer.gender, _activeCampaign.gender || 'all')) {
     showToast('This customer is unsubscribed or no longer matches the campaign.');
     renderCampaignRecipients();
     return;
   }
+  if (_campaignSent.has(customer.id)) {
+    showToast('Already sent for this campaign.');
+    return;
+  }
+  if (_campaignSending.has(customer.id)) return;
+  _campaignSending.add(customer.id);
+
   const phone = phoneForWhatsApp(customer.number);
-  if (!phone) return showToast('Customer number is invalid.');
+  if (!phone) {
+    _campaignSending.delete(customer.id);
+    showToast('Customer number is invalid.');
+    return;
+  }
   const campaignTable = document.querySelector('.whatsapp-table-wrap');
   const campaignTableScrollTop = campaignTable?.scrollTop || 0;
   const pageScrollTop = window.scrollY || document.documentElement.scrollTop || 0;
   const message = buildPersonalizedMessage(customer);
   const url = `https://web.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(message)}`;
 
-  // Open first so popup blockers are less likely to interfere, then mark as sent.
-  window.open(url, '_blank', 'noopener,noreferrer');
+  // This opens a pre-filled WhatsApp Web chat. It does not automatically click Send.
+  // The pacing guard below is only a temporary UX safety control and is not a
+  // mechanism for bypassing WhatsApp enforcement.
+  const popup = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!popup) {
+    _campaignSending.delete(customer.id);
+    showToast('Popup blocked. Allow popups and try again.');
+    return;
+  }
+
   try {
     await FB.setDoc(FB.docRef(`${CAMPAIGN_COLLECTION}/${_activeCampaign.id}/recipients`, customer.id), {
       customerId: customer.id,
@@ -683,8 +817,24 @@ export async function openWhatsApp(customerId) {
       sentBy: currentUserMeta().uid,
       sentByName: currentUserMeta().name
     }, { merge: true });
+
     _campaignSent.add(customer.id);
     _campaignSentBy.set(customer.id, currentUserMeta().name);
+
+    const nextCount = pacing.batchCount + 1;
+    if (nextCount >= WHATSAPP_BATCH_SIZE) {
+      setCampaignPacing({
+        batchCount: 0,
+        cooldownUntil: Date.now() + WHATSAPP_COOLDOWN_MS
+      });
+      showToast('10 completed. Cooldown started for 5 minutes.');
+    } else {
+      setCampaignPacing({
+        batchCount: nextCount,
+        cooldownUntil: 0
+      });
+    }
+
     renderCampaignRecipients();
 
     requestAnimationFrame(() => {
@@ -695,13 +845,17 @@ export async function openWhatsApp(customerId) {
   } catch (error) {
     console.error('[WhatsApp] sent status update error:', error);
     showToast('WhatsApp opened, but sent status could not be saved.');
+  } finally {
+    _campaignSending.delete(customer.id);
   }
 }
 
 export function backToWhatsappMarketing() {
+  stopCampaignCooldownTimer();
   _activeCampaign = null;
   _campaignSent = new Set();
   _campaignSentBy = new Map();
+  _campaignSending = new Set();
   window.App.go('whatsapp-marketing');
 }
 

@@ -1250,6 +1250,36 @@
   border-color: #25D366;
 }
 .btn-whatsapp:hover { filter: brightness(.93); }
+.whatsapp-cooldown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  margin-left: .65rem;
+  padding: .35rem .65rem;
+  border-radius: 999px;
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.38);
+  color: var(--red, #ef4444);
+  font-size: .78rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.whatsapp-cooldown-badge span {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+
+.btn-whatsapp:disabled,
+.btn-whatsapp.whatsapp-cooldown-btn:disabled {
+  background: var(--red, #ef4444);
+  border-color: var(--red, #ef4444);
+  color: #fff;
+  opacity: 1;
+  cursor: not-allowed;
+  filter: none;
+}
+
 
 .campaign-list-grid {
   display: grid;
