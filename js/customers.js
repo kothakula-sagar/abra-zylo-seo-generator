@@ -740,13 +740,21 @@ function renderCampaignRecipients() {
             const cooldown = pacing.cooldownUntil > Date.now();
             const buttonClass = cooldown ? 'btn btn-whatsapp btn-sm whatsapp-cooldown-btn' : 'btn btn-whatsapp btn-sm';
             const buttonText = cooldown ? 'Wait' : 'Open WhatsApp';
-            const buttonDisabled = cooldown || sent ? 'disabled' : '';
+            const buttonDisabled = cooldown || sent;
+            const phone = phoneForWhatsApp(customer.number);
+            const message = buildPersonalizedMessage(customer);
+            const whatsappUrl = phone
+              ? `https://web.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(message)}`
+              : '#';
+            const actionControl = buttonDisabled
+              ? `<button class="${buttonClass}" disabled>${buttonText}</button>`
+              : `<a class="${buttonClass}" href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" data-customer-id="${escapeHtml(String(customer.id))}" onclick="window.Customers.recordWhatsAppOpen(this.dataset.customerId)">${buttonText}</a>`;
             return `<tr>
               <td>${index + 1}</td>
               <td><strong>${escapeHtml(displayCustomerName(customer))}</strong></td>
               <td>${escapeHtml(formatPhoneDisplay(customer.number))}</td>
               <td>${escapeHtml(customer.gender ? customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1) : '-')}</td>
-              <td><button class="${buttonClass}" ${buttonDisabled} onclick="window.Customers.openWhatsApp('${customer.id}')">${buttonText}</button></td>
+              <td>${actionControl}</td>
               <td><span class="sent-status ${sent ? 'sent' : 'pending'}">${sent ? 'Sent' : 'Not Sent'}</span></td>
               <td>${escapeHtml(sentBy)}</td>
             </tr>`;
@@ -763,12 +771,15 @@ function renderCampaignRecipients() {
   }
 }
 
-export async function openWhatsApp(customerId) {
+export async function recordWhatsAppOpen(customerId) {
   if (!_activeCampaign) return;
+
+  // The WhatsApp URL is now a real <a target="_blank"> link, so Chrome
+  // handles the new tab directly from the user's click. This function only
+  // records the campaign action after the browser has handled navigation.
   const pacing = getCampaignPacing();
   if (pacing.cooldownUntil > Date.now()) {
     showToast(`Please wait ${formatCountdown(pacing.cooldownUntil - Date.now())}.`);
-    updateCampaignPacingUI(pacing);
     renderCampaignRecipients();
     return;
   }
@@ -779,34 +790,21 @@ export async function openWhatsApp(customerId) {
     renderCampaignRecipients();
     return;
   }
-  if (_campaignSent.has(customer.id)) {
-    showToast('Already sent for this campaign.');
+  if (_campaignSent.has(customer.id) || _campaignSending.has(customer.id)) {
+    showToast(_campaignSent.has(customer.id) ? 'Already sent for this campaign.' : 'Opening already recorded.');
     return;
   }
-  if (_campaignSending.has(customer.id)) return;
-  _campaignSending.add(customer.id);
 
   const phone = phoneForWhatsApp(customer.number);
   if (!phone) {
-    _campaignSending.delete(customer.id);
     showToast('Customer number is invalid.');
     return;
   }
+
+  _campaignSending.add(customer.id);
   const campaignTable = document.querySelector('.whatsapp-table-wrap');
   const campaignTableScrollTop = campaignTable?.scrollTop || 0;
   const pageScrollTop = window.scrollY || document.documentElement.scrollTop || 0;
-  const message = buildPersonalizedMessage(customer);
-  const url = `https://web.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(message)}`;
-
-  // This opens a pre-filled WhatsApp Web chat. It does not automatically click Send.
-  // The pacing guard below is only a temporary UX safety control and is not a
-  // mechanism for bypassing WhatsApp enforcement.
-  const popup = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!popup) {
-    _campaignSending.delete(customer.id);
-    showToast('Popup blocked. Allow popups and try again.');
-    return;
-  }
 
   try {
     await FB.setDoc(FB.docRef(`${CAMPAIGN_COLLECTION}/${_activeCampaign.id}/recipients`, customer.id), {
@@ -848,6 +846,13 @@ export async function openWhatsApp(customerId) {
   } finally {
     _campaignSending.delete(customer.id);
   }
+}
+
+// Keep the old function name available for any existing UI integrations.
+// It now uses the same tracking path; the rendered campaign uses direct links
+// so a browser popup blocker does not interfere with opening WhatsApp.
+export async function openWhatsApp(customerId) {
+  return recordWhatsAppOpen(customerId);
 }
 
 export function backToWhatsappMarketing() {
