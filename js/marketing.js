@@ -2302,8 +2302,13 @@ async function openCampaign(campaignId) {
     document.getElementById('campaign-detail-name').textContent = campaign.saleName;
     document.getElementById('campaign-detail-prompt').textContent = campaign.prompt;
 
-    const cachedItems = _campaignItemsCache.get(campaignId) || [];
-    const hasItems = cachedItems.length > 0;
+    // Always resolve the campaign items before deciding which campaign view to show.
+    // Previously we checked _campaignItemsCache first. On the first open the cache was
+    // empty, so an existing campaign was incorrectly treated as a new campaign and the
+    // product selector was shown. Navigating away/back populated the cache, which made
+    // the second open appear correct.
+    const campaignItems = await loadCampaignItems(campaignId, { force: false });
+    const hasItems = Array.isArray(campaignItems) && campaignItems.length > 0;
 
     const addProductsBtn = document.getElementById('campaign-add-products-btn');
     if (addProductsBtn) {
@@ -2321,7 +2326,6 @@ async function openCampaign(campaignId) {
       document.getElementById('product-selection').style.display = 'none';
       document.getElementById('campaign-tabs').style.display = 'flex';
       document.getElementById('campaign-items-grid').style.display = 'grid';
-      await loadCampaignItems(campaignId, { force: false });
       switchCampaignTab(_currentActiveTab);
     }
 
