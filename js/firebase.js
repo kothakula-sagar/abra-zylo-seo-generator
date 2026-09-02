@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
-  query, where, orderBy, deleteDoc, updateDoc, addDoc,
+  query, where, orderBy, deleteDoc, updateDoc, addDoc, onSnapshot,
   serverTimestamp, limit, writeBatch, documentId
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
@@ -45,7 +45,7 @@ export const FB = {
   // Firestore helpers
   col:             (path)    => collection(db, path),
   docRef:          (path, id) => doc(db, path, id),
-  setDoc, getDoc, getDocs, updateDoc, deleteDoc, addDoc,
+  setDoc, getDoc, getDocs, updateDoc, deleteDoc, addDoc, onSnapshot,
   query, where, orderBy, limit, writeBatch: () => writeBatch(db),
   serverTimestamp, documentId,
   // Storage helpers

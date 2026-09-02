@@ -168,8 +168,27 @@ Auth.onAuthReady(async user => {
 
   if (user) {
     _setInitMessage('Verifying account status...');
+
+    // Start the realtime maintenance listener before revealing the app.
+    // The first snapshot is also our initial maintenance check, so we do
+    // not perform a second getDoc() just to establish the same state.
+    await Maintenance.watchState(state => {
+      thisMaintenanceState(state);
+
+      // Instantly lock active non-admin sessions when the admin enables
+      // maintenance, without requiring a page refresh.
+      if (App._authConfirmed && !Auth.isAdmin() && state?.enabled) {
+        Maintenance.showScreen(state.message);
+        UI.closeAllModals();
+        UI.switchTab('dashboard');
+      } else if (App._authConfirmed && !Auth.isAdmin() && !state?.enabled) {
+        Maintenance.hideScreen();
+      }
+    });
+
     await _enterApp();
   } else {
+    Maintenance.stopWatch();
     _dismissInitScreen();
     _showAuthPage();
   }
@@ -203,8 +222,10 @@ async function _enterApp() {
   _setText('sidebar-av',    name[0]?.toUpperCase() || 'U');
 
   // ── Check maintenance before revealing protected app content ──
-  // This keeps a refresh from briefly exposing the dashboard while maintenance is on.
-  const maintenanceState = Auth.isAdmin() ? { enabled: false } : await Maintenance.getState();
+  // watchState() already performed the initial snapshot and keeps it live.
+  const maintenanceState = Auth.isAdmin()
+    ? { enabled: false }
+    : Maintenance.getCachedState();
   thisMaintenanceState(maintenanceState);
 
   // ── Reveal the app shell ──
