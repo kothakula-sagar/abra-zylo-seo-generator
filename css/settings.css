@@ -31,3 +31,17 @@
 .sb-pending{background:rgba(245,158,11,.14);color:#fde68a}
 .sb-approved{background:rgba(16,185,129,.16);color:#6ee7b7}
 .sb-blocked{background:rgba(248,113,113,.15);color:#fecaca}
+
+/* ── LIGHT THEME READABILITY FIXES ─────────────────────────── */
+[data-theme="light"] .settings-section{background:var(--surface);border-color:var(--border);box-shadow:var(--shadow)}
+[data-theme="light"] .settings-head{border-color:var(--border)}
+[data-theme="light"] .settings-head h3{color:var(--heading)}
+[data-theme="light"] .api-row input{border-color:var(--border);background:var(--surface);color:var(--text)}
+[data-theme="light"] .theme-opt,[data-theme="light"] .provider-opt{border-color:var(--border);background:var(--surface2);color:var(--text2)}
+[data-theme="light"] .theme-opt.active,[data-theme="light"] .provider-opt.active{color:var(--brand);background:var(--blue-bg);border-color:rgba(59,130,246,.35)}
+[data-theme="light"] .account-row{border-color:var(--border);background:var(--surface2)}
+[data-theme="light"] .account-name{color:var(--text)}
+[data-theme="light"] .account-meta{color:var(--text2)}
+[data-theme="light"] .sb-pending{background:var(--warn-bg);color:var(--warn-text)}
+[data-theme="light"] .sb-approved{background:var(--green-bg);color:var(--green-text)}
+[data-theme="light"] .sb-blocked{background:var(--red-bg);color:var(--red-text)}

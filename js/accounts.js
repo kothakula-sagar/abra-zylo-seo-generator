@@ -6,6 +6,7 @@ import { FB } from './firebase.js';
 import { getUser, isAdmin } from './auth.js';
 import { safeStr, formatDate } from './utils.js';
 import { showToast } from './ui.js';
+import * as Maintenance from './maintenance.js';
 
 // ── RENDER ACCOUNTS PAGE ─────────────────────────────────────
 export async function render() {
@@ -21,6 +22,7 @@ export async function render() {
     const pending  = users.filter(u => !u.approved && !u.blocked && u.role !== 'admin');
     const approved = users.filter(u => u.approved  && !u.blocked && u.role !== 'admin');
     const blocked  = users.filter(u => u.blocked);
+    const maintenance = window.__abraMaintenanceState || await Maintenance.getState();
 
     container.innerHTML = `
       <div class="card" style="margin-bottom:1.25rem">
@@ -28,6 +30,19 @@ export async function render() {
         <div class="card-body">
           <div class="info-box info-box-orange">
             Admin only. Approve, block, or delete user accounts from here.
+          </div>
+          <div class="maintenance-admin-card">
+            <div>
+              <strong>Maintenance Mode</strong>
+              <p>When enabled, all non-admin users are sent to the maintenance screen. The public landing page remains available.</p>
+            </div>
+            <label class="maintenance-switch" title="Toggle maintenance mode">
+              <input type="checkbox" id="maintenance-toggle" ${maintenance.enabled ? 'checked' : ''} onchange="window.Accounts.toggleMaintenance(this.checked)"/>
+              <span></span>
+            </label>
+          </div>
+          <div class="maintenance-status ${maintenance.enabled ? 'on' : 'off'}" id="maintenance-status">
+            ${maintenance.enabled ? 'Maintenance is ON for all non-admin users.' : 'Maintenance is OFF. The application is available to approved users.'}
           </div>
           <div class="acct-stats">
             <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-val">${pending.length}</div></div>
@@ -92,6 +107,22 @@ function _userList(users, actions) {
         </div>
       </div>`;
   }).join('');
+}
+
+export async function toggleMaintenance(enabled) {
+  if (!isAdmin()) return;
+  const toggle = document.getElementById('maintenance-toggle');
+  if (toggle) toggle.disabled = true;
+  const ok = await Maintenance.toggleFromAdmin(Boolean(enabled));
+  if (!ok && toggle) toggle.checked = !enabled;
+  if (toggle) toggle.disabled = false;
+  const status = document.getElementById('maintenance-status');
+  if (status && ok) {
+    status.className = `maintenance-status ${enabled ? 'on' : 'off'}`;
+    status.textContent = enabled
+      ? 'Maintenance is ON for all non-admin users.'
+      : 'Maintenance is OFF. The application is available to approved users.';
+  }
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────

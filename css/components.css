@@ -284,3 +284,50 @@ body.modal-open{overflow:hidden;position:fixed;top:0;left:0;width:100%}
   .docs-nav-group{margin-bottom:.5rem}
   .docs-content{padding:1.5rem}
 }
+/* ── MAINTENANCE MODE ───────────────────────────────────────── */
+.maintenance-screen{
+  position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;
+  padding:2rem;background:var(--bg);overflow:auto;
+}
+.maintenance-card{
+  width:min(760px,100%);text-align:center;background:var(--surface);border:1px solid var(--border);
+  border-radius:28px;box-shadow:var(--shadow-lg);padding:2.25rem 2rem;
+}
+.maintenance-visual{width:min(440px,100%);margin:0 auto 1.25rem;border-radius:20px;overflow:hidden;background:var(--surface2)}
+.maintenance-visual img{display:block;width:100%;height:auto;object-fit:contain}
+.maintenance-kicker{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem}
+.maintenance-card h1{font-size:clamp(1.35rem,3vw,2rem);font-weight:800;color:var(--heading);margin:0 0 .65rem}
+.maintenance-card p{max-width:600px;margin:0 auto;color:var(--text2);line-height:1.7;font-size:.95rem}
+.maintenance-note{margin:1.1rem auto 0;max-width:600px;padding:.8rem 1rem;border-radius:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:.78rem;line-height:1.6}
+.maintenance-admin-card{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--surface2);margin-bottom:.65rem}
+.maintenance-admin-card strong{display:block;color:var(--heading);font-size:.9rem;margin-bottom:.2rem}
+.maintenance-admin-card p{color:var(--text2);font-size:.76rem;line-height:1.5;margin:0;max-width:760px}
+.maintenance-switch{position:relative;width:48px;height:28px;display:block;flex:0 0 auto}
+.maintenance-switch input{position:absolute;opacity:0;pointer-events:none}
+.maintenance-switch span{position:absolute;inset:0;border-radius:999px;background:var(--border2);cursor:pointer;transition:.2s}
+.maintenance-switch span::after{content:'';position:absolute;width:22px;height:22px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.2s}
+.maintenance-switch input:checked + span{background:var(--accent)}
+.maintenance-switch input:checked + span::after{transform:translateX(20px)}
+.maintenance-switch input:disabled + span{opacity:.55;cursor:not-allowed}
+.maintenance-status{font-size:.75rem;line-height:1.5;padding:.6rem .75rem;border-radius:10px;margin-bottom:1rem}
+.maintenance-status.on{background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-border)}
+.maintenance-status.off{background:var(--green-bg);color:var(--green-text);border:1px solid var(--border)}
+@media(max-width:600px){.maintenance-screen{padding:1rem}.maintenance-card{padding:1.25rem}.maintenance-admin-card{align-items:flex-start}.maintenance-admin-card p{font-size:.72rem}}
+
+/* ── THEME FIXES FOR LEGACY LIGHT-ONLY APP SHELL STYLES ───── */
+[data-theme="dark"] .sidebar{background:rgba(15,23,42,.72);border-color:rgba(71,85,105,.55)}
+[data-theme="dark"] .sidebar-header,[data-theme="dark"] .sidebar-footer{border-color:var(--border)}
+[data-theme="dark"] .nav-label{color:var(--text3)}
+[data-theme="dark"] .nav-item{color:var(--text2)}
+[data-theme="dark"] .nav-item:hover,[data-theme="dark"] .nav-item.active{color:var(--text)}
+[data-theme="dark"] .sidebar-ai-tag{color:var(--text2)}
+[data-theme="dark"] .sidebar-ai-tag strong{color:var(--accent2)}
+[data-theme="dark"] .user-name{color:var(--text)}
+[data-theme="dark"] .user-email{color:var(--text3)}
+[data-theme="dark"] .logout-btn{color:var(--text3)}
+[data-theme="dark"] .logout-btn:hover{color:var(--text)}
+[data-theme="dark"] .topbar{background:rgba(15,23,42,.72);border-color:rgba(71,85,105,.55)}
+[data-theme="dark"] .topbar-title{color:var(--text)}
+[data-theme="dark"] .mobile-menu-btn,[data-theme="dark"] .lang-switcher,[data-theme="dark"] .theme-btn{background:rgba(30,41,59,.72);border-color:var(--border)}
+[data-theme="dark"] .lang-btn.active{color:var(--text)}
+[data-theme="light"] .sidebar,[data-theme="light"] .topbar{color:var(--text)}

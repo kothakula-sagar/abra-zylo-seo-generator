@@ -18,6 +18,7 @@ import {
   safeStr, generateSlug, validateSlug, computeSeoScore,
   compressImage, compressDataUrl, parseJsonSafe, formatDate, escapeHtml
 } from './utils.js';
+import * as DataCache from './data-cache.js';
 import {
   showAlert, hideAlert, showLoading, setLoadingProgress,
   completeStep, hideLoading, showToast, switchResultTab,
@@ -443,9 +444,14 @@ export async function generate() {
       
       if (productId) {
         await FB.updateDoc(FB.docRef('products', productId), productData);
+        await DataCache.patchArrayItem(DataCache.CACHE_KEYS.products, productId, productData);
       } else {
         const productDoc = await FB.addDoc(FB.col('products'), productData);
         productId = productDoc.id;
+        const cachedProducts = await DataCache.get(DataCache.CACHE_KEYS.products, { maxAge: -1 });
+        if (Array.isArray(cachedProducts)) {
+          await DataCache.set(DataCache.CACHE_KEYS.products, [{ id: productId, ...productData, createdAt: Date.now(), updatedAt: Date.now() }, ...cachedProducts]);
+        }
       }
       _productId = productId;
       
@@ -1674,37 +1680,17 @@ async function _saveToFirestore(r) {
     // Replace the document so legacy duplicated fields cannot remain on an
     // existing product-language record.
     await FB.setDoc(historyRef, seoPayload);
-    const savedHistoryDoc = await FB.getDoc(historyRef);
-    if (!savedHistoryDoc.exists()) {
-      throw new Error('SEO_History save could not be verified.');
-    }
-    const savedHistory = savedHistoryDoc.data();
-    const requiredHistoryFields = [
-      'historyId', 'productId', 'language', 'generatedBy',
-      'generatedAt', 'aiModel', 'seoChecklist'
-    ];
-    const missingHistoryFields = requiredHistoryFields.filter(field =>
-      savedHistory[field] === undefined || savedHistory[field] === null
-    );
-    if (missingHistoryFields.length) {
-      throw new Error(`SEO_History is missing: ${missingHistoryFields.join(', ')}`);
-    }
-    console.info('[Generator] Firestore save result:', savedHistory);
-    console.info('[Generator] Saved document ID:', savedHistoryDoc.id);
-    console.info('[Generator] Saved productId:', savedHistory.productId);
-    if (savedHistory.productId !== productId) {
-      throw new Error('Saved SEO_History productId does not match the Product.');
-    }
+    // Do not read the document back just to verify a successful write. Firestore
+    // already reports write failures by rejecting the promise.
     await FB.updateDoc(FB.docRef('products', productId), {
       generationStatus: 'Completed',
       updatedAt: FB.serverTimestamp()
     });
-    const savedProductDoc = await FB.getDoc(FB.docRef('products', productId));
-    console.info('[Generator] Reloaded product after SEO save:', {
-      id: savedProductDoc.id,
-      productId: savedProductDoc.id,
-      exists: savedProductDoc.exists()
+    await DataCache.patchArrayItem(DataCache.CACHE_KEYS.products, productId, {
+      generationStatus: 'Completed',
+      updatedAt: Date.now()
     });
+    console.info('[Generator] SEO_History saved:', { historyId, productId, language });
     
     console.log(`[Generator] SEO content upserted for product ${productId} (${language})`);
     showToast('SEO content generated and saved successfully!');

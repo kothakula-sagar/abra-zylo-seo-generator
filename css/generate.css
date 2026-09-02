@@ -454,3 +454,12 @@
     font-size: 0.6rem;
   }
 }
+/* ── LIGHT THEME READABILITY FIXES ─────────────────────────── */
+[data-theme="light"] .result-empty svg{color:var(--border2)}
+[data-theme="light"] .score-val{color:var(--text)}
+[data-theme="light"] .score-status{color:var(--text)}
+[data-theme="light"] .ring-bg{stroke:var(--border)}
+[data-theme="light"] .score-check{background:var(--surface2)}
+[data-theme="light"] .regen-section-btn{color:var(--blue-text);background:var(--blue-bg);border-color:var(--border)}
+[data-theme="light"] .regen-section-btn:hover:not(:disabled){color:var(--blue-text);background:var(--surface2)}
+[data-theme="light"] .dup-warn{color:var(--warn-text);background:var(--warn-bg);border-color:var(--warn-border)}

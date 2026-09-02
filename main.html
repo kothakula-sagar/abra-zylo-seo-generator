@@ -120,6 +120,18 @@
 
 <!-- ═══════════════ MAIN APP ═══════════════ -->
 <div id="page-app" class="page page-app">
+  <!-- ADMIN-CONTROLLED MAINTENANCE SCREEN. index.html is intentionally unaffected. -->
+  <div id="maintenance-screen" class="maintenance-screen" style="display:none">
+    <div class="maintenance-card">
+      <div class="maintenance-visual">
+        <img src="./maintenance-mode.png" alt="Abra Zylo application maintenance" decoding="async"/>
+      </div>
+      <span class="maintenance-kicker">Abra Zylo</span>
+      <h1>Application temporarily unavailable</h1>
+      <p id="maintenance-message">Abra Zylo is temporarily unavailable while we complete scheduled maintenance. Please try again shortly.</p>
+      <div class="maintenance-note">Our team is working on the application. Your data remains safely stored in Firebase.</div>
+    </div>
+  </div>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">

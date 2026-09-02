@@ -25,6 +25,7 @@ import * as Accounts  from './accounts.js';
 import * as AuditHistory from './audit-history.js';
 import * as Marketing from './marketing.js';
 import * as Customers from './customers.js';
+import * as Maintenance from './maintenance.js';
 
 // ── EXPOSE MODULES TO window (required by HTML onclick attrs) ─
 window.Auth      = Auth;
@@ -38,6 +39,7 @@ window.Accounts  = Accounts;
 window.AuditHistory = AuditHistory;
 window.Marketing = Marketing;
 window.Customers = Customers;
+window.Maintenance = Maintenance;
 
 // ── APP CONTROLLER ────────────────────────────────────────────
 // ── DOCS PAGE ────────────────────────────────────────────────
@@ -83,6 +85,7 @@ window.Docs = Docs;
 const App = {
   _lang:          'en',
   _authConfirmed: false,   // true once onAuthStateChanged has fired at least once
+  _maintenanceActive: false,
 
   /**
    * Navigate to a tab.
@@ -91,6 +94,14 @@ const App = {
   go(tab) {
     // Hard block: refuse all navigation until auth is confirmed
     if (!this._authConfirmed) return;
+
+    // Maintenance guard: non-admin users can only see the maintenance screen.
+    if (this._maintenanceActive && !Auth.isAdmin()) {
+      Maintenance.showScreen();
+      UI.closeAllModals();
+      UI.switchTab('dashboard');
+      return;
+    }
 
     // Route guard: restricted users can only see the dashboard (access overlay)
     if (Auth.isAccessRestricted() && !Auth.isAdmin()) {
@@ -191,8 +202,12 @@ async function _enterApp() {
   _setText('sidebar-email', email);
   _setText('sidebar-av',    name[0]?.toUpperCase() || 'U');
 
+  // ── Check maintenance before revealing protected app content ──
+  // This keeps a refresh from briefly exposing the dashboard while maintenance is on.
+  const maintenanceState = Auth.isAdmin() ? { enabled: false } : await Maintenance.getState();
+  thisMaintenanceState(maintenanceState);
+
   // ── Reveal the app shell ──
-  // Setting this attribute is the only place the CSS allows .page-app to display.
   document.body.setAttribute('data-app-ready', 'true');
   document.body.classList.add('app-ready');
 
@@ -204,6 +219,12 @@ async function _enterApp() {
 
   // ── Dismiss init screen ──
   _dismissInitScreen();
+
+  if (this._maintenanceActive && !Auth.isAdmin()) {
+    Maintenance.showScreen(maintenanceState.message);
+    UI.switchTab('dashboard');
+    return;
+  }
 
   // ── Route based on approval status ──
   if (Auth.isAccessRestricted() && !Auth.isAdmin()) {
@@ -229,6 +250,12 @@ async function _enterApp() {
 
   // Init drag-drop
   Generator.initDragDrop();
+}
+
+
+function thisMaintenanceState(state) {
+  App._maintenanceActive = Boolean(state?.enabled);
+  window.__abraMaintenanceState = state || { enabled: false };
 }
 
 // ── SHOW AUTH PAGE ────────────────────────────────────────────
@@ -272,6 +299,32 @@ function _hideAccessOverlay() {
   const el = document.getElementById('access-overlay');
   if (el) el.style.display = 'none';
 }
+
+// ── DEVELOPMENT CONSOLE / BROWSER-SHORTCUT DETERRENTS ──────
+console.info('%cAbra Zylo Team Development Console', 'font-weight:800;font-size:14px;color:#f59e0b');
+console.info('%cThis console is intended for Abra Zylo development, diagnostics and error checking.', 'color:#64748b');
+
+function installDeveloperGuards() {
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('keydown', e => {
+    const key = String(e.key || '').toLowerCase();
+    if (key === 'f12') return; // F12 remains available for development.
+    if ((e.ctrlKey || e.metaKey) && key === 'u') {
+      e.preventDefault();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(key)) {
+      e.preventDefault();
+    }
+  }, true);
+  window.addEventListener('error', event => {
+    console.error('[Abra Zylo Development Error]', event.error || event.message);
+  });
+  window.addEventListener('unhandledrejection', event => {
+    console.error('[Abra Zylo Development Error] Unhandled promise rejection:', event.reason);
+  });
+}
+installDeveloperGuards();
 
 // ── KEYBOARD ──────────────────────────────────────────────────
 document.addEventListener('keydown', e => {

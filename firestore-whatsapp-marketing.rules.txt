@@ -31,3 +31,13 @@ match /whatsappCampaigns/{campaignId} {
     allow delete: if isAbraZyloAdmin();
   }
 }
+
+// ── Abra Zylo maintenance mode ───────────────────────────────
+// Add this match inside the existing /databases/{database}/documents block.
+// Only admins can change maintenance mode; approved users may read it so the
+// application can redirect them before protected modules are loaded.
+match /appConfig/maintenance {
+  allow read: if isApprovedAbraZyloMember();
+  allow create, update: if isAbraZyloAdmin();
+  allow delete: if isAbraZyloAdmin();
+}

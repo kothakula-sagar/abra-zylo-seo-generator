@@ -9,6 +9,7 @@ import { showToast, showAlert, hideAlert, openModal, closeModal } from './ui.js'
 import { safeStr, escapeHtml, formatDate, generateSlug } from './utils.js';
 import { uploadImage, getThumbnail, getResponsive, isFirebaseStorageUrl } from './cloudinary.js';
 import { normalizeModelNumber, normalizeProductName, checkModelNumberExists, normalizeDiscountPercent } from './product-model.js';
+import * as DataCache from './data-cache.js';
 
 const ABRA_ZYLO_STORE_URL = 'https://abra-zylo.com';
 
@@ -534,6 +535,7 @@ async function syncCompletedCampaignItemsToMetaCatalog(items = _metaCatalogCache
     if (createdDocs.length > 0) {
       await batch.commit();
       _metaCatalogCache.metaItems = [..._metaCatalogCache.metaItems, ...createdDocs];
+      await DataCache.set(DataCache.CACHE_KEYS.metaCatalogItems, _metaCatalogCache.metaItems);
       rebuildMetaCatalogLookups();
     }
   } catch (error) {
@@ -559,27 +561,42 @@ async function loadMetaCatalogData(options = {}) {
   _metaCatalogCache.loadPromise = (async () => {
     try {
       const campaignStart = performance.now();
-      const campaignsQuery = FB.query(FB.col('saleCampaigns'), FB.orderBy('createdAt', 'desc'));
-      recordMetaFirestoreRead('saleCampaigns');
-      const campaignsSnapshot = await FB.getDocs(campaignsQuery);
-      const campaigns = [];
-      campaignsSnapshot.forEach(doc => campaigns.push({ id: doc.id, ...doc.data() }));
+      let campaigns = force ? null : await DataCache.get(DataCache.CACHE_KEYS.saleCampaigns);
+      if (!Array.isArray(campaigns)) {
+        const campaignsQuery = FB.query(FB.col('saleCampaigns'), FB.orderBy('createdAt', 'desc'));
+        recordMetaFirestoreRead('saleCampaigns');
+        const campaignsSnapshot = await FB.getDocs(campaignsQuery);
+        campaigns = [];
+        campaignsSnapshot.forEach(doc => campaigns.push({ id: doc.id, ...doc.data() }));
+        await DataCache.set(DataCache.CACHE_KEYS.saleCampaigns, campaigns);
+      }
       recordMetaPerfMetric('Meta Campaigns Load', performance.now() - campaignStart);
 
       const itemsStart = performance.now();
-      recordMetaFirestoreRead('campaignItems');
-      const itemsSnapshot = await FB.getDocs(FB.col('campaignItems'));
-      const campaignItems = [];
-      itemsSnapshot.forEach(doc => campaignItems.push({ id: doc.id, ...doc.data() }));
+      let campaignItems = force ? null : await DataCache.get(DataCache.CACHE_KEYS.campaignItems);
+      if (!Array.isArray(campaignItems)) {
+        recordMetaFirestoreRead('campaignItems');
+        const itemsSnapshot = await FB.getDocs(FB.col('campaignItems'));
+        campaignItems = [];
+        itemsSnapshot.forEach(doc => campaignItems.push({ id: doc.id, ...doc.data() }));
+        await DataCache.set(DataCache.CACHE_KEYS.campaignItems, campaignItems);
+      }
       recordMetaPerfMetric('Campaign Items Load', performance.now() - itemsStart);
 
       const statusStart = performance.now();
-      recordMetaFirestoreRead('metaCatalogItems');
-      const metaSnapshot = await FB.getDocs(FB.col('metaCatalogItems'));
-      const metaItems = [];
-      metaSnapshot.forEach(doc => metaItems.push({ id: doc.id, ...doc.data() }));
+      let metaItems = force ? null : await DataCache.get(DataCache.CACHE_KEYS.metaCatalogItems);
+      if (!Array.isArray(metaItems)) {
+        recordMetaFirestoreRead('metaCatalogItems');
+        const metaSnapshot = await FB.getDocs(FB.col('metaCatalogItems'));
+        metaItems = [];
+        metaSnapshot.forEach(doc => metaItems.push({ id: doc.id, ...doc.data() }));
+        await DataCache.set(DataCache.CACHE_KEYS.metaCatalogItems, metaItems);
+      }
       recordMetaPerfMetric('Meta Status Load', performance.now() - statusStart);
 
+      await DataCache.set(DataCache.CACHE_KEYS.saleCampaigns, campaigns);
+      await DataCache.set(DataCache.CACHE_KEYS.campaignItems, campaignItems);
+      await DataCache.set(DataCache.CACHE_KEYS.metaCatalogItems, metaItems);
       _metaCatalogCache = {
         ..._metaCatalogCache,
         campaigns,
@@ -970,6 +987,18 @@ async function loadProductsCatalog(options = {}) {
   const loadStart = performance.now();
   _productsLoadPromise = (async () => {
     try {
+      if (!force) {
+        const cachedProducts = await DataCache.get(DataCache.CACHE_KEYS.products);
+        if (Array.isArray(cachedProducts)) {
+          _products = cachedProducts;
+          _productsLoaded = true;
+          _productsLoadError = null;
+          invalidateProductsViewCache();
+          recordProductsPerfMetric('Products Local Cache Load', performance.now() - loadStart);
+          return _products;
+        }
+      }
+
       _productsQueryCount += 1;
       const q = FB.query(
         FB.col('products'),
@@ -985,6 +1014,7 @@ async function loadProductsCatalog(options = {}) {
       _products = products;
       _productsLoaded = true;
       _productsLoadError = null;
+      await DataCache.set(DataCache.CACHE_KEYS.products, products);
       invalidateProductsViewCache();
       recordProductsPerfMetric('Products Firestore Load', performance.now() - loadStart);
       return _products;
@@ -1520,6 +1550,7 @@ async function handleProductSubmit(event) {
         updatedAt: Date.now()
       });
       _productsLoaded = true;
+      await DataCache.set(DataCache.CACHE_KEYS.products, _products);
       invalidateProductsViewCache();
       if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
       showToast('Product added successfully');
@@ -1552,6 +1583,7 @@ async function handleProductSubmit(event) {
           updatedAt: Date.now()
         };
         _products[existingIndex] = updatedProduct;
+        await DataCache.set(DataCache.CACHE_KEYS.products, _products);
         invalidateProductsViewCache();
         if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
         showToast('Product updated successfully');
@@ -1579,6 +1611,7 @@ async function handleProductSubmit(event) {
         updatedAt: Date.now()
       });
       _productsLoaded = true;
+      await DataCache.set(DataCache.CACHE_KEYS.products, _products);
       invalidateProductsViewCache();
       if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
       showToast('Product added successfully');
@@ -1635,6 +1668,10 @@ async function deleteCampaign(campaignId) {
 
     await batch.commit();
 
+    _campaigns = _campaigns.filter(c => c.id !== campaignId);
+    await DataCache.set(DataCache.CACHE_KEYS.saleCampaigns, _campaigns);
+    await DataCache.remove(`campaignItems:${campaignId}`);
+    await DataCache.remove(DataCache.CACHE_KEYS.metaCatalogItems);
     invalidateMetaCatalogCache();
 
     showToast('Campaign deleted successfully');
@@ -1672,6 +1709,7 @@ async function deleteProduct(productId) {
     await FB.deleteDoc(FB.docRef('products', productId));
     _products = _products.filter(product => product.id !== productId);
     _productsLoaded = true;
+    await DataCache.set(DataCache.CACHE_KEYS.products, _products);
     invalidateProductsViewCache();
     if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
     showToast('Product deleted successfully');
@@ -1695,16 +1733,19 @@ async function renderCampaigns() {
   if (!container) return;
   
   try {
-    const q = FB.query(
-      FB.col('saleCampaigns'),
-      FB.orderBy('createdAt', 'desc')
-    );
-    const snapshot = await FB.getDocs(q);
-    
-    _campaigns = [];
-    snapshot.forEach(doc => {
-      _campaigns.push({ id: doc.id, ...doc.data() });
-    });
+    let campaigns = force ? null : await DataCache.get(DataCache.CACHE_KEYS.saleCampaigns);
+    if (!Array.isArray(campaigns)) {
+      const q = FB.query(
+        FB.col('saleCampaigns'),
+        FB.orderBy('createdAt', 'desc')
+      );
+      const snapshot = await FB.getDocs(q);
+      campaigns = [];
+      snapshot.forEach(doc => campaigns.push({ id: doc.id, ...doc.data() }));
+      await DataCache.set(DataCache.CACHE_KEYS.saleCampaigns, campaigns);
+    }
+
+    _campaigns = campaigns;
     
     const searchTerm = document.getElementById('campaigns-search')?.value?.toLowerCase() || '';
     const filteredCampaigns = _campaigns.filter(campaign =>
@@ -1925,6 +1966,7 @@ async function persistMetaCatalogStatus(itemId, nextStatus, currentEntry = {}) {
     _metaCatalogCache.metaItems.push(updatedEntry);
   }
   _metaCatalogItems = _metaCatalogCache.metaItems;
+  await DataCache.set(DataCache.CACHE_KEYS.metaCatalogItems, _metaCatalogCache.metaItems);
   rebuildMetaCatalogLookups();
 }
 
@@ -2232,6 +2274,10 @@ async function handleCampaignSubmit(event) {
         campaignData
       );
 
+      const editedCampaign = { ..._currentEditingCampaign, saleName, prompt, updatedAt: Date.now() };
+      _campaigns = _campaigns.map(c => c.id === editedCampaign.id ? editedCampaign : c);
+      await DataCache.set(DataCache.CACHE_KEYS.saleCampaigns, _campaigns);
+
       showToast('Campaign updated successfully');
 
       if (_currentCampaign && _currentCampaign.id === _currentEditingCampaign.id) {
@@ -2258,10 +2304,12 @@ async function handleCampaignSubmit(event) {
         createdAt: FB.serverTimestamp()
       };
 
-      await FB.addDoc(
+      const createdCampaignDoc = await FB.addDoc(
         FB.col('saleCampaigns'),
         createCampaignData
       );
+      _campaigns = [{ id: createdCampaignDoc.id, ...createCampaignData, createdAt: Date.now(), updatedAt: Date.now() }, ..._campaigns];
+      await DataCache.set(DataCache.CACHE_KEYS.saleCampaigns, _campaigns);
 
       showToast('Campaign created successfully');
     }
@@ -2545,10 +2593,25 @@ function buildGeneratedPrompt(template, product) {
 }
 
 async function getLatestProductData(productId) {
+  const cachedProduct = _products.find(product => product.id === productId);
+  if (cachedProduct) return cachedProduct;
+
   try {
+    const cachedProducts = await DataCache.get(DataCache.CACHE_KEYS.products);
+    const localProduct = Array.isArray(cachedProducts)
+      ? cachedProducts.find(product => product.id === productId)
+      : null;
+    if (localProduct) return localProduct;
+
     const productDoc = await FB.getDoc(FB.docRef('products', productId));
     if (!productDoc.exists()) return null;
-    return { id: productDoc.id, ...productDoc.data() };
+    const product = { id: productDoc.id, ...productDoc.data() };
+    if (!_products.find(item => item.id === product.id)) {
+      _products = [product, ..._products];
+      _productsLoaded = true;
+      await DataCache.set(DataCache.CACHE_KEYS.products, _products);
+    }
+    return product;
   } catch (error) {
     console.error('Error fetching latest product data:', error);
     return null;
@@ -2623,6 +2686,16 @@ async function loadCampaignItems(campaignId = _currentCampaign?.id, options = {}
     return cachedItems;
   }
 
+  if (!force) {
+    const persistedItems = await DataCache.get(`campaignItems:${campaignId}`);
+    if (Array.isArray(persistedItems)) {
+      _campaignItemsCache.set(campaignId, persistedItems);
+      _campaignItems = persistedItems;
+      updateCampaignItemCounts(persistedItems);
+      return persistedItems;
+    }
+  }
+
   if (_campaignItemsLoadPromise.has(campaignId)) {
     return _campaignItemsLoadPromise.get(campaignId);
   }
@@ -2643,6 +2716,12 @@ async function loadCampaignItems(campaignId = _currentCampaign?.id, options = {}
       });
 
       _campaignItemsCache.set(campaignId, items);
+      await DataCache.set(`campaignItems:${campaignId}`, items);
+      const allCachedItems = await DataCache.get(DataCache.CACHE_KEYS.campaignItems, { maxAge: -1 });
+      if (Array.isArray(allCachedItems)) {
+        const withoutCampaign = allCachedItems.filter(item => item.campaignId !== campaignId);
+        await DataCache.set(DataCache.CACHE_KEYS.campaignItems, [...withoutCampaign, ...items]);
+      }
       _campaignItems = items;
       updateCampaignItemCounts(items);
       console.log('[CampaignPerf]', { campaignItemsFetch: performance.now() - loadStart, campaignId });
@@ -2825,11 +2904,25 @@ async function deleteCampaignItem(itemId) {
       _metaCatalogCache.metaItems = _metaCatalogCache.metaItems.filter(entry => (entry.campaignItemId || entry.id) !== itemId);
       rebuildMetaCatalogLookups();
       _metaCatalogItems = _metaCatalogCache.metaItems;
+      await DataCache.set(DataCache.CACHE_KEYS.metaCatalogItems, _metaCatalogCache.metaItems);
+      const allCampaignItems = await DataCache.get(DataCache.CACHE_KEYS.campaignItems);
+      if (Array.isArray(allCampaignItems)) {
+        await DataCache.set(DataCache.CACHE_KEYS.campaignItems, allCampaignItems.filter(entry => entry.id !== itemId));
+      }
     }
     showToast('Campaign item removed');
     const updatedItems = _campaignItems.filter(item => item.id !== itemId);
     _campaignItems = updatedItems;
     _campaignItemsCache.set(_currentCampaign?.id, updatedItems);
+    await DataCache.set(`campaignItems:${_currentCampaign?.id}`, updatedItems);
+    const globalCampaignItems = await DataCache.get(DataCache.CACHE_KEYS.campaignItems, { maxAge: -1 });
+    if (Array.isArray(globalCampaignItems)) {
+      const mergedCampaignItems = globalCampaignItems.map(item => {
+        const changed = updatedItems.find(next => next.id === item.id);
+        return changed ? { ...item, ...changed } : item;
+      });
+      await DataCache.set(DataCache.CACHE_KEYS.campaignItems, mergedCampaignItems);
+    }
     updateCampaignItemCounts(updatedItems);
     switchCampaignTab(_currentActiveTab);
   } catch (error) {
@@ -3015,14 +3108,29 @@ async function updateCampaignItemStatus(newStatus) {
     await FB.updateDoc(FB.docRef('campaignItems', _currentCampaignItem.id), updateData);
 
     if (newStatus === 'completed') {
-      await FB.setDoc(FB.docRef('metaCatalogItems', _currentCampaignItem.id), {
+      const metaEntry = {
+        id: _currentCampaignItem.id,
         campaignId: _currentCampaign?.id || '',
         campaignItemId: _currentCampaignItem.id,
         productId: _currentCampaignItem.productId || '',
         metaStatus: 'pending',
+        updatedAt: Date.now(),
+        createdAt: Date.now()
+      };
+      await FB.setDoc(FB.docRef('metaCatalogItems', _currentCampaignItem.id), {
+        campaignId: metaEntry.campaignId,
+        campaignItemId: metaEntry.campaignItemId,
+        productId: metaEntry.productId,
+        metaStatus: metaEntry.metaStatus,
         updatedAt: FB.serverTimestamp(),
         createdAt: FB.serverTimestamp()
       }, { merge: true });
+      const existingMetaIndex = _metaCatalogCache.metaItems.findIndex(entry => (entry.campaignItemId || entry.id) === metaEntry.id);
+      if (existingMetaIndex >= 0) _metaCatalogCache.metaItems[existingMetaIndex] = { ..._metaCatalogCache.metaItems[existingMetaIndex], ...metaEntry };
+      else _metaCatalogCache.metaItems.push(metaEntry);
+      _metaCatalogItems = _metaCatalogCache.metaItems;
+      await DataCache.set(DataCache.CACHE_KEYS.metaCatalogItems, _metaCatalogCache.metaItems);
+      rebuildMetaCatalogLookups();
       invalidateMetaCatalogCache();
     }
     
@@ -3032,6 +3140,15 @@ async function updateCampaignItemStatus(newStatus) {
     const updatedItems = _campaignItems.map(item => item.id === _currentCampaignItem.id ? { ...item, status: newStatus, updatedAt: Date.now() } : item);
     _campaignItems = updatedItems;
     _campaignItemsCache.set(_currentCampaign?.id, updatedItems);
+    await DataCache.set(`campaignItems:${_currentCampaign?.id}`, updatedItems);
+    const globalCampaignItems = await DataCache.get(DataCache.CACHE_KEYS.campaignItems, { maxAge: -1 });
+    if (Array.isArray(globalCampaignItems)) {
+      const mergedCampaignItems = globalCampaignItems.map(item => {
+        const changed = updatedItems.find(next => next.id === item.id);
+        return changed ? { ...item, ...changed } : item;
+      });
+      await DataCache.set(DataCache.CACHE_KEYS.campaignItems, mergedCampaignItems);
+    }
     updateCampaignItemCounts(updatedItems);
     renderCampaignItems();
     

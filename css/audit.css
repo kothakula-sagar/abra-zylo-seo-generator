@@ -337,3 +337,12 @@
   .comparison-score-row{grid-template-columns:1fr 60px 30px 60px 60px;gap:.5rem}
   .comparison-cwv-row{grid-template-columns:1fr 90px 30px 90px;gap:.5rem;font-size:.85rem}
 }
+
+/* ── LIGHT THEME READABILITY FIXES ─────────────────────────── */
+[data-theme="light"] .audit-tabs{border-color:var(--border)}
+[data-theme="light"] .audit-tab-btn{background:var(--surface2);color:var(--text2)}
+[data-theme="light"] .audit-tab-btn.active{color:var(--brand);border-color:var(--border);background:var(--blue-bg)}
+[data-theme="light"] .audit-score-num{color:var(--text)}
+[data-theme="light"] .audit-score-label{color:var(--text)}
+[data-theme="light"] .asc,[data-theme="light"] .audit-check,[data-theme="light"] .audit-hist-item{background:var(--surface);border-color:var(--border)}
+[data-theme="light"] .ach-label{color:var(--text)}
