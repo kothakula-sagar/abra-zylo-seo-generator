@@ -93,9 +93,11 @@ export async function render() {
               <span class="status-badge" style="background:${statusStyle.bg};color:${statusStyle.color}">
                 ${statusStyle.icon} ${status}
               </span>
+              ${p.stockStatus === 'out_of_stock' ? '<span class="status-badge" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca">🚫 OUT OF STOCK</span>' : ''}
             </div>
             <div class="history-card-meta">
               <span>${generations.length} SEO version${generations.length === 1 ? '' : 's'}</span>
+              ${p.stockStatus === 'out_of_stock' ? `<span style="color:#dc2626;font-weight:600">Out of stock by ${escapeHtml(p.outOfStockByName || p.outOfStockByEmail || 'Unknown User')}</span>` : ''}
             </div>
           </div>
         </div>
@@ -223,6 +225,11 @@ export async function open(idx) {
       ${product.category ? `<span style="background:var(--surface2);color:var(--text2);padding:4px 12px;border-radius:99px;font-size:.72rem">${escapeHtml(product.category)}</span>` : ''}
       <span style="background:var(--surface2);color:var(--text2);padding:4px 12px;border-radius:99px;font-size:.72rem">₹${product.sellingPrice || 0}</span>
       ${product.discount ? `<span style="background:var(--green-bg);color:var(--green);padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:700">${Math.round(Number(product.discount || 0))}% OFF</span>` : ''}
+    </div>
+
+    <div style="margin-bottom:1rem;padding:.85rem 1rem;border-radius:10px;background:${product.stockStatus === 'out_of_stock' ? '#fee2e2' : 'var(--surface2)'};color:${product.stockStatus === 'out_of_stock' ? '#b91c1c' : 'var(--text2)'};">
+      <strong>Stock:</strong> ${product.stockStatus === 'out_of_stock' ? 'Out of Stock' : 'In Stock'}
+      ${product.stockStatus === 'out_of_stock' ? ` · Changed by ${escapeHtml(product.outOfStockByName || product.outOfStockByEmail || 'Unknown User')} · ${escapeHtml(formatDate(product.outOfStockAt))}` : ''}
     </div>
     
     <div class="product-details" style="margin-bottom:1rem">

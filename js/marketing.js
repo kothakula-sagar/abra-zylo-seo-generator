@@ -154,6 +154,25 @@ function formatProductLongDateTime(ts) {
   return `${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}\n${date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
 }
 
+function isProductInStock(product = {}) {
+  // Products created before stock tracking was introduced are treated as in stock.
+  return safeStr(product?.stockStatus || 'in_stock').trim().toLowerCase() !== 'out_of_stock';
+}
+
+function getStockStatus(product = {}) {
+  return isProductInStock(product) ? 'in_stock' : 'out_of_stock';
+}
+
+function getCurrentUserAuditData(user) {
+  const userDoc = getUserDoc();
+  const displayName = user?.displayName || getUserDisplayName(userDoc, user?.email || 'Unknown User');
+  return {
+    uid: user?.uid || '',
+    name: displayName || user?.email || 'Unknown User',
+    email: user?.email || ''
+  };
+}
+
 function isNewProduct(createdAt) {
   if (!createdAt) return false;
   const created = typeof createdAt === 'number'
@@ -518,6 +537,8 @@ async function syncCompletedCampaignItemsToMetaCatalog(items = _metaCatalogCache
 
     (items || []).forEach(item => {
       if (String(item.status || '').trim().toLowerCase() !== 'completed') return;
+      const product = _metaCatalogCache.productsById.get(item.productId) || _products.find(entry => entry.id === item.productId) || item;
+      if (!isProductInStock(product)) return;
       if (metaMap.has(item.id)) return;
 
       const metaDoc = {
@@ -888,6 +909,7 @@ function buildProductCardMarkup(product, creatorLabels, duplicateProductNameSet,
           <span>Compare</span>
         </label>
         <div class="product-badge-group">
+          ${!isProductInStock(product) ? '<span class="product-out-of-stock-badge">OUT OF STOCK</span>' : ''}
           ${isDuplicateName ? '<span class="product-duplicate-badge">DUPLICATE</span>' : ''}
           ${isNew ? '<span class="product-new-badge">🟢 NEW</span>' : ''}
         </div>
@@ -1193,6 +1215,10 @@ function showAddProduct() {
   document.getElementById('product-model-number').value = '';
   document.getElementById('product-discount').value = '';
   document.getElementById('product-you-save').value = '';
+  const stockStatusField = document.getElementById('product-stock-status-field');
+  const stockStatusSelect = document.getElementById('product-stock-status');
+  if (stockStatusField) stockStatusField.style.display = 'none';
+  if (stockStatusSelect) stockStatusSelect.value = 'in_stock';
   const historyBlock = document.getElementById('product-history-block');
   if (historyBlock) historyBlock.style.display = 'none';
   hideAlert('product-alert');
@@ -1225,6 +1251,10 @@ async function editProduct(productId) {
     const pricing = normalizeProductPricing(product);
     document.getElementById('product-mrp').value = pricing.mrp === null ? '' : pricing.mrp;
     document.getElementById('product-selling-price').value = pricing.sellingPrice === null ? '' : pricing.sellingPrice;
+    const stockStatusField = document.getElementById('product-stock-status-field');
+    const stockStatusSelect = document.getElementById('product-stock-status');
+    if (stockStatusField) stockStatusField.style.display = 'block';
+    if (stockStatusSelect) stockStatusSelect.value = getStockStatus(product);
     const historyBlock = document.getElementById('product-history-block');
     const createdByEl = document.getElementById('product-created-by');
     const createdOnEl = document.getElementById('product-created-on');
@@ -1284,7 +1314,29 @@ async function editProduct(productId) {
     if (updatedOnEl) {
       updatedOnEl.textContent = product.updatedAt ? formatProductLongDateTime(product.updatedAt) : 'Never';
     }
-    
+    const outOfStockByEl = document.getElementById('product-out-of-stock-by');
+    const outOfStockOnEl = document.getElementById('product-out-of-stock-on');
+    if (outOfStockByEl) outOfStockByEl.textContent = product.outOfStockByName || (product.outOfStockByEmail ? product.outOfStockByEmail : '—');
+    if (outOfStockOnEl) outOfStockOnEl.textContent = product.outOfStockAt ? formatProductLongDateTime(product.outOfStockAt) : '—';
+    const stockHistoryStatusEl = document.getElementById('product-stock-history-status');
+    if (stockHistoryStatusEl) {
+      const inStock = isProductInStock(product);
+      stockHistoryStatusEl.textContent = inStock ? 'In Stock' : 'Out of Stock';
+      stockHistoryStatusEl.style.color = inStock ? 'var(--green)' : '#dc2626';
+      stockHistoryStatusEl.style.fontWeight = '700';
+    }
+    const stockHistoryListEl = document.getElementById('product-stock-history-list');
+    if (stockHistoryListEl) {
+      const stockHistory = Array.isArray(product.stockHistory) ? product.stockHistory.slice().reverse() : [];
+      stockHistoryListEl.innerHTML = stockHistory.length
+        ? stockHistory.map(entry => {
+            const label = entry.status === 'out_of_stock' ? 'Out of Stock' : 'In Stock';
+            const name = entry.changedByName || entry.changedByEmail || 'Unknown User';
+            return `<div class="product-history-item"><div class="product-history-label">${entry.status === 'out_of_stock' ? '🚫' : '📦'} ${label}</div><div class="product-history-value">${escapeHtml(name)} · ${escapeHtml(formatProductDateTime(entry.changedAt))}</div></div>`;
+          }).join('')
+        : '<div class="product-history-value" style="text-align:left">No stock status changes yet.</div>';
+    }
+
     // Show image if exists
     const preview = document.getElementById('product-img-preview');
     const placeholder = document.getElementById('product-upload-placeholder');
@@ -1392,6 +1444,8 @@ async function handleProductSubmit(event) {
   const modelNumber = normalizeModelNumber(document.getElementById('product-model-number').value);
   const mrp = parseFloat(document.getElementById('product-mrp').value);
   const sellingPrice = parseFloat(document.getElementById('product-selling-price').value);
+  const stockStatusSelect = document.getElementById('product-stock-status');
+  const requestedStockStatus = stockStatusSelect?.value === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
   const fileInput = document.getElementById('product-file-inp');
   
   // Validate
@@ -1515,6 +1569,32 @@ async function handleProductSubmit(event) {
         changes.youSave = youSave;
       }
 
+      const originalStockStatus = getStockStatus(originalProduct);
+      if (requestedStockStatus !== originalStockStatus) {
+        const audit = getCurrentUserAuditData(user);
+        const stockHistory = Array.isArray(originalProduct.stockHistory) ? originalProduct.stockHistory.slice(-49) : [];
+        stockHistory.push({
+          status: requestedStockStatus,
+          changedBy: audit.uid,
+          changedByName: audit.name,
+          changedByEmail: audit.email,
+          changedAt: Date.now()
+        });
+        changes.stockStatus = requestedStockStatus;
+        changes.stockHistory = stockHistory;
+        if (requestedStockStatus === 'out_of_stock') {
+          changes.outOfStockBy = audit.uid;
+          changes.outOfStockByName = audit.name;
+          changes.outOfStockByEmail = audit.email;
+          changes.outOfStockAt = FB.serverTimestamp();
+        } else {
+          changes.outOfStockBy = null;
+          changes.outOfStockByName = null;
+          changes.outOfStockByEmail = null;
+          changes.outOfStockAt = null;
+        }
+      }
+
       if (_productImageChanged) {
         changes.imageUrl = imageUrl;
         changes.publicId = publicId;
@@ -1528,6 +1608,8 @@ async function handleProductSubmit(event) {
         sellingPrice: normalizedSellingPrice || 0,
         discount,
         youSave,
+        stockStatus: 'in_stock',
+        stockHistory: [],
         ...(normalizedModelNumber ? { modelNumber: normalizedModelNumber } : {})
       };
 
@@ -1586,6 +1668,16 @@ async function handleProductSubmit(event) {
         await DataCache.set(DataCache.CACHE_KEYS.products, _products);
         invalidateProductsViewCache();
         if (_metaCatalogCache.loaded) rebuildMetaCatalogLookups();
+        if (document.getElementById('campaign-products-list')?.offsetParent !== null) {
+          await renderCampaignProducts();
+        }
+        if (document.getElementById('campaign-items-grid')?.offsetParent !== null) {
+          updateCampaignItemCounts(_campaignItems);
+          await renderCampaignItems();
+        }
+        if (document.getElementById('meta-catalog')?.classList.contains('active') || document.getElementById('meta-campaigns-grid')?.offsetParent !== null) {
+          await renderMetaCatalog({ force: true });
+        }
         showToast('Product updated successfully');
         hideProductModal();
         await updateEditedProductCard(updatedProduct);
@@ -1987,7 +2079,14 @@ async function renderMetaCatalog(options = {}) {
     const data = await loadMetaCatalogData(options);
 
     const searchTerm = document.getElementById('meta-campaign-search')?.value?.toLowerCase() || '';
+    const availableCampaignIds = new Set();
+    data.campaignItems.forEach(item => {
+      if (String(item.status || '').trim().toLowerCase() !== 'completed') return;
+      const product = data.productsById.get(item.productId) || item;
+      if (isProductInStock(product)) availableCampaignIds.add(item.campaignId);
+    });
     const filteredCampaigns = data.campaigns.filter(campaign =>
+      availableCampaignIds.has(campaign.id) &&
       (campaign.saleName || '').toLowerCase().includes(searchTerm)
     );
 
@@ -2076,7 +2175,11 @@ async function openMetaCatalogCampaign(campaignId) {
     const items = data.campaignItemsByCampaign.get(campaignId) || [];
 
     const metaMap = new Map([...data.metaByCampaignItemId.entries()].map(([id, entry]) => [id, normalizeMetaStatus(entry.metaStatus)]));
-    const eligibleItems = items.filter(item => String(item.status || '').trim().toLowerCase() === 'completed');
+    const eligibleItems = items.filter(item => {
+      if (String(item.status || '').trim().toLowerCase() !== 'completed') return false;
+      const product = data.productsById.get(item.productId) || item;
+      return isProductInStock(product);
+    });
     const totalCount = eligibleItems.length;
     const pendingCount = eligibleItems.filter(item => (metaMap.get(item.id) || 'pending') === 'pending').length;
     const addedCount = eligibleItems.filter(item => (metaMap.get(item.id) || 'pending') === 'added').length;
@@ -2428,6 +2531,7 @@ async function renderCampaignProducts() {
 
     const searchTerm = document.getElementById('campaign-products-search')?.value?.toLowerCase() || '';
     const filteredProducts = products.filter(product => {
+      if (!isProductInStock(product)) return false;
       if (_campaignProductSelectionMode === 'add' && existingProductIds.has(product.id)) {
         return false;
       }
@@ -2489,7 +2593,8 @@ function toggleProductSelection(productId) {
   // Update select all checkbox
   const selectAllCheckbox = document.getElementById('select-all-products');
   if (selectAllCheckbox) {
-    selectAllCheckbox.checked = _selectedProductIds.size === _products.length;
+    const inStockCount = _products.filter(isProductInStock).length;
+    selectAllCheckbox.checked = inStockCount > 0 && _products.filter(isProductInStock).every(product => _selectedProductIds.has(product.id));
   }
   
   renderCampaignProducts();
@@ -2502,7 +2607,7 @@ function toggleSelectAll() {
   const isChecked = selectAllCheckbox.checked;
   
   if (isChecked) {
-    _products.forEach(product => _selectedProductIds.add(product.id));
+    _products.filter(isProductInStock).forEach(product => _selectedProductIds.add(product.id));
   } else {
     _selectedProductIds.clear();
   }
@@ -2529,7 +2634,7 @@ async function startCampaign() {
     }));
 
     const existingProductIds = new Set(_campaignItems.map(item => item.productId));
-    const newProducts = selectedProducts.filter(product => product && !existingProductIds.has(product.id));
+    const newProducts = selectedProducts.filter(product => product && isProductInStock(product) && !existingProductIds.has(product.id));
 
     if (newProducts.length === 0) {
       showToast('All selected products are already in this campaign');
@@ -2740,9 +2845,10 @@ async function loadCampaignItems(campaignId = _currentCampaign?.id, options = {}
 }
 
 function updateCampaignItemCounts(items = _campaignItems) {
-  const pendingCount = items.filter(item => item.status === 'pending').length;
-  const generatingCount = items.filter(item => item.status === 'generating').length;
-  const completedCount = items.filter(item => item.status === 'completed').length;
+  const visibleItems = items.filter(item => isProductInStock(_products.find(product => product.id === item.productId) || item));
+  const pendingCount = visibleItems.filter(item => item.status === 'pending').length;
+  const generatingCount = visibleItems.filter(item => item.status === 'generating').length;
+  const completedCount = visibleItems.filter(item => item.status === 'completed').length;
 
   const pendingEl = document.getElementById('pending-count');
   const generatingEl = document.getElementById('generating-count');
@@ -2774,7 +2880,7 @@ async function renderCampaignItems() {
   const container = document.getElementById('campaign-items-grid');
   if (!container) return;
 
-  const filteredItems = _campaignItems.filter(item => item.status === _currentActiveTab);
+  const filteredItems = _campaignItems.filter(item => item.status === _currentActiveTab && isProductInStock(_products.find(product => product.id === item.productId) || item));
 
   if (filteredItems.length === 0) {
     container.innerHTML = `

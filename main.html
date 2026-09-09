@@ -1181,6 +1181,14 @@
           <input type="number" id="product-selling-price" placeholder="699" min="1" step="0.01" required oninput="window.Marketing.calculateDiscount()"/>
         </div>
         
+        <div class="form-row" id="product-stock-status-field" style="display:none">
+          <label>Stock Status</label>
+          <select id="product-stock-status">
+            <option value="in_stock">In Stock</option>
+            <option value="out_of_stock">Out of Stock</option>
+          </select>
+        </div>
+        
         <div class="form-row">
           <label>Discount %</label>
           <input type="text" id="product-discount" readonly class="readonly-field"/>
@@ -1209,7 +1217,20 @@
           <div class="product-history-item">
             <div class="product-history-label">📅 Last Updated On</div>
             <div class="product-history-value" id="product-updated-on">Never</div>
+          </div>          <div class="product-history-item">
+            <div class="product-history-label">📦 Stock Status</div>
+            <div class="product-history-value" id="product-stock-history-status">-</div>
           </div>
+          <div class="product-history-item">
+            <div class="product-history-label">🚫 Out of Stock By</div>
+            <div class="product-history-value" id="product-out-of-stock-by">—</div>
+          </div>
+          <div class="product-history-item">
+            <div class="product-history-label">📅 Out of Stock On</div>
+            <div class="product-history-value" id="product-out-of-stock-on">—</div>
+          </div>
+          <div id="product-stock-history-list" style="margin-top:.75rem"></div>
+
         </div>
         
         <div id="product-alert" class="alert alert-danger" style="display:none"></div>
