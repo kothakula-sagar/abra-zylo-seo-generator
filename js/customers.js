@@ -297,31 +297,40 @@ function resetImportUI() {
   setImportStep(0, 'active');
 }
 
-export function downloadCustomerTemplate() {
-  if (!window.XLSX) return showToast('Excel template library is still loading. Please try again.');
-  const rows = Array.from({ length: CUSTOMER_IMPORT_MAX_ROWS }, () => ({
-    'Name': '',
-    'Mobile Number': '',
-    'Gender': '',
-    'Security Code': CUSTOMER_IMPORT_SECURITY_KEY
-  }));
-  const ws = window.XLSX.utils.json_to_sheet(rows, { header: ['Name', 'Mobile Number', 'Gender', 'Security Code'] });
-  ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 24 }];
-  const wb = window.XLSX.utils.book_new();
-  window.XLSX.utils.book_append_sheet(wb, ws, 'Customers');
-  const guide = window.XLSX.utils.aoa_to_sheet([
-    ['Abra Zylo Customer Import Template'],
-    ['Instructions'],
-    ['1. Fill Name, Mobile Number and Gender for each customer.'],
-    ['2. Do not change the Security Code. Every populated row must contain the exact code.'],
-    ['3. Mobile numbers must be valid 10-digit Indian numbers starting with 6, 7, 8 or 9.'],
-    ['4. Maximum 500 customer rows per upload.'],
-    ['Security Code', CUSTOMER_IMPORT_SECURITY_KEY]
-  ]);
-  guide['!cols'] = [{ wch: 72 }, { wch: 24 }];
-  window.XLSX.utils.book_append_sheet(wb, guide, 'Instructions');
-  window.XLSX.writeFile(wb, 'Abra_Zylo_Customer_Import_Template.xlsx');
-  showToast('Excel template downloaded.');
+export async function downloadCustomerTemplate() {
+  // Keep one fixed, version-controlled template in the app so every user
+  // downloads the same approved Excel format and security code.
+  const templateUrl = new URL('assets/Abra_Zylo_Customer_Import_Template.xlsx', document.baseURI).href;
+  try {
+    const response = await fetch(templateUrl, { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`Template request failed: ${response.status}`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Abra_Zylo_Customer_Import_Template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast('Default Excel template downloaded. Fill it and upload the same file format.');
+  } catch (error) {
+    // Local-file fallback: generate the same template if the static asset
+    // cannot be fetched (for example when opening the HTML directly from disk).
+    if (!window.XLSX) return showToast('The default Excel template could not be loaded. Please run the CRM from its web server.');
+    const rows = Array.from({ length: CUSTOMER_IMPORT_MAX_ROWS }, () => ({
+      'Name': '',
+      'Mobile Number': '',
+      'Gender': '',
+      'Security Code': CUSTOMER_IMPORT_SECURITY_KEY
+    }));
+    const ws = window.XLSX.utils.json_to_sheet(rows, { header: ['Name', 'Mobile Number', 'Gender', 'Security Code'] });
+    ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 24 }];
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+    window.XLSX.writeFile(wb, 'Abra_Zylo_Customer_Import_Template.xlsx');
+    showToast('Default Excel template generated and downloaded.');
+  }
 }
 
 export function showCustomerImport() {
