@@ -18,6 +18,11 @@ let _campaignSent = new Set();
 let _campaignSentBy = new Map();
 let _editingCampaignId = null;
 let _customerSearch = '';
+let _customerImportFile = null;
+let _customerCharts = [];
+let _whatsappCharts = [];
+const CUSTOMER_IMPORT_SECURITY_KEY = 'Sagar Kothakula';
+const CUSTOMER_IMPORT_MAX_ROWS = 500;
 
 // Temporary WhatsApp campaign pacing guard. This is a client-side UX safety
 // control only; it does not bypass WhatsApp restrictions or replace the
@@ -115,6 +120,362 @@ function genderMatches(customerGender, campaignGender) {
   return campaignGender === 'all' || normalizeGender(customerGender) === campaignGender;
 }
 
+
+function getChartConstructor() {
+  return window.Chart || null;
+}
+
+function destroyCharts(list) {
+  list.forEach(chart => {
+    try { chart?.destroy(); } catch (error) { console.warn('[Charts] destroy failed:', error); }
+  });
+  list.length = 0;
+}
+
+function chartDefaults() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 850, easing: 'easeOutQuart' },
+    plugins: { legend: { labels: { usePointStyle: true, boxWidth: 8, color: '#64748b' } } },
+    scales: {
+      x: { grid: { color: 'rgba(148,163,184,.12)' }, ticks: { color: '#64748b' } },
+      y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,.12)' }, ticks: { color: '#64748b', precision: 0 } }
+    }
+  };
+}
+
+function dayLabels(days = 7) {
+  const labels = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    labels.push(d.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit' }));
+  }
+  return labels;
+}
+
+function dayKey(value) {
+  const ts = timestampValue(value);
+  if (!ts) return '';
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function recentDateKeys(days = 7) {
+  const keys = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  return keys;
+}
+
+function renderCustomerAnalytics() {
+  const target = document.getElementById('customer-analytics-wrap');
+  if (!target) return;
+  const ChartCtor = getChartConstructor();
+  destroyCharts(_customerCharts);
+  const subscribed = _customers.filter(isSubscribed).length;
+  const unsubscribed = _customers.length - subscribed;
+  const keys = recentDateKeys(7);
+  const counts = Object.fromEntries(keys.map(key => [key, 0]));
+  _customers.forEach(customer => {
+    const key = dayKey(customer.addedAt);
+    if (key in counts) counts[key] += 1;
+  });
+  const labels = dayLabels(7);
+  const newCustomers = keys.map(key => counts[key]);
+
+  target.innerHTML = `
+    <div class="analytics-stat-grid customer-stat-grid">
+      <div class="analytics-stat-card"><span>Total Customers</span><strong>${_customers.length}</strong><small>All customer records</small></div>
+      <div class="analytics-stat-card"><span>Subscribed</span><strong>${subscribed}</strong><small>Eligible for WhatsApp</small></div>
+      <div class="analytics-stat-card"><span>Unsubscribed</span><strong>${unsubscribed}</strong><small>Excluded from campaigns</small></div>
+      <div class="analytics-stat-card"><span>New (7 Days)</span><strong>${newCustomers.reduce((a,b) => a + b, 0)}</strong><small>Recently added</small></div>
+    </div>
+    <div class="analytics-chart-grid">
+      <div class="analytics-chart-card"><div class="analytics-chart-head"><h3>Customer Growth</h3><span>Last 7 days</span></div><div class="analytics-chart-canvas"><canvas id="customer-growth-chart"></canvas></div></div>
+      <div class="analytics-chart-card"><div class="analytics-chart-head"><h3>Subscription Overview</h3><span>Current status</span></div><div class="analytics-chart-canvas analytics-doughnut"><canvas id="customer-subscription-chart"></canvas></div></div>
+      <div class="analytics-chart-card analytics-chart-wide"><div class="analytics-chart-head"><h3>Daily Customer Additions</h3><span>Last 7 days</span></div><div class="analytics-chart-canvas"><canvas id="customer-daily-chart"></canvas></div></div>
+    </div>`;
+
+  if (!ChartCtor) return;
+  const common = chartDefaults();
+  const growth = new ChartCtor(document.getElementById('customer-growth-chart'), {
+    type: 'line', data: { labels, datasets: [{ label: 'New Customers', data: newCustomers, tension: .35, fill: true, borderWidth: 2 }] }, options: common
+  });
+  const doughnut = new ChartCtor(document.getElementById('customer-subscription-chart'), {
+    type: 'doughnut', data: { labels: ['Subscribed', 'Unsubscribed'], datasets: [{ data: [subscribed, unsubscribed], borderWidth: 0 }] },
+    options: { ...common, cutout: '68%', plugins: { ...common.plugins, legend: { position: 'bottom', labels: { usePointStyle: true, color: '#64748b' } } } }
+  });
+  const daily = new ChartCtor(document.getElementById('customer-daily-chart'), {
+    type: 'bar', data: { labels, datasets: [{ label: 'Customers Added', data: newCustomers, borderRadius: 8, maxBarThickness: 44 }] }, options: common
+  });
+  _customerCharts.push(growth, doughnut, daily);
+}
+
+function renderWhatsappAnalytics(recipientStats = []) {
+  const target = document.getElementById('whatsapp-analytics-wrap');
+  if (!target) return;
+  const ChartCtor = getChartConstructor();
+  destroyCharts(_whatsappCharts);
+  const subscribed = _customers.filter(isSubscribed).length;
+  const sentTotal = recipientStats.reduce((sum, item) => sum + item.sentCount, 0);
+  const activeCampaigns = _campaigns.length;
+  const eligible = _customers.filter(customer => isSubscribed(customer)).length;
+  const campaignLabels = _campaigns.map(c => c.name || 'Untitled').slice(0, 8);
+  const campaignData = _campaigns.slice(0, 8).map(c => recipientStats.find(x => x.id === c.id)?.sentCount || 0);
+  const keys = recentDateKeys(7);
+  const daily = Object.fromEntries(keys.map(key => [key, 0]));
+  recipientStats.forEach(stat => stat.sentDates.forEach(date => { if (date in daily) daily[date] += 1; }));
+
+  target.innerHTML = `
+    <div class="analytics-stat-grid whatsapp-stat-grid">
+      <div class="analytics-stat-card"><span>Campaigns</span><strong>${activeCampaigns}</strong><small>Total WhatsApp campaigns</small></div>
+      <div class="analytics-stat-card"><span>Subscribed Recipients</span><strong>${subscribed}</strong><small>Current eligible customers</small></div>
+      <div class="analytics-stat-card"><span>Messages Sent</span><strong>${sentTotal}</strong><small>Tracked campaign opens</small></div>
+      <div class="analytics-stat-card"><span>Pending Audience</span><strong>${eligible}</strong><small>Available for outreach</small></div>
+    </div>
+    <div class="analytics-chart-grid">
+      <div class="analytics-chart-card"><div class="analytics-chart-head"><h3>Messages by Campaign</h3><span>Top campaigns</span></div><div class="analytics-chart-canvas"><canvas id="whatsapp-campaign-chart"></canvas></div></div>
+      <div class="analytics-chart-card"><div class="analytics-chart-head"><h3>Daily Sending Trend</h3><span>Last 7 days</span></div><div class="analytics-chart-canvas"><canvas id="whatsapp-daily-chart"></canvas></div></div>
+      <div class="analytics-chart-card analytics-chart-wide"><div class="analytics-chart-head"><h3>WhatsApp Audience</h3><span>Current customer status</span></div><div class="analytics-chart-canvas analytics-doughnut"><canvas id="whatsapp-audience-chart"></canvas></div></div>
+    </div>`;
+
+  if (!ChartCtor) return;
+  const common = chartDefaults();
+  const campaign = new ChartCtor(document.getElementById('whatsapp-campaign-chart'), {
+    type: 'bar', data: { labels: campaignLabels, datasets: [{ label: 'Messages Sent', data: campaignData, borderRadius: 8, maxBarThickness: 36 }] },
+    options: { ...common, indexAxis: 'y' }
+  });
+  const dailyChart = new ChartCtor(document.getElementById('whatsapp-daily-chart'), {
+    type: 'line', data: { labels: dayLabels(7), datasets: [{ label: 'Messages Sent', data: keys.map(k => daily[k]), tension: .35, fill: true, borderWidth: 2 }] }, options: common
+  });
+  const audience = new ChartCtor(document.getElementById('whatsapp-audience-chart'), {
+    type: 'doughnut', data: { labels: ['Subscribed', 'Unsubscribed'], datasets: [{ data: [subscribed, _customers.length - subscribed], borderWidth: 0 }] },
+    options: { ...common, cutout: '68%', plugins: { ...common.plugins, legend: { position: 'bottom', labels: { usePointStyle: true, color: '#64748b' } } } }
+  });
+  _whatsappCharts.push(campaign, dailyChart, audience);
+}
+
+function setImportStep(step, status = 'active') {
+  document.querySelectorAll('#customer-import-progress .import-step').forEach(el => {
+    const n = Number(el.dataset.step);
+    el.classList.toggle('active', n === step && status === 'active');
+    el.classList.toggle('complete', n < step || status === 'complete');
+    el.classList.toggle('failed', n === step && status === 'failed');
+  });
+}
+
+function updateImportProgress(step, label, percent, status = 'active') {
+  const labelEl = document.getElementById('customer-import-progress-label');
+  const percentEl = document.getElementById('customer-import-progress-percent');
+  const fill = document.getElementById('customer-import-progress-fill');
+  if (labelEl) labelEl.textContent = label;
+  if (percentEl) percentEl.textContent = `${percent}%`;
+  if (fill) fill.style.width = `${percent}%`;
+  setImportStep(step, status);
+}
+
+function resetImportUI() {
+  const progress = document.getElementById('customer-import-progress');
+  const upload = document.getElementById('customer-import-dropzone');
+  const info = document.getElementById('customer-import-file-info');
+  const alert = document.getElementById('customer-import-alert');
+  const result = document.getElementById('customer-import-result');
+  const start = document.getElementById('customer-import-start');
+  if (progress) progress.style.display = 'none';
+  if (upload) upload.style.display = '';
+  if (info) { info.style.display = 'none'; info.innerHTML = ''; }
+  if (alert) { alert.style.display = 'none'; alert.textContent = ''; }
+  if (result) result.innerHTML = '';
+  if (start) { start.disabled = true; start.textContent = 'Upload & Create Customers'; }
+  setImportStep(0, 'active');
+}
+
+export function downloadCustomerTemplate() {
+  if (!window.XLSX) return showToast('Excel template library is still loading. Please try again.');
+  const rows = Array.from({ length: CUSTOMER_IMPORT_MAX_ROWS }, () => ({
+    'Name': '',
+    'Mobile Number': '',
+    'Gender': '',
+    'Security Code': CUSTOMER_IMPORT_SECURITY_KEY
+  }));
+  const ws = window.XLSX.utils.json_to_sheet(rows, { header: ['Name', 'Mobile Number', 'Gender', 'Security Code'] });
+  ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 24 }];
+  const wb = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+  const guide = window.XLSX.utils.aoa_to_sheet([
+    ['Abra Zylo Customer Import Template'],
+    ['Instructions'],
+    ['1. Fill Name, Mobile Number and Gender for each customer.'],
+    ['2. Do not change the Security Code. Every populated row must contain the exact code.'],
+    ['3. Mobile numbers must be valid 10-digit Indian numbers starting with 6, 7, 8 or 9.'],
+    ['4. Maximum 500 customer rows per upload.'],
+    ['Security Code', CUSTOMER_IMPORT_SECURITY_KEY]
+  ]);
+  guide['!cols'] = [{ wch: 72 }, { wch: 24 }];
+  window.XLSX.utils.book_append_sheet(wb, guide, 'Instructions');
+  window.XLSX.writeFile(wb, 'Abra_Zylo_Customer_Import_Template.xlsx');
+  showToast('Excel template downloaded.');
+}
+
+export function showCustomerImport() {
+  _customerImportFile = null;
+  resetImportUI();
+  const input = document.getElementById('customer-import-file');
+  if (input) input.value = '';
+  openModal('customer-import-modal');
+}
+
+export function hideCustomerImport() {
+  _customerImportFile = null;
+  closeModal('customer-import-modal');
+}
+
+export async function handleCustomerImportFile(file) {
+  const alert = document.getElementById('customer-import-alert');
+  if (alert) alert.style.display = 'none';
+  if (!file) return;
+  if (!window.XLSX) return showCustomerImportAlert('Excel reader is not loaded yet. Please try again.');
+  if (!/\.(xlsx|xls)$/i.test(file.name)) return showCustomerImportAlert('Please upload an .xlsx or .xls Excel file.');
+  _customerImportFile = file;
+  const info = document.getElementById('customer-import-file-info');
+  if (info) {
+    info.innerHTML = `<strong>${escapeHtml(file.name)}</strong><span>${Math.round(file.size / 1024)} KB</span>`;
+    info.style.display = 'flex';
+  }
+  const start = document.getElementById('customer-import-start');
+  if (start) start.disabled = false;
+}
+
+function showCustomerImportAlert(message) {
+  const alert = document.getElementById('customer-import-alert');
+  if (!alert) return;
+  alert.textContent = message;
+  alert.className = 'alert alert-danger';
+  alert.style.display = 'block';
+}
+
+function normalizeImportRow(row) {
+  const name = cleanCustomerName(row['Name'] ?? row['name'] ?? '');
+  const rawNumber = String(row['Mobile Number'] ?? row['Mobile'] ?? row['Number'] ?? row['number'] ?? '').trim();
+  const numberDigits = rawNumber.replace(/\D/g, '');
+  const gender = normalizeGender(row['Gender'] ?? row['gender'] ?? '');
+  const securityCode = String(row['Security Code'] ?? row['security code'] ?? row['Security'] ?? '').trim();
+  return { name, rawNumber, numberDigits, gender, securityCode };
+}
+
+function parseCustomerWorkbook(file) {
+  return file.arrayBuffer().then(buffer => {
+    const workbook = window.XLSX.read(buffer, { type: 'array' });
+    const sheetName = workbook.SheetNames.find(name => name.toLowerCase() === 'customers') || workbook.SheetNames[0];
+    if (!sheetName) throw new Error('The workbook does not contain a worksheet.');
+    const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '', raw: false });
+    return rows;
+  });
+}
+
+export async function startCustomerImport() {
+  if (!_customerImportFile) return showCustomerImportAlert('Choose an Excel file first.');
+  const start = document.getElementById('customer-import-start');
+  const progress = document.getElementById('customer-import-progress');
+  const upload = document.getElementById('customer-import-dropzone');
+  const result = document.getElementById('customer-import-result');
+  const alert = document.getElementById('customer-import-alert');
+  if (start) start.disabled = true;
+  if (upload) upload.style.display = 'none';
+  if (progress) progress.style.display = 'block';
+  if (alert) alert.style.display = 'none';
+  if (result) result.innerHTML = '';
+
+  try {
+    updateImportProgress(1, 'Checking uploaded file', 15);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const rows = await parseCustomerWorkbook(_customerImportFile);
+    const populatedRows = rows.filter(row => Object.values(row).some(value => String(value ?? '').trim() !== ''));
+    if (!populatedRows.length) throw new Error('The Excel file has no customer data. Fill the template and upload it again.');
+    if (populatedRows.length > CUSTOMER_IMPORT_MAX_ROWS) throw new Error(`Maximum ${CUSTOMER_IMPORT_MAX_ROWS} customer rows are allowed per upload.`);
+    const normalizedRows = populatedRows.map(normalizeImportRow);
+    const invalidStructure = normalizedRows.find(row => !row.name || !/^\d{10}$/.test(row.numberDigits) || !/^[6-9]\d{9}$/.test(row.numberDigits) || !['male','female'].includes(row.gender));
+    if (invalidStructure) throw new Error('One or more rows have invalid Name, Mobile Number, or Gender values.');
+
+    updateImportProgress(2, 'Checking marketing duplicates', 35);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const latestCustomersSnap = await FB.getDocs(FB.query(FB.col(CUSTOMER_COLLECTION), FB.orderBy('addedAt', 'desc')));
+    const latestCustomers = latestCustomersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const existingNumbers = new Set(latestCustomers.map(customer => normalizePhone(customer.number)).filter(Boolean));
+    const seenNumbers = new Set();
+    const duplicates = [];
+    const candidates = [];
+    normalizedRows.forEach((row, index) => {
+      const normalizedNumber = normalizePhone(row.numberDigits);
+      if (existingNumbers.has(normalizedNumber) || seenNumbers.has(normalizedNumber)) {
+        duplicates.push(index + 2);
+      } else {
+        seenNumbers.add(normalizedNumber);
+        candidates.push({ ...row, normalizedNumber });
+      }
+    });
+
+    updateImportProgress(3, 'Creating new customers', 55);
+    await new Promise(resolve => setTimeout(resolve, 450));
+    if (result) result.innerHTML = `<div class="import-result-line"><span>Valid rows</span><strong>${normalizedRows.length}</strong></div><div class="import-result-line"><span>Marketing duplicates</span><strong>${duplicates.length}</strong></div>`;
+
+    // Security is validated immediately before the write so no customer can be
+    // created from a workbook that fails the required security code.
+    updateImportProgress(4, 'Checking security rules', 78);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const securityFailure = normalizedRows.findIndex(row => row.securityCode !== CUSTOMER_IMPORT_SECURITY_KEY);
+    if (securityFailure !== -1) {
+      setImportStep(4, 'failed');
+      throw new Error(`Security check failed on Excel row ${securityFailure + 2}. The Security Code must be exactly "${CUSTOMER_IMPORT_SECURITY_KEY}".`);
+    }
+
+    const meta = currentUserMeta();
+    const batches = [];
+    let batch = FB.writeBatch();
+    let batchSize = 0;
+    for (const row of candidates) {
+      const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      batch.set(FB.docRef(CUSTOMER_COLLECTION, id), {
+        name: row.name,
+        number: `${row.numberDigits.slice(0, 5)} ${row.numberDigits.slice(5)}`,
+        normalizedNumber: row.normalizedNumber,
+        gender: row.gender,
+        status: 'interested',
+        addedAt: FB.serverTimestamp(),
+        addedBy: meta.uid,
+        addedByName: meta.name,
+        addedByEmail: meta.email,
+        importedFrom: _customerImportFile.name
+      });
+      batchSize += 1;
+      if (batchSize === 450) {
+        batches.push(batch.commit());
+        batch = FB.writeBatch();
+        batchSize = 0;
+      }
+    }
+    if (batchSize) batches.push(batch.commit());
+    await Promise.all(batches);
+    updateImportProgress(4, 'Security verified • Import complete', 100, 'complete');
+    if (result) result.innerHTML = `<div class="import-result-success"><strong>Import completed successfully.</strong><span>${candidates.length} new customers created${duplicates.length ? `, ${duplicates.length} duplicate rows skipped` : ''}.</span></div>`;
+    if (start) start.textContent = 'Import Complete';
+    showToast(`${candidates.length} new customers imported.`);
+    await renderCustomers();
+  } catch (error) {
+    console.error('[Customers] Excel import error:', error);
+    updateImportProgress(4, 'Import rejected', 100, 'failed');
+    showCustomerImportAlert(error?.message || 'Unable to import the Excel file.');
+    if (start) { start.disabled = false; start.textContent = 'Try Again'; }
+  }
+}
+
 function renderLoading(targetId, text = 'Loading...') {
   const target = document.getElementById(targetId);
   if (target) target.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><h3>${escapeHtml(text)}</h3></div>`;
@@ -135,6 +496,7 @@ export async function renderCustomers() {
   try {
     const snap = await FB.getDocs(FB.query(FB.col(CUSTOMER_COLLECTION), FB.orderBy('addedAt', 'desc')));
     _customers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderCustomerAnalytics();
     renderCustomersTable();
   } catch (error) {
     console.error('[Customers] load error:', error);
@@ -357,6 +719,7 @@ export async function updateStatus(customerId, status) {
       updatedByName: currentUserMeta().name
     });
     customer.status = status;
+    renderCustomerAnalytics();
     renderCustomersTable();
     showToast(status === 'interested' ? 'Customer subscribed.' : 'Customer unsubscribed.');
     if (_activeCampaign) renderCampaignRecipients();
@@ -375,6 +738,7 @@ export async function deleteCustomer(customerId) {
   try {
     await FB.deleteDoc(FB.docRef(CUSTOMER_COLLECTION, customerId));
     _customers = _customers.filter(item => item.id !== customerId);
+    renderCustomerAnalytics();
     renderCustomersTable();
     if (_activeCampaign) renderCampaignRecipients();
     showToast('Customer deleted.');
@@ -389,6 +753,26 @@ export async function renderWhatsappMarketing() {
   try {
     const snap = await FB.getDocs(FB.query(FB.col(CAMPAIGN_COLLECTION), FB.orderBy('createdAt', 'desc')));
     _campaigns = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    try {
+      const customerSnap = await FB.getDocs(FB.query(FB.col(CUSTOMER_COLLECTION), FB.orderBy('addedAt', 'desc')));
+      _customers = customerSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (customerError) {
+      console.warn('[WhatsApp] customer analytics refresh failed:', customerError);
+    }
+    let recipientStats = [];
+    try {
+      recipientStats = await Promise.all(_campaigns.map(async campaign => {
+        const recipientSnap = await FB.getDocs(FB.col(`${CAMPAIGN_COLLECTION}/${campaign.id}/recipients`));
+        return {
+          id: campaign.id,
+          sentCount: recipientSnap.size,
+          sentDates: recipientSnap.docs.map(doc => dayKey(doc.data().sentAt)).filter(Boolean)
+        };
+      }));
+    } catch (chartError) {
+      console.warn('[WhatsApp] analytics recipient stats unavailable:', chartError);
+    }
+    renderWhatsappAnalytics(recipientStats);
     renderCampaigns();
   } catch (error) {
     console.error('[WhatsApp] campaign load error:', error);

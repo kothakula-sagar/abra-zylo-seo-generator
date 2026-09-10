@@ -17,6 +17,8 @@
   <link rel="stylesheet" href="css/settings.css"/>
   <link rel="stylesheet" href="css/marketing.css"/>
   <link rel="stylesheet" href="css/responsive.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -825,11 +827,20 @@
             <h1>Customer Details</h1>
             <p class="text-muted">Add and manage customers shared across the Abra Zylo team.</p>
           </div>
-          <button class="btn btn-accent" onclick="window.Customers.showAddCustomer()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Customer
-          </button>
+          <div class="page-header-actions">
+            <button class="btn btn-outline" onclick="window.Customers.downloadCustomerTemplate()">
+              <span aria-hidden="true">↓</span> Excel Template
+            </button>
+            <button class="btn btn-dark" onclick="window.Customers.showCustomerImport()">
+              <span aria-hidden="true">↑</span> Upload Excel
+            </button>
+            <button class="btn btn-accent" onclick="window.Customers.showAddCustomer()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Customer
+            </button>
+          </div>
         </div>
+        <div id="customer-analytics-wrap"></div>
         <div class="card">
           <div class="card-header"><div><h3>Customer Directory</h3><p class="text-muted">Members and admins can add customers and change Subscribed / Unsubscribed status. Delete is admin-only.</p></div></div>
           <div class="card-body" id="customers-table-wrap"></div>
@@ -848,6 +859,7 @@
             New WhatsApp Marketing
           </button>
         </div>
+        <div id="whatsapp-analytics-wrap"></div>
         <div id="whatsapp-campaigns-wrap"></div>
       </section>
 
@@ -1046,6 +1058,43 @@
         <div id="customer-alert" class="alert alert-danger" style="display:none"></div>
         <div class="modal-actions"><button type="submit" class="btn btn-accent">Add Customer</button><button type="button" class="btn btn-outline" onclick="window.Customers.hideCustomerModal()">Cancel</button></div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMER EXCEL IMPORT MODAL -->
+<div class="overlay" id="customer-import-modal" style="display:none">
+  <div class="modal modal-lg customer-import-modal">
+    <div class="modal-head">
+      <div><h3>Import Customers from Excel</h3><p class="text-muted">Use the downloaded template and keep the Security Code exactly as provided.</p></div>
+      <button class="modal-close" onclick="window.Customers.hideCustomerImport()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="customer-import-upload-box" id="customer-import-dropzone">
+        <input id="customer-import-file" type="file" accept=".xlsx,.xls" hidden onchange="window.Customers.handleCustomerImportFile(this.files[0])"/>
+        <div class="customer-import-upload-icon">↑</div>
+        <h4>Upload your Excel file</h4>
+        <p>Columns: Name, Mobile Number, Gender, Security Code</p>
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('customer-import-file').click()">Choose Excel File</button>
+        <p class="field-hint">Maximum 500 customer rows per upload.</p>
+      </div>
+      <div id="customer-import-file-info" class="customer-import-file-info" style="display:none"></div>
+      <div id="customer-import-progress" class="customer-import-progress" style="display:none">
+        <div class="customer-import-progress-title"><span id="customer-import-progress-label">Checking uploaded file</span><strong id="customer-import-progress-percent">0%</strong></div>
+        <div class="customer-import-progress-bar"><span id="customer-import-progress-fill"></span></div>
+        <div class="customer-import-steps">
+          <div class="import-step" data-step="1"><span class="import-step-icon">1</span><span>Checking uploaded file</span></div>
+          <div class="import-step" data-step="2"><span class="import-step-icon">2</span><span>Checking marketing duplicates</span></div>
+          <div class="import-step" data-step="3"><span class="import-step-icon">3</span><span>Creating new customers</span></div>
+          <div class="import-step" data-step="4"><span class="import-step-icon">4</span><span>Checking security rules</span></div>
+        </div>
+        <div id="customer-import-result" class="customer-import-result"></div>
+      </div>
+      <div id="customer-import-alert" class="alert alert-danger" style="display:none"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-accent" id="customer-import-start" disabled onclick="window.Customers.startCustomerImport()">Upload &amp; Create Customers</button>
+        <button type="button" class="btn btn-outline" onclick="window.Customers.hideCustomerImport()">Close</button>
+      </div>
     </div>
   </div>
 </div>
