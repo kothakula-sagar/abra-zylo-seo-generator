@@ -321,11 +321,10 @@ export async function downloadCustomerTemplate() {
     const rows = Array.from({ length: CUSTOMER_IMPORT_MAX_ROWS }, () => ({
       'Name': '',
       'Mobile Number': '',
-      'Gender': '',
       'Security Code': CUSTOMER_IMPORT_SECURITY_KEY
     }));
-    const ws = window.XLSX.utils.json_to_sheet(rows, { header: ['Name', 'Mobile Number', 'Gender', 'Security Code'] });
-    ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 24 }];
+    const ws = window.XLSX.utils.json_to_sheet(rows, { header: ['Name', 'Mobile Number', 'Security Code'] });
+    ws['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 24 }];
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, 'Customers');
     window.XLSX.writeFile(wb, 'Abra_Zylo_Customer_Import_Template.xlsx');
@@ -374,9 +373,8 @@ function normalizeImportRow(row) {
   const name = cleanCustomerName(row['Name'] ?? row['name'] ?? '');
   const rawNumber = String(row['Mobile Number'] ?? row['Mobile'] ?? row['Number'] ?? row['number'] ?? '').trim();
   const numberDigits = rawNumber.replace(/\D/g, '');
-  const gender = normalizeGender(row['Gender'] ?? row['gender'] ?? '');
   const securityCode = String(row['Security Code'] ?? row['security code'] ?? row['Security'] ?? '').trim();
-  return { name, rawNumber, numberDigits, gender, securityCode };
+  return { name, rawNumber, numberDigits, securityCode };
 }
 
 function parseCustomerWorkbook(file) {
@@ -406,44 +404,63 @@ export async function startCustomerImport() {
     updateImportProgress(1, 'Checking uploaded file', 15);
     await new Promise(resolve => setTimeout(resolve, 500));
     const rows = await parseCustomerWorkbook(_customerImportFile);
-    const populatedRows = rows.filter(row => Object.values(row).some(value => String(value ?? '').trim() !== ''));
+    // The default template intentionally contains the security code on every blank
+    // row. Treat rows that contain only the approved security code as blank rows.
+    // This lets users fill any number of rows without Excel's prepared rows being
+    // mistaken for incomplete customers.
+    const normalizedAllRows = rows.map((row, index) => ({ ...normalizeImportRow(row), excelRowNumber: index + 2 }));
+    const populatedRows = normalizedAllRows.filter(row => {
+      const hasCustomerFields = Boolean(row.name || row.numberDigits);
+      const hasSecurityOnly = !hasCustomerFields && row.securityCode === CUSTOMER_IMPORT_SECURITY_KEY;
+      return hasCustomerFields || (row.securityCode && !hasSecurityOnly);
+    });
     if (!populatedRows.length) throw new Error('The Excel file has no customer data. Fill the template and upload it again.');
     if (populatedRows.length > CUSTOMER_IMPORT_MAX_ROWS) throw new Error(`Maximum ${CUSTOMER_IMPORT_MAX_ROWS} customer rows are allowed per upload.`);
-    const normalizedRows = populatedRows.map(normalizeImportRow);
-    const invalidStructure = normalizedRows.find(row => !row.name || !/^\d{10}$/.test(row.numberDigits) || !/^[6-9]\d{9}$/.test(row.numberDigits) || !['male','female'].includes(row.gender));
-    if (invalidStructure) throw new Error('One or more rows have invalid Name, Mobile Number, or Gender values.');
+    const invalidStructure = populatedRows.find(row => !row.name || !/^[6-9]\d{9}$/.test(row.numberDigits));
+    if (invalidStructure) throw new Error('One or more rows have invalid Name or Mobile Number values.');
+    const securityFailure = populatedRows.findIndex(row => row.securityCode !== CUSTOMER_IMPORT_SECURITY_KEY);
+    if (securityFailure !== -1) {
+      setImportStep(4, 'failed');
+      throw new Error(`Security check failed on Excel row ${populatedRows[securityFailure].excelRowNumber}. The Security Code must be exactly "${CUSTOMER_IMPORT_SECURITY_KEY}".`);
+    }
 
     updateImportProgress(2, 'Checking marketing duplicates', 35);
     await new Promise(resolve => setTimeout(resolve, 500));
     const latestCustomersSnap = await FB.getDocs(FB.query(FB.col(CUSTOMER_COLLECTION), FB.orderBy('addedAt', 'desc')));
     const latestCustomers = latestCustomersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const existingNumbers = new Set(latestCustomers.map(customer => normalizePhone(customer.number)).filter(Boolean));
+    // Duplicate logic is based ONLY on normalized mobile number. Names are not
+    // considered, so two customers with different names but the same mobile
+    // number are still duplicates. Blank template rows are excluded.
     const seenNumbers = new Set();
-    const duplicates = [];
+    const duplicateNumbersInFile = new Set();
+    const duplicateRowsInFile = [];
+    const existingDuplicateRows = [];
     const candidates = [];
-    normalizedRows.forEach((row, index) => {
+    populatedRows.forEach((row, index) => {
       const normalizedNumber = normalizePhone(row.numberDigits);
-      if (existingNumbers.has(normalizedNumber) || seenNumbers.has(normalizedNumber)) {
-        duplicates.push(index + 2);
-      } else {
-        seenNumbers.add(normalizedNumber);
-        candidates.push({ ...row, normalizedNumber });
+      const excelRowNumber = row.excelRowNumber;
+      if (seenNumbers.has(normalizedNumber)) {
+        duplicateNumbersInFile.add(normalizedNumber);
+        duplicateRowsInFile.push(excelRowNumber);
+        return;
       }
+      seenNumbers.add(normalizedNumber);
+      if (existingNumbers.has(normalizedNumber)) {
+        existingDuplicateRows.push(excelRowNumber);
+        return;
+      }
+      candidates.push({ ...row, normalizedNumber });
     });
 
     updateImportProgress(3, 'Creating new customers', 55);
     await new Promise(resolve => setTimeout(resolve, 450));
-    if (result) result.innerHTML = `<div class="import-result-line"><span>Valid rows</span><strong>${normalizedRows.length}</strong></div><div class="import-result-line"><span>Marketing duplicates</span><strong>${duplicates.length}</strong></div>`;
+    if (result) result.innerHTML = `<div class="import-result-line"><span>Valid rows</span><strong>${populatedRows.length}</strong></div><div class="import-result-line"><span>Duplicate numbers in file</span><strong>${duplicateNumbersInFile.size}</strong></div><div class="import-result-line"><span>Duplicate rows in file</span><strong>${duplicateRowsInFile.length}</strong></div><div class="import-result-line"><span>Existing customer duplicates</span><strong>${existingDuplicateRows.length}</strong></div>`;
 
-    // Security is validated immediately before the write so no customer can be
-    // created from a workbook that fails the required security code.
     updateImportProgress(4, 'Checking security rules', 78);
     await new Promise(resolve => setTimeout(resolve, 500));
-    const securityFailure = normalizedRows.findIndex(row => row.securityCode !== CUSTOMER_IMPORT_SECURITY_KEY);
-    if (securityFailure !== -1) {
-      setImportStep(4, 'failed');
-      throw new Error(`Security check failed on Excel row ${securityFailure + 2}. The Security Code must be exactly "${CUSTOMER_IMPORT_SECURITY_KEY}".`);
-    }
+    // Security was fully validated before this point, so no write can happen
+    // unless every customer row contains the exact approved code.
 
     const meta = currentUserMeta();
     const batches = [];
@@ -455,7 +472,6 @@ export async function startCustomerImport() {
         name: row.name,
         number: `${row.numberDigits.slice(0, 5)} ${row.numberDigits.slice(5)}`,
         normalizedNumber: row.normalizedNumber,
-        gender: row.gender,
         status: 'interested',
         addedAt: FB.serverTimestamp(),
         addedBy: meta.uid,
@@ -473,7 +489,8 @@ export async function startCustomerImport() {
     if (batchSize) batches.push(batch.commit());
     await Promise.all(batches);
     updateImportProgress(4, 'Security verified • Import complete', 100, 'complete');
-    if (result) result.innerHTML = `<div class="import-result-success"><strong>Import completed successfully.</strong><span>${candidates.length} new customers created${duplicates.length ? `, ${duplicates.length} duplicate rows skipped` : ''}.</span></div>`;
+    const totalDuplicateRows = duplicateRowsInFile.length + existingDuplicateRows.length;
+    if (result) result.innerHTML = `<div class="import-result-success"><strong>Import completed successfully.</strong><span>${candidates.length} new customers created${totalDuplicateRows ? `, ${totalDuplicateRows} duplicate rows skipped` : ''}.</span>${duplicateNumbersInFile.size ? `<span>${duplicateNumbersInFile.size} duplicate mobile number${duplicateNumbersInFile.size === 1 ? '' : 's'} found inside this file.</span>` : ''}</div>`;
     if (start) start.textContent = 'Import Complete';
     showToast(`${candidates.length} new customers imported.`);
     await renderCustomers();

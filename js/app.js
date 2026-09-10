@@ -96,7 +96,7 @@ const App = {
     if (!this._authConfirmed) return;
 
     // Maintenance guard: non-admin users can only see the maintenance screen.
-    if (this._maintenanceActive && !Auth.isAdmin()) {
+    if (App._maintenanceActive && !Auth.isAdmin()) {
       Maintenance.showScreen();
       UI.closeAllModals();
       UI.switchTab('dashboard');
@@ -241,7 +241,7 @@ async function _enterApp() {
   // ── Dismiss init screen ──
   _dismissInitScreen();
 
-  if (this._maintenanceActive && !Auth.isAdmin()) {
+  if (App._maintenanceActive && !Auth.isAdmin()) {
     Maintenance.showScreen(maintenanceState.message);
     UI.switchTab('dashboard');
     return;
