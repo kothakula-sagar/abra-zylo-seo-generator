@@ -1,0 +1,7 @@
+Abra Zylo SEO Generator - reviewed-content update
+Date: 24 October 2026
+Base repository: https://github.com/kothakula-sagar/abra-zylo-seo-generator
+Base commit: b6fe094e29afe82ace786a3f5308ac524b7ad2d5
+Validation: 20 offline tests passed; syntax/import checks passed for 24 modules; HTML IDs/labels and git diff whitespace checked.
+Live Firebase, AI provider requests, rule compilation and real-device UI were not tested.
+Read REUPLOAD_GUIDE.md before deploying.

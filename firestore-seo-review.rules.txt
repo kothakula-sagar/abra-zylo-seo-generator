@@ -1,0 +1,56 @@
+// MERGE-ONLY FRAGMENT. See REUPLOAD_GUIDE.md first.
+// Place helpers and the match inside your existing /databases/{database}/documents.
+// REPLACE the old SEO_History match; overlapping broader allow rules override
+// these restrictions. Keep all unrelated collection rules.
+
+function seoReviewAdmin() {
+  return request.auth != null &&
+    request.auth.token.email == 'kothakulasagar2002@gmail.com';
+}
+
+function seoReviewMember() {
+  return request.auth != null && (seoReviewAdmin() || (
+    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('approved', false) == true &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('blocked', false) != true
+  ));
+}
+
+function seoCurrentId(data, recordId) {
+  return data.productId is string && data.language is string &&
+    recordId == 'seo_' + data.productId + '_' + data.language &&
+    data.historyId == recordId && data.isArchive == false;
+}
+
+function seoValidReview(data) {
+  return data.generatedBy == request.auth.uid && data.generatedAt == request.time &&
+    data.revision is int && data.revision > 0 && (
+      (data.workflowStatus in ['draft', 'in_review'] &&
+       data.reviewedBy == '' && data.reviewerName == '' && data.reviewedAt == null) ||
+      (data.workflowStatus == 'approved' && seoReviewAdmin() &&
+       data.reviewedBy == request.auth.uid && data.reviewedAt == request.time &&
+       data.verifiedFacts.confirmed == true && data.verifiedFacts.source is string &&
+       data.verifiedFacts.source.size() > 0)
+    );
+}
+
+function seoArchiveOfCurrent(data, recordId) {
+  let currentPath = /databases/$(database)/documents/SEO_History/$('seo_' + data.productId + '_' + data.language);
+  return exists(currentPath) && data.isArchive == true &&
+    data.historyId == recordId && data.archivedAt == request.time &&
+    data.diff(get(currentPath).data).affectedKeys()
+      .hasOnly(['historyId', 'isArchive', 'archivedAt']);
+}
+
+match /SEO_History/{recordId} {
+  allow read: if seoReviewMember();
+  allow create: if seoReviewMember() && (
+    (seoCurrentId(request.resource.data, recordId) &&
+     seoValidReview(request.resource.data) && request.resource.data.revision == 1) ||
+    seoArchiveOfCurrent(request.resource.data, recordId)
+  );
+  allow update: if seoReviewMember() && resource.data.get('isArchive', false) != true &&
+    seoCurrentId(request.resource.data, recordId) && seoValidReview(request.resource.data) &&
+    request.resource.data.revision == resource.data.get('revision', 0) + 1;
+  allow delete: if seoReviewAdmin();
+}

@@ -252,16 +252,16 @@ export function computeSeoScore(r) {
   const checks = [
     // 1. Technical length
     {
-      label:  'Meta Title length (50-70 chars)',
+      label:  'Meta Title present and concise',
       field:  'meta_title',
       weight: 10,
-      pass:   title.length >= 50 && title.length <= 70
+      pass:   title.length > 0 && title.length <= 200
     },
     {
-      label:  'Meta Description length (140-160 chars)',
+      label:  'Meta Description present and concise',
       field:  'meta_description',
       weight: 10,
-      pass:   desc.length >= 140 && desc.length <= 160
+      pass:   desc.length > 0 && desc.length <= 500
     },
 
     // 2. Keyword placement
@@ -284,10 +284,10 @@ export function computeSeoScore(r) {
       pass:   hasProductKw(slug)
     },
     {
-      label:  'Product keyword in Image Alt Text',
+      label:  'Image Alt Text is descriptive',
       field:  'alt_text',
       weight: 6,
-      pass:   hasProductKw(alt)
+      pass:   alt.length >= 5 && alt.length <= 300
     },
 
     // 3. CTR quality
@@ -298,7 +298,7 @@ export function computeSeoScore(r) {
       pass:   hasCTA(desc)
     },
     {
-      label:  'Meta Title is unique and specific',
+      label:  'Meta Title avoids generic opening phrases',
       field:  'meta_title',
       weight: 6,
       pass:   title.length > 0 && !(/elevate your|discover|introducing|shop now|buy now/i.test(title))
@@ -320,16 +320,16 @@ export function computeSeoScore(r) {
 
     // 5. Content richness & readability
     {
-      label:  'Product Description 200+ words',
+      label:  'Product Description has useful text',
       field:  'product_description',
       weight: 10,
-      pass:   descWords >= 200
+      pass:   prodDesc.length >= 40
     },
     {
-      label:  'Product Description 3+ sentences',
+      label:  'Product Description has readable sentences',
       field:  'product_description',
       weight: 4,
-      pass:   descSents >= 3
+      pass:   descSents >= 1
     },
     {
       label:  'Image Alt Text present',
@@ -349,16 +349,16 @@ export function computeSeoScore(r) {
               !/[|&%@#*]/.test(slug)
     },
     {
-      label:  'Focus Keywords (5+)',
+      label:  'Focus Keywords present',
       field:  'focus_keywords',
       weight: 6,
-      pass:   Array.isArray(r.focus_keywords) && r.focus_keywords.length >= 5
+      pass:   Array.isArray(r.focus_keywords) && r.focus_keywords.length >= 1
     },
     {
-      label:  'Product Tags (5+)',
+      label:  'Product Tags present',
       field:  'product_tags',
       weight: 4,
-      pass:   Array.isArray(r.product_tags) && r.product_tags.length >= 5
+      pass:   Array.isArray(r.product_tags) && r.product_tags.length >= 1
     }
   ];
 

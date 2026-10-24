@@ -12,7 +12,7 @@ import {
 import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
   query, where, orderBy, deleteDoc, updateDoc, addDoc, onSnapshot,
-  serverTimestamp, limit, writeBatch, documentId
+  serverTimestamp, limit, writeBatch, documentId, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
   getStorage, ref, uploadBytes, getDownloadURL
@@ -48,6 +48,8 @@ export const FB = {
   setDoc, getDoc, getDocs, updateDoc, deleteDoc, addDoc, onSnapshot,
   query, where, orderBy, limit, writeBatch: () => writeBatch(db),
   serverTimestamp, documentId,
+  newDocRef: (path) => doc(collection(db, path)),
+  runTransaction: (callback) => runTransaction(db, callback),
   // Storage helpers
   ref:            (path) => ref(storage, path),
   uploadBytes,

@@ -1,0 +1,18 @@
+Changed or added files for this release:
+
+CHANGED_FILES.txt
+README.md
+RELEASE_INFO.txt
+REUPLOAD_GUIDE.md
+css/generate.css
+firestore-seo-review.rules.txt
+index.html
+js/firebase.js
+js/history.js
+js/seo-generator.js
+js/seo-quality.js
+js/seo-store.js
+js/utils.js
+main.html
+package.json
+tests/seo-workflow.test.mjs

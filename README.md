@@ -1,3 +1,5 @@
+> **Reviewed-content update (24 October 2026):** start with [REUPLOAD_GUIDE.md](REUPLOAD_GUIDE.md) for current setup and limitations. Drafts now save independently of the internal checklist score; factual source confirmation and human review are separate. Previous versions are archived on replacement. Some historical feature notes below describe the older scoring workflow and are superseded by that guide.
+
 # Abra Zylo SEO Generator - Page Architecture
 
 ## Important: Landing Page vs Application

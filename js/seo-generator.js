@@ -6,11 +6,11 @@
  *  - regenerateSection()   Single-field AI call - only that field is replaced
  *  - improveFailedItems()  Detects failed checks, regenerates only those fields
  *  - After any change: score is recomputed from local data (never trusted from AI)
- *  - Auto-save fires only when score >= 98
+ *  - Draft saving is independent of the internal checklist score
  */
 
 import { callAI, friendlyError, validateKey } from './ai.js';
-import { getUser, getUserDoc, getApiKey, isAccessRestricted, getAccessMessage } from './auth.js';
+import { getUser, getUserDoc, getApiKey, isAccessRestricted, getAccessMessage, isAdmin } from './auth.js';
 import { FB } from './firebase.js';
 import { uploadImage, getResponsive, getThumbnail, isFirebaseStorageUrl } from './cloudinary.js';
 import { normalizeModelNumber, checkModelNumberExists } from './product-model.js';
@@ -19,6 +19,14 @@ import {
   compressImage, compressDataUrl, parseJsonSafe, formatDate, escapeHtml
 } from './utils.js';
 import * as DataCache from './data-cache.js';
+import { SPEC_FIELDS, cleanFacts, factsPrompt, findDuplicates, fromRecord, approvalErrors, contentDiff } from './seo-quality.js';
+import { createSeoStore } from './seo-store.js';
+const seoStore = createSeoStore(FB);
+let _baseRevision = null;
+let _baselineKey = '';
+let _saveBusy = false;
+let _lastSavedStatus = 'draft';
+let _comparisonBase = null;
 import {
   showAlert, hideAlert, showLoading, setLoadingProgress,
   completeStep, hideLoading, showToast, switchResultTab,
@@ -107,14 +115,14 @@ const SEO_STYLES = [
 const SECTIONS = {
   meta_title: {
     label:       'Meta Title',
-    requirement: '50-70 characters, include the main keyword, compelling and click-worthy.',
+    requirement: 'Concise, accurate and product-specific. Aim around 50-70 characters when natural; do not pad or repeat words to reach a length.',
     responseKey: 'meta_title',
     domId:       'r-title',
     render:      (r, val) => { r.meta_title = val; }
   },
   meta_description: {
     label:       'Meta Description',
-    requirement: '140-160 characters, include primary keyword, end with a clear CTA.',
+    requirement: 'Accurate, natural summary. Around 140-160 characters is guidance only; do not add filler. Use a relevant CTA if useful.',
     responseKey: 'meta_description',
     domId:       'r-desc',
     render:      (r, val) => { r.meta_description = val; }
@@ -129,7 +137,7 @@ const SECTIONS = {
   },
   alt_text: {
     label:       'Image Alt Text',
-    requirement: 'Under 100 characters, descriptive, includes primary keyword.',
+    requirement: 'Describe the visible image accurately and concisely. Avoid keyword stuffing and unverified materials or brands.',
     responseKey: 'alt_text',
     domId:       'r-alt',
     render:      (r, val) => { r.alt_text = val; }
@@ -151,7 +159,7 @@ const SECTIONS = {
   },
   product_description: {
     label:       'Product Description',
-    requirement: '250+ words, 3+ sentences, SEO-rich, no template phrases like "masterpiece of" or "perfect blend".',
+    requirement: 'Use confirmed product facts and useful details. No minimum word count, filler, unverified claims or invented benefits.',
     responseKey: 'product_description',
     domId:       'r-prodesc',
     render:      (r, val) => { r.product_description = val; }
@@ -235,6 +243,11 @@ export function initDragDrop() {
  * Call this when the user explicitly starts a new product.
  */
 export function startNewProduct() {
+  if (_busy || _saveBusy) { showToast('Finish the current operation before switching products.'); return; }
+  _baseRevision = null; _baselineKey = ''; _comparisonBase = null;
+  SPEC_FIELDS.concat(['source']).forEach(key => { const el = document.getElementById('fact-' + key); if (el) el.value = ''; });
+  const confirmed = document.getElementById('facts-confirmed'); if (confirmed) confirmed.checked = false;
+  _productContext = null;
   _imageBase64   = null;
   _imageMime     = 'image/jpeg';
   _productId     = null;
@@ -330,7 +343,7 @@ function _setFieldState(id, valid) {
 
 // ── FULL GENERATE ─────────────────────────────────────────────
 export async function generate() {
-  if (_busy) return;
+  if (_busy || _saveBusy) return;
   hideAlert('gen-alert');
 
   if (!document.getElementById('prod-name') || !document.getElementById('prod-cat')) {
@@ -427,6 +440,7 @@ export async function generate() {
         publicId,
         modelNumber,
         category: cat,
+        verifiedFacts: readVerifiedFacts(),
         createdBy: getUser()?.uid,
         createdAt: FB.serverTimestamp(),
         updatedAt: FB.serverTimestamp()
@@ -443,6 +457,8 @@ export async function generate() {
       }
       
       if (productId) {
+        delete productData.createdAt;
+        delete productData.createdBy;
         await FB.updateDoc(FB.docRef('products', productId), productData);
         await DataCache.patchArrayItem(DataCache.CACHE_KEYS.products, productId, productData);
       } else {
@@ -454,6 +470,9 @@ export async function generate() {
         }
       }
       _productId = productId;
+      _productContext = { ..._productContext, ...productData, id: productId };
+      _existingProductImageUrl = imageUrl;
+      _imageSourceIsFile = false;
       
       showToast(reuseExistingImage ? 'Product saved successfully' : 'Product created and image uploaded successfully');
       
@@ -465,6 +484,7 @@ export async function generate() {
     // Step 2 — SEO_History is upserted later by product ID + language.
     completeStep(2, 35);
 
+    await ensureBaseline(productId, lang);
     const style = SEO_STYLES[Math.floor(Math.random() * SEO_STYLES.length)];
 
     // Step 3 — AI call with image (vision) + prompt
@@ -494,6 +514,7 @@ export async function generate() {
       productId,       // Store product ID for single source of truth
       productName:    name,
       category:       cat,
+      verifiedFacts: readVerifiedFacts(),
       lang,
       provider,
       generatedStyle: style,
@@ -515,6 +536,7 @@ export async function generate() {
     if (btn) { btn.disabled = false; btn.innerHTML = origLabel; }
     _busy = false;
 
+    _lastSavedStatus = 'unsaved';
     renderResult(_currentResult, sd);
     await _handleAutoSave(sd.score);
 
@@ -527,7 +549,7 @@ export async function generate() {
 
 // ── REGENERATE FULL (saves current as version first) ─────────
 export async function regenerate() {
-  if (!_currentResult || _busy) return;
+  if (!_currentResult || _busy || _saveBusy) return;
   _currentResult.versions = _currentResult.versions || [];
   _currentResult.versions.push({
     ..._currentResult, versions: undefined,
@@ -551,8 +573,9 @@ export async function regenerate() {
  */
 export async function regenerateSection(sectionKey) {
   if (!_currentResult) { showToast('Generate SEO content first.'); return; }
-  if (_busy) { showToast('Please wait — an AI call is already in progress.'); return; }
+  if (_busy || _saveBusy) { showToast('Please wait — an AI call is already in progress.'); return; }
 
+  _currentResult.verifiedFacts = readVerifiedFacts();
   const section = SECTIONS[sectionKey];
   if (!section) { console.warn('[Generator] Unknown section key:', sectionKey); return; }
 
@@ -700,6 +723,7 @@ export async function regenerateSection(sectionKey) {
     section.render(_currentResult, newValue);
     _currentResult.timestamp = Date.now();
 
+    _lastSavedStatus = 'unsaved';
     // ── Recompute score (never trust AI) ─────────────────────
     const sd          = computeSeoScore(_currentResult);
     _currentResult._scoreData = sd;
@@ -738,7 +762,7 @@ export async function regenerateSection(sectionKey) {
  */
 export async function improveFailedItems() {
   if (!_currentResult) { showToast('Generate SEO content first.'); return; }
-  if (_busy) { showToast('Please wait — an AI call is in progress.'); return; }
+  if (_busy || _saveBusy) { showToast('Please wait — an AI call is in progress.'); return; }
 
   const sd      = computeSeoScore(_currentResult);
   const failed  = [...new Set(sd.failed)]; // unique field keys
@@ -775,27 +799,15 @@ export async function improveFailedItems() {
 
 // ── AUTO-SAVE LOGIC ───────────────────────────────────────────
 async function _handleAutoSave(score) {
-  // Every completed generation must be persisted. The score only controls
-  // the existing banner wording; it must not decide whether SEO exists.
   await _saveToFirestore(_currentResult);
-  if (score >= 98) {
-    showToast(`Score ${score}/100 reached — Auto-saved to Firebase!`);
-    _updateAutoSaveBanner(score, true);
-  } else {
-    _updateAutoSaveBanner(score, false);
-  }
 }
-
-function _updateAutoSaveBanner(score, saved) {
+function _updateAutoSaveBanner() {
   const banner = document.getElementById('autosave-banner');
   if (!banner) return;
-  if (saved) {
-    banner.className = 'autosave-notice saved';
-    banner.textContent = 'Auto-saved to Firebase (Score: ' + score + '/100)';
-  } else {
-    banner.className = 'autosave-notice pending';
-    banner.textContent = 'Score: ' + score + '/100 — Use "Improve Failed Items" or "Save Anyway"';
-  }
+  banner.className = 'autosave-notice ' + (_lastSavedStatus === 'unsaved' ? 'pending' : 'saved');
+  banner.textContent = _lastSavedStatus === 'unsaved'
+    ? 'Unsaved changes. Save a draft before leaving.'
+    : `Saved as ${_lastSavedStatus.replace('_', ' ')} - revision ${_baseRevision || 0}. Internal checklist scores do not predict Google rankings.`;
 }
 
 // ── DOM PATCHING (no full re-render needed for section changes) ──
@@ -818,7 +830,7 @@ function _patchDom(sectionKey, r) {
     }
     case 'focus_keywords': {
       const el = document.getElementById('r-kw');
-      if (el) el.innerHTML = (r.focus_keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join('');
+      if (el) el.innerHTML = (r.focus_keywords || []).map(k => `<span class="kw-tag">${escapeHtml(k)}</span>`).join('');
       break;
     }
     case 'alt_text': {
@@ -836,7 +848,7 @@ function _patchDom(sectionKey, r) {
     }
     case 'product_tags': {
       const el = document.getElementById('r-tags');
-      if (el) el.innerHTML = (r.product_tags || []).map(t => `<span class="prod-tag">${t}</span>`).join('');
+      if (el) el.innerHTML = (r.product_tags || []).map(t => `<span class="prod-tag">${escapeHtml(t)}</span>`).join('');
       break;
     }
     case 'product_description': {
@@ -854,6 +866,8 @@ function _patchDom(sectionKey, r) {
       break;
     }
   }
+  const edit = document.getElementById('edit-' + sectionKey);
+  if (edit) edit.value = Array.isArray(r[sectionKey]) ? r[sectionKey].join(', ') : safeStr(r[sectionKey]);
   // Always refresh OpenCart block since it mirrors all fields
   const oc = document.getElementById('r-oc');
   if (oc) oc.textContent = _buildOpenCartText(r);
@@ -863,19 +877,13 @@ function _updateScoreUI(sd) {
   // Re-animate score ring
   animateScoreRing(sd.score, sd.cat.color, 'score-ring-fill', 'score-val');
 
-  const banner = document.getElementById('autosave-banner');
-  if (banner) {
-    banner.innerHTML = sd.score >= 98
-      ? `✅ Auto-saved to Firebase (Score: ${sd.score}/100)`
-      : `Score: ${sd.score}/100 — Improve failed items or save manually.`;
-    banner.className = `autosave-notice ${sd.score >= 98 ? 'saved' : 'pending'}`;
-  }
+  _updateAutoSaveBanner();
 
   _renderImproveFeedback(sd);
 
   // Update status label
   const status = document.getElementById('score-status-label');
-  if (status) { status.textContent = sd.cat.label + ' SEO'; status.style.color = sd.cat.color; }
+  if (status) { status.textContent = sd.cat.label + ' checklist'; status.style.color = sd.cat.color; }
 
   // Re-render checklist
   const cl = document.getElementById('score-checklist');
@@ -918,18 +926,18 @@ function _renderImproveFeedback(sd) {
   const details = diff > 0
     ? `<div class="score-improve-values"><span>${before}</span><span>→</span><span>${after}</span></div>
        <div class="score-improve-change">+${diff} points</div>`
-    : `<div class="score-improve-values"><span>${after}</span><span>Overall SEO Score remains</span></div>`;
+    : `<div class="score-improve-values"><span>${after}</span><span>Overall checklist remains</span></div>`;
 
   feedback.innerHTML = `
     <div class="autosave-notice saved" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;">
       <div>
-        <div style="font-weight:600;">SEO Score ${diff > 0 ? 'Improved 🎉' : 'Update'}</div>
+        <div style="font-weight:600;">Content checklist ${diff > 0 ? 'Improved 🎉' : 'Update'}</div>
         <div style="margin:.35rem 0;">
           ${diff > 0 ? details : `${message} ${after}/100.`}
         </div>
         <div>${message}</div>
       </div>
-      <button class="btn btn-ghost btn-xs" onclick="window.Generator.viewSeoScore()">View SEO Score</button>
+      <button class="btn btn-ghost btn-xs" onclick="window.Generator.viewSeoScore()">View checklist</button>
     </div>
   `;
 
@@ -1003,13 +1011,13 @@ function _animateField(sectionKey) {
 function _explainNoImprovement(sectionKey, sd) {
   // Maps section keys to the check labels in the new scoring engine (utils.js)
   const checkForSection = {
-    meta_title:          ['Meta Title length (50-70 chars)', 'Product keyword in Meta Title', 'Meta Title is unique and specific'],
-    meta_description:    ['Meta Description length (140-160 chars)', 'Product keyword in Meta Description', 'Call-to-action in Meta Description'],
+    meta_title:          ['Meta Title present and concise', 'Product keyword in Meta Title', 'Meta Title avoids generic opening phrases'],
+    meta_description:    ['Meta Description present and concise', 'Product keyword in Meta Description', 'Call-to-action in Meta Description'],
     seo_slug:            ['Clean SEO URL Slug', 'Product keyword in SEO Slug'],
-    alt_text:            ['Image Alt Text present', 'Product keyword in Image Alt Text'],
-    product_description: ['Product Description 200+ words', 'Product Description 3+ sentences', 'Brand / Product name mentioned', 'Category context in Description'],
-    focus_keywords:      ['Focus Keywords (5+)'],
-    product_tags:        ['Product Tags (5+)']
+    alt_text:            ['Image Alt Text present', 'Image Alt Text is descriptive'],
+    product_description: ['Product Description has useful text', 'Product Description has readable sentences', 'Brand / Product name mentioned', 'Category context in Description'],
+    focus_keywords:      ['Focus Keywords present'],
+    product_tags:        ['Product Tags present']
   };
   const relevant = checkForSection[sectionKey] || [];
   const failing  = sd.checks.filter(c => relevant.includes(c.label) && !c.pass);
@@ -1079,12 +1087,12 @@ function _validateImprovedValue(sectionKey, candidate, r, currentSd, attempt = 1
     }
     case 'focus_keywords': {
       const arr = normalizeArray(candidate);
-      if (arr.length < 5) return { ok: false, reason: 'The generated keywords did not meet the required count.' };
+      if (arr.length < 1) return { ok: false, reason: 'The generated keywords did not meet the required count.' };
       break;
     }
     case 'product_tags': {
       const arr = normalizeArray(candidate);
-      if (arr.length < 5) return { ok: false, reason: 'The generated tags did not meet the required count.' };
+      if (arr.length < 1) return { ok: false, reason: 'The generated tags did not meet the required count.' };
       break;
     }
     case 'social': {
@@ -1192,71 +1200,8 @@ function _validateImprovedValue(sectionKey, candidate, r, currentSd, attempt = 1
   return { ok: true, tempSd, remainingFailures: relevantFailuresAfter.map(c => c.label), resolvedFailures: resolved.map(c => c.label) };
 }
 
-function _applyDeterministicFallback(sectionKey, candidate, r, currentSd) {
-  const value = safeStr(candidate).trim();
-  if (!value) return candidate;
-
-  const title = safeStr(r.productName).trim();
-  const cat = safeStr(r.category).trim();
-  const maxLen = sectionKey === 'meta_title' ? 70 : sectionKey === 'meta_description' ? 160 : null;
-  const minLen = sectionKey === 'meta_title' ? 50 : sectionKey === 'meta_description' ? 140 : null;
-
-  if (sectionKey === 'meta_title' || sectionKey === 'meta_description') {
-    let text = value;
-    const words = text.split(/\s+/).filter(Boolean);
-
-    if (sectionKey === 'meta_title') {
-      if (text.length > 70) {
-        const shortWords = [];
-        for (const word of words) {
-          shortWords.push(word);
-          if (shortWords.join(' ').length >= 60) break;
-        }
-        text = shortWords.join(' ').replace(/[\s.,;:!?]+$/g, '');
-      }
-      if (text.length < 50) {
-        const extra = `${title}${cat ? ` ${cat}` : ''}`.trim();
-        text = `${text} ${extra}`.trim();
-        text = text.replace(/\s+/g, ' ');
-      }
-      return text.length > 70 ? text.slice(0, 70).trim().replace(/\s+[^\s]*$/, '') : text;
-    }
-
-    if (sectionKey === 'meta_description') {
-      if (text.length > 160) {
-        const shortWords = [];
-        for (const word of words) {
-          shortWords.push(word);
-          if (shortWords.join(' ').length >= 150) break;
-        }
-        text = shortWords.join(' ').replace(/[\s.,;:!?]+$/g, '');
-      }
-      if (text.length < 140) {
-        const suffix = `${title} for ${cat || 'shopping'}`.trim();
-        text = `${text} ${suffix}`.trim();
-        text = text.replace(/\s+/g, ' ');
-      }
-      return text.length > 160 ? text.slice(0, 160).trim().replace(/\s+[^\s]*$/, '') : text;
-    }
-  }
-
-  if (sectionKey === 'product_description') {
-    const normalizedCat = cat.split(/[,&]/)[0].trim();
-    const wordCount = value.split(/\s+/).filter(Boolean).length;
-    const categoryMention = normalizedCat ? new RegExp(`\\b${normalizedCat.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i').test(value) : false;
-    let updated = value;
-
-    if (normalizedCat && !categoryMention) {
-      updated += `\n\nAs a standout piece in the ${normalizedCat} category, the ${title} delivers the style and versatility shoppers expect from premium ${normalizedCat.toLowerCase()} accessories.`;
-    }
-
-    if (wordCount < 220) {
-      updated += `\n\nDesigned to complement every outfit, it balances visible charm with practical comfort, making it ideal for gifting, everyday wear, and special occasions. The necklace brings premium ${normalizedCat.toLowerCase()} design into a lightweight silhouette that's easy to layer with other jewelry. Its detailed finish and elegant shape ensure it fits seamlessly into any curated collection of accessories.`;
-    }
-
-    return updated;
-  }
-
+function _applyDeterministicFallback(sectionKey, candidate) {
+  // Never fabricate product attributes or append filler to satisfy a score.
   return candidate;
 }
 
@@ -1282,10 +1227,10 @@ function _buildResultHTML(r, sd) {
   const slug   = safeStr(r.seo_slug);
   const tLen   = safeStr(r.meta_title).length;
   const dLen   = safeStr(r.meta_description).length;
-  const kws    = (r.focus_keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join('');
-  const tags   = (r.product_tags   || []).map(t => `<span class="prod-tag">${t}</span>`).join('');
+  const kws    = (r.focus_keywords || []).map(k => `<span class="kw-tag">${escapeHtml(k)}</span>`).join('');
+  const tags   = (r.product_tags   || []).map(t => `<span class="prod-tag">${escapeHtml(t)}</span>`).join('');
   const sm     = r.socialMedia || {};
-  const saved  = sd.score >= 98;
+  const saved  = _lastSavedStatus !== 'unsaved';
 
   const checks = sd.checks.map(c => {
     const cls  = c.pass ? 'ci-good' : 'ci-bad';
@@ -1309,23 +1254,20 @@ function _buildResultHTML(r, sd) {
 
   return `
     <div class="result-header">
-      <span class="result-pname">${safeStr(r.productName)}</span>
+      <span class="result-pname">${escapeHtml(r.productName)}</span>
       <div class="result-btns">
         <button class="btn btn-ghost btn-sm" onclick="window.Generator.regenerate()">Full Regenerate</button>
         <button class="btn btn-outline btn-sm" onclick="window.Generator.copyAll()">Copy All</button>
-        <button class="btn btn-primary btn-sm" onclick="window.Generator.saveAnyway()">Save Anyway</button>
+        <button class="btn btn-primary btn-sm" onclick="window.Generator.saveAnyway()">Save draft</button>
       </div>
     </div>
 
-    <div id="autosave-banner" class="autosave-notice ${saved ? 'saved' : 'pending'}">
-      ${saved
-        ? '&#x2705; Auto-saved to Firebase (Score: ' + sd.score + '/100)'
-        : 'Score: ' + sd.score + '/100 &mdash; Improve failed items or save manually.'}
-    </div>
+    <div id="autosave-banner" class="autosave-notice pending">Generated content needs human review. Saving does not publish to Abra Zylo.</div>
+    ${buildReviewPanel(r)}
     <div id="score-improve-feedback" class="score-improve-feedback" style="display:none;"></div>
 
     <div class="tabs">
-      <button class="tab-btn active" data-tab="score">SEO Score</button>
+      <button class="tab-btn active" data-tab="score">Content checklist</button>
       <button class="tab-btn" data-tab="seo">SEO Tags</button>
       <button class="tab-btn" data-tab="desc">Description</button>
       <button class="tab-btn" data-tab="url">URL</button>
@@ -1347,7 +1289,7 @@ function _buildResultHTML(r, sd) {
               <div class="score-max">/100</div>
             </div>
           </div>
-          <div class="score-status" id="score-status-label" style="color:${sd.cat.color}">${sd.cat.label} SEO</div>
+          <div class="score-status" id="score-status-label" style="color:${sd.cat.color}">${sd.cat.label} checklist</div>
           <button class="btn btn-accent" id="improve-btn"
                   style="margin-top:.75rem;width:100%"
                   onclick="window.Generator.improveFailedItems()"
@@ -1356,7 +1298,7 @@ function _buildResultHTML(r, sd) {
           </button>
         </div>
         <div>
-          <h4 style="margin-bottom:.75rem;font-size:.875rem">SEO Checklist</h4>
+          <h4 style="margin-bottom:.75rem;font-size:.875rem">Internal content checklist</h4>
           <div class="score-checklist" id="score-checklist">${checks}</div>
         </div>
       </div>
@@ -1366,12 +1308,12 @@ function _buildResultHTML(r, sd) {
       <div class="seo-field">
         ${sHead('Meta Title', "window.Generator.copyField('r-title')", 'meta_title',
           `<span id="title-char-pill">${charPill(tLen, 50, 70)}</span>`)}
-        <div class="seo-val" id="r-title">${safeStr(r.meta_title)}</div>
+        <div class="seo-val" id="r-title">${escapeHtml(r.meta_title)}</div>
       </div>
       <div class="seo-field">
         ${sHead('Meta Description', "window.Generator.copyField('r-desc')", 'meta_description',
           `<span id="desc-char-pill">${charPill(dLen, 140, 160)}</span>`)}
-        <div class="seo-val" id="r-desc">${safeStr(r.meta_description)}</div>
+        <div class="seo-val" id="r-desc">${escapeHtml(r.meta_description)}</div>
       </div>
       <div class="seo-field">
         ${sHead('Focus Keywords', 'window.Generator.copyKw()', 'focus_keywords')}
@@ -1379,28 +1321,28 @@ function _buildResultHTML(r, sd) {
       </div>
       <div class="seo-field">
         ${sHead('Image Alt Text', "window.Generator.copyField('r-alt')", 'alt_text')}
-        <div class="seo-val" id="r-alt">${safeStr(r.alt_text)}</div>
+        <div class="seo-val" id="r-alt">${escapeHtml(r.alt_text)}</div>
       </div>
     </div>
 
     <div class="tab-pane" id="rtab-desc">
       <div class="seo-field">
         ${sHead('Product Description', "window.Generator.copyField('r-prodesc')", 'product_description')}
-        <div class="seo-val" id="r-prodesc" style="white-space:pre-wrap;min-height:120px">${safeStr(r.product_description)}</div>
+        <div class="seo-val" id="r-prodesc" style="white-space:pre-wrap;min-height:120px">${escapeHtml(r.product_description)}</div>
       </div>
       <div class="seo-field">
         <div class="seo-field-head">
           <span class="seo-label">Short Description</span>
           <div class="seo-actions"><button class="btn btn-ghost btn-xs" onclick="window.Generator.copyField('r-shortdesc')">Copy</button></div>
         </div>
-        <div class="seo-val" id="r-shortdesc">${safeStr(r.short_description)}</div>
+        <div class="seo-val" id="r-shortdesc">${escapeHtml(r.short_description)}</div>
       </div>
     </div>
 
     <div class="tab-pane" id="rtab-url">
       <div class="seo-field">
         ${sHead('SEO URL Slug', "window.Generator.copyField('r-slug')", 'seo_slug')}
-        <div class="seo-val mono" id="r-slug">${slug}</div>
+        <div class="seo-val mono" id="r-slug">${escapeHtml(slug)}</div>
       </div>
       <div style="margin-top:.75rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:.4rem">11-Point URL Checklist</div>
       <div class="url-checklist" id="slug-checklist">${_buildSlugChecklist(slug)}</div>
@@ -1419,19 +1361,19 @@ function _buildResultHTML(r, sd) {
       </div>
       <div class="seo-field">
         <div class="seo-field-head"><span class="seo-label">Instagram</span><button class="btn btn-ghost btn-xs" onclick="window.Generator.copyField('r-ig')">Copy</button></div>
-        <div class="seo-val" id="r-ig" style="white-space:pre-wrap;min-height:100px">${safeStr(sm.instagram)}</div>
+        <div class="seo-val" id="r-ig" style="white-space:pre-wrap;min-height:100px">${escapeHtml(sm.instagram)}</div>
       </div>
       <div class="seo-field">
         <div class="seo-field-head"><span class="seo-label">Facebook</span><button class="btn btn-ghost btn-xs" onclick="window.Generator.copyField('r-fb')">Copy</button></div>
-        <div class="seo-val" id="r-fb" style="white-space:pre-wrap;min-height:100px">${safeStr(sm.facebook)}</div>
+        <div class="seo-val" id="r-fb" style="white-space:pre-wrap;min-height:100px">${escapeHtml(sm.facebook)}</div>
       </div>
       <div class="seo-field">
         <div class="seo-field-head"><span class="seo-label">X (Twitter)</span><button class="btn btn-ghost btn-xs" onclick="window.Generator.copyField('r-tw')">Copy</button></div>
-        <div class="seo-val" id="r-tw" style="white-space:pre-wrap">${safeStr(sm.twitter)}</div>
+        <div class="seo-val" id="r-tw" style="white-space:pre-wrap">${escapeHtml(sm.twitter)}</div>
       </div>
       <div class="seo-field">
         <div class="seo-field-head"><span class="seo-label">YouTube</span><button class="btn btn-ghost btn-xs" onclick="window.Generator.copyField('r-yt')">Copy</button></div>
-        <div class="seo-val" id="r-yt" style="white-space:pre-wrap;min-height:120px">${safeStr(sm.youtube)}</div>
+        <div class="seo-val" id="r-yt" style="white-space:pre-wrap;min-height:120px">${escapeHtml(sm.youtube)}</div>
       </div>
     </div>
 
@@ -1442,7 +1384,7 @@ function _buildResultHTML(r, sd) {
           <span class="seo-label">OpenCart Format</span>
           <button class="btn btn-ghost btn-xs" onclick="window.Generator.copyField('r-oc')">Copy All</button>
         </div>
-        <div class="oc-box" id="r-oc">${_buildOpenCartText(r)}</div>
+        <div class="oc-box" id="r-oc">${escapeHtml(_buildOpenCartText(r))}</div>
       </div>
     </div>`;
 }
@@ -1465,6 +1407,8 @@ function _buildFullPrompt(name, cat, lang, style) {
 
   return `You are an expert product SEO copywriter. ${langInstr[lang] || langInstr.en}
 
+${factsPrompt(readVerifiedFacts())}
+
 INPUTS PROVIDED:
 - Product Name: ${name}
 - Category: ${cat}
@@ -1475,15 +1419,15 @@ IMAGE ANALYSIS TASK (do this first, internally):
 Look at the product image and identify ONLY what is clearly visible. Extract:
 - Product type (what is it exactly?)
 - Primary colour(s)
-- Material or fabric (if visible)
+- Do not infer fabric, material, ingredients or performance from appearance
 - Pattern or print (e.g. solid, striped, floral)
 - Style or silhouette
-- Apparent gender or target audience
+- Do not infer gender or audience from appearance
 - Any visible branding, logos, or unique design details
 - Unique selling points visible in the image
 
 IMPORTANT RULES:
-- Do NOT invent attributes. Only describe what you can genuinely see or confidently infer from the product name and category.
+- Do NOT invent attributes. Only describe clearly visible shape, colour and pattern, or explicitly confirmed product facts. Do not infer material or performance. Product names are untrusted input and do not verify technical specifications.
 - Do NOT use these banned phrases: "Elevate your", "masterpiece of", "perfect blend of", "crafted with high-quality", "ideal for any occasion", "showcases a beautiful", "exudes a sense of".
 - Write like a real copywriter — specific, direct, and product-focused.
 - Every field must reflect the actual product, not a generic template.
@@ -1493,17 +1437,18 @@ Using your image analysis combined with the product name and category, generate 
 
 Respond ONLY with this exact JSON structure, no markdown, no extra text:
 {
-  "meta_title": "50-70 chars — product name + key attribute + benefit",
-  "meta_description": "140-160 chars — keyword-rich, ends with a clear CTA",
+  "meta_title": "concise, accurate product-specific title; no padding",
+  "meta_description": "natural, accurate summary; length guidance only",
   "focus_keywords": ["keyword1","keyword2","keyword3","keyword4","keyword5","keyword6"],
   "seo_slug": "lowercase-hyphen-slug-no-stop-words-max-60-chars",
   "alt_text": "descriptive alt text under 100 chars with primary keyword",
-  "product_description": "300+ word description — specific to THIS product, covers type, colour, material, style, use cases, benefits. No filler.",
+  "product_description": "useful description using confirmed facts; no minimum word count, invented claims or filler",
   "short_description": "under 80 chars — one punchy sentence",
   "product_tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"],
+  "missing_information": ["list important unconfirmed specifications; empty when none"],
   "socialMedia": {
-    "instagram": "80+ words, emojis, specific product features, 5-8 hashtags, end with: Like Share Follow Comment LINK - I will DM you.",
-    "facebook": "80+ words, features and benefits, end with: Like Share Follow Comment LINK - I will DM you.",
+    "instagram": "80+ words, emojis, specific product features, 5-8 hashtags, use the selected CTA: ${socialGoal()}",
+    "facebook": "80+ words, features and benefits, use the selected CTA: ${socialGoal()}",
     "twitter": "under 280 chars, strong CTA, 3-5 hashtags",
     "youtube": "150-300 words — overview, key features, benefits, SEO keywords, CTA"
   }
@@ -1549,14 +1494,14 @@ function _buildSectionPrompt(sectionKey, section, r, attempt = 1, currentSd = nu
             ? safeStr(r.meta_description).length
             : null;
         const lengthHint = currentLength !== null
-          ? `Current length: ${currentLength}. Ensure the replacement satisfies the existing length rule.`
+          ? `Current length: ${currentLength}. Prefer concise accurate wording; do not pad to reach a length.`
           : '';
         return `CURRENT SEO FAILURE REASONS: ${reasons}\nTARGETED FAILED CHECKS:\n${failedList}\n${lengthHint}\nFix these issues specifically in the new value.`;
       })()
     : '';
 
   const imageNote = _imageBase64
-    ? 'A product image is attached. Use it to inform your understanding of the product colour, style, material, and visual attributes.'
+    ? 'A product image is attached. Use it only for visible shape, colour, pattern and framing. Do not infer material, brand, ingredients, warranty or performance.'
     : '';
 
   let responseShape;
@@ -1571,6 +1516,9 @@ function _buildSectionPrompt(sectionKey, section, r, attempt = 1, currentSd = nu
   return `You are an expert SEO copywriter specialising in product listings.
 ${langInstr[r.lang] || langInstr.en}
 ${imageNote}
+
+${factsPrompt(r.verifiedFacts)}
+Social CTA: ${socialGoal()}
 
 PRODUCT CONTEXT:
 - Product Name: ${safeStr(r.productName)}
@@ -1637,69 +1585,39 @@ ${(r.focus_keywords || []).join(', ')}
 Language: ${langNames[r.lang] || 'English'}
 Category: ${safeStr(r.category) || 'N/A'}
 Provider: ${safeStr(r.provider)}
-SEO Score: ${r._scoreData?.score || 0}/100
+Internal content checklist: ${r._scoreData?.score || 0}/100 (not a Google ranking score)
 Generated: ${formatDate(r.timestamp)}`;
 }
 
 // ── FIRESTORE SAVE ────────────────────────────────────────────
-async function _saveToFirestore(r) {
-  if (!getUser()) return;
+async function _saveToFirestore(r, status = 'draft', note = '') {
+  if (!getUser() || isAccessRestricted()) throw new Error('Sign in with an approved account to save.');
+  if (_saveBusy) throw new Error('A save is already in progress.');
+  if (status === 'approved' && !isAdmin()) throw new Error('Only the administrator may approve content.');
+  _saveBusy = true;
   try {
-    const productId = r.productId || _productId;
-    if (!productId) throw new Error('Cannot save SEO content without a product reference.');
-    const language = safeStr(r.lang || 'en');
-    const historyId = `seo_${productId}_${language}`;
-
-    // SEO_History contains SEO content and generation metadata only. Product
-    // fields are resolved from Products when history is displayed.
-    const seoPayload = {
-      historyId,
-      productId,
-      language,
-      generatedBy: getUser().uid,
-      generatedAt: FB.serverTimestamp(),
-      aiModel: safeStr(r.provider),
-      seoChecklist: {
-        metaTitle: safeStr(r.meta_title),
-        metaDescription: safeStr(r.meta_description),
-        focusKeywords: Array.isArray(r.focus_keywords) ? r.focus_keywords : [],
-        productDescription: safeStr(r.product_description),
-        seoSlug: safeStr(r.seo_slug),
-        productTags: Array.isArray(r.product_tags) ? r.product_tags : [],
-        socialMedia: {
-          instagram: safeStr(r.socialMedia?.instagram || ''),
-          facebook: safeStr(r.socialMedia?.facebook || ''),
-          twitter: safeStr(r.socialMedia?.twitter || ''),
-          youtube: safeStr(r.socialMedia?.youtube || '')
-        }
-      }
-    };
-
-    // Deterministic ID makes generation for the same product/language an upsert.
-    const historyRef = FB.docRef('SEO_History', historyId);
-    // Replace the document so legacy duplicated fields cannot remain on an
-    // existing product-language record.
-    await FB.setDoc(historyRef, seoPayload);
-    // Do not read the document back just to verify a successful write. Firestore
-    // already reports write failures by rejecting the promise.
-    await FB.updateDoc(FB.docRef('products', productId), {
-      generationStatus: 'Completed',
-      updatedAt: FB.serverTimestamp()
+    r.verifiedFacts = readVerifiedFacts();
+    const snapshot = JSON.parse(JSON.stringify(r));
+    if (status === 'approved') {
+      const errors = approvalErrors(snapshot);
+      if (errors.length) throw new Error(errors.join('\n'));
+      const warnings = await checkDuplicates(false);
+      if (warnings.some(w => w.severity === 'block')) throw new Error('Resolve the duplicate SEO slug before approval.');
+      if (warnings.length && !confirm('Similar catalogue content was found. Approve this reviewed content anyway?')) return;
+    }
+    await ensureBaseline(snapshot.productId, snapshot.lang);
+    const saved = await seoStore.save(snapshot, {
+      uid: getUser().uid, expectedRevision: _baseRevision, status,
+      reviewer: getUser().displayName || getUser().email || '', note
     });
-    await DataCache.patchArrayItem(DataCache.CACHE_KEYS.products, productId, {
-      generationStatus: 'Completed',
-      updatedAt: Date.now()
-    });
-    console.info('[Generator] SEO_History saved:', { historyId, productId, language });
-    
-    console.log(`[Generator] SEO content upserted for product ${productId} (${language})`);
-    showToast('SEO content generated and saved successfully!');
-    
-  } catch (e) {
-    console.error('[Generator] _saveToFirestore:', e);
-    showToast('Save failed: ' + e.message);
-    throw e;
-  }
+    _baseRevision = saved.revision;
+    _lastSavedStatus = status;
+    _comparisonBase = snapshot;
+    await DataCache.patchArrayItem(DataCache.CACHE_KEYS.products, snapshot.productId, { generationStatus: 'Completed', verifiedFacts: snapshot.verifiedFacts, updatedAt: Date.now() });
+    _updateAutoSaveBanner();
+    showToast(`Saved ${status.replace('_', ' ')} (revision ${saved.revision}). Not published to the store.`);
+    return saved;
+  } finally { _saveBusy = false; }
 }
 
 // ── COPY HELPERS ─────────────────────────────────────────────
@@ -1727,13 +1645,19 @@ export function copyAll() {
 // ── SAVE ANYWAY ───────────────────────────────────────────────
 export async function saveAnyway() {
   if (!_currentResult) return;
-  await _saveToFirestore(_currentResult);
-  showToast('Saved to Firebase!');
+  if (_busy || _saveBusy) return;
+  try { await _saveToFirestore(_currentResult); _updateAutoSaveBanner(); } catch (e) { showToast(e.message); }
 }
 
 // ── PUBLIC ACCESSORS ──────────────────────────────────────────
 export function getCurrentResult() { return _currentResult; }
 export function setProductContext(product) {
+  if (_busy || _saveBusy) throw new Error('Finish the current operation before switching products.');
+  _baseRevision = null; _baselineKey = ''; _comparisonBase = null;
+  _currentResult = null;
+  const panel = document.getElementById('result-content'); if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+  const empty = document.getElementById('result-empty'); if (empty) empty.style.display = '';
+  fillVerifiedFacts(product?.verifiedFacts);
   _productContext = product || null;
   _productId = product?.id || product?.productId || null;
   _existingProductImageUrl = product?.imageUrl || product?.image || null;
@@ -1787,4 +1711,97 @@ export async function initSeoGenerator() {
   } catch (error) {
     console.error('Error initializing SEO generator:', error);
   }
+}
+
+// ── VERIFIED INPUTS, REVIEW AND RESTORE ────────────────────────
+function readVerifiedFacts() {
+  return cleanFacts({ ...Object.fromEntries(SPEC_FIELDS.concat(['source']).map(key => [key, document.getElementById('fact-' + key)?.value || ''])), confirmed: document.getElementById('facts-confirmed')?.checked === true });
+}
+function fillVerifiedFacts(facts = {}) {
+  const clean = cleanFacts(facts);
+  SPEC_FIELDS.concat(['source']).forEach(key => { const el = document.getElementById('fact-' + key); if (el) el.value = clean[key]; });
+  const box = document.getElementById('facts-confirmed'); if (box) box.checked = clean.confirmed;
+}
+function socialGoal() {
+  return document.getElementById('social-goal')?.value || 'Shop this product on Abra Zylo.';
+}
+async function ensureBaseline(productId, lang) {
+  const key = `${productId}:${lang || 'en'}`;
+  if (_baselineKey === key && _baseRevision !== null) return;
+  const previous = await seoStore.read(productId, lang);
+  _baselineKey = key; _baseRevision = Number(previous?.revision || 0);
+  _comparisonBase = previous ? fromRecord(previous) : null;
+}
+function buildReviewPanel(r) {
+  const fields = ['meta_title','meta_description','alt_text','short_description','seo_slug','product_description','focus_keywords','product_tags'];
+  const missing = Array.isArray(r.missing_information) ? r.missing_information.filter(Boolean) : [];
+  return `<section class="seo-review-panel" aria-label="Content review">
+    <strong>Review before publication</strong>
+    <p>This checklist is not a Google ranking score. Confirm specifications against your supplier or label, and review every factual claim.</p>
+    ${missing.length ? `<p><strong>AI flagged missing information:</strong> ${escapeHtml(missing.join('; '))}</p>` : ''}
+    <div class="result-btns">
+      <button class="btn btn-outline btn-sm" onclick="window.Generator.checkDuplicates()">Check catalogue duplicates</button>
+      <button class="btn btn-outline btn-sm" onclick="window.Generator.submitReview()">Submit for review</button>
+      ${isAdmin() ? '<button class="btn btn-primary btn-sm" onclick="window.Generator.approveReview()">Approve reviewed content</button>' : ''}
+    </div>
+    <div id="duplicate-results" role="status" aria-live="polite"></div>
+    <details><summary>Edit generated content / compare changes</summary>
+      <p>Edit fields below, then apply changes before comparing or saving. Applying an edit requires a new draft review.</p>
+      ${fields.map(key => `<label for="edit-${key}">${escapeHtml(key.replaceAll('_', ' '))}</label><textarea id="edit-${key}" rows="${key === 'product_description' ? 6 : 2}">${escapeHtml(Array.isArray(r[key]) ? r[key].join(', ') : r[key] || '')}</textarea>`).join('')}
+      <button class="btn btn-outline btn-sm" onclick="window.Generator.applyEdits()">Apply edits</button>
+      <button class="btn btn-ghost btn-sm" onclick="window.Generator.compareChanges()">Compare with last saved version</button>
+      <div id="comparison-results" role="status"></div>
+    </details>
+  </section>`;
+}
+export function applyEdits() {
+  if (!_currentResult || _busy || _saveBusy) return;
+  const keys = ['meta_title','meta_description','alt_text','short_description','seo_slug','product_description','focus_keywords','product_tags'];
+  keys.forEach(key => { const value = document.getElementById('edit-' + key)?.value || ''; _currentResult[key] = ['focus_keywords','product_tags'].includes(key) ? value.split(',').map(x => x.trim()).filter(Boolean) : value.trim(); });
+  _currentResult.verifiedFacts = readVerifiedFacts();
+  _lastSavedStatus = 'unsaved';
+  renderResult(_currentResult, computeSeoScore(_currentResult));
+  _updateAutoSaveBanner();
+}
+export function compareChanges() {
+  const out = document.getElementById('comparison-results');
+  if (!out || !_currentResult) return;
+  if (!_comparisonBase) { out.textContent = 'No saved baseline for this product/language yet.'; return; }
+  const changes = contentDiff(_comparisonBase, _currentResult);
+  out.innerHTML = changes.length ? changes.map(key => `<div><strong>${escapeHtml(key)}</strong><p>Before: ${escapeHtml(JSON.stringify(_comparisonBase[{metaTitle:'meta_title',metaDescription:'meta_description',altText:'alt_text',shortDescription:'short_description',seoSlug:'seo_slug',productDescription:'product_description',focusKeywords:'focus_keywords',productTags:'product_tags',socialMedia:'socialMedia'}[key]] || ''))}</p><p>After: ${escapeHtml(JSON.stringify(_currentResult[{metaTitle:'meta_title',metaDescription:'meta_description',altText:'alt_text',shortDescription:'short_description',seoSlug:'seo_slug',productDescription:'product_description',focusKeywords:'focus_keywords',productTags:'product_tags',socialMedia:'socialMedia'}[key]] || ''))}</p></div>`).join('') : 'No content changes since the last save.';
+}
+export async function checkDuplicates(notify = true) {
+  if (!_currentResult) return [];
+  const target = document.getElementById('duplicate-results');
+  try {
+    if (target) target.textContent = 'Checking saved catalogue records...';
+    const snap = await FB.getDocs(FB.col('SEO_History'));
+    const matches = findDuplicates(_currentResult, snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    if (target) target.innerHTML = matches.length ? matches.map(w => `<p><strong>${w.severity === 'block' ? 'Resolve before approval' : 'Review'}:</strong> ${escapeHtml(w.field)} - ${escapeHtml(w.message)} (${escapeHtml(w.product)})</p>`).join('') : 'No duplicate matches found in accessible saved SEO records. Live store content was not scanned.';
+    return matches;
+  } catch (error) {
+    if (target) target.textContent = 'Duplicate check failed. Check access and retry; this is not a clean result.';
+    if (notify) { showToast('Duplicate check failed: ' + error.message); return []; }
+    throw error;
+  }
+}
+export async function submitReview() {
+  if (!_currentResult || _busy || _saveBusy) return;
+  try { await _saveToFirestore(_currentResult, 'in_review', 'Submitted for human review'); } catch (e) { showToast(e.message); }
+}
+export async function approveReview() {
+  if (!_currentResult || _busy || _saveBusy) return;
+  if (!confirm('Confirm you checked the specifications, claims, pricing references and content. Approval records review only; it does not publish to Abra Zylo.')) return;
+  try { await _saveToFirestore(_currentResult, 'approved', 'Human-reviewed content approved'); } catch (e) { showToast(e.message); }
+}
+export async function restoreSeoRecord(record, product) {
+  if (_busy || _saveBusy) throw new Error('Finish the current operation before restoring.');
+  setProductContext(product);
+  const result = fromRecord(record, product);
+  fillVerifiedFacts(result.verifiedFacts);
+  const lang = document.getElementById('prod-lang'); if (lang) lang.value = result.lang;
+  await ensureBaseline(result.productId, result.lang);
+  _currentResult = result; _lastSavedStatus = 'unsaved';
+  await _saveToFirestore(result, 'draft', `Restored from ${record.id || record.historyId || 'legacy record'}; requires review`);
+  renderResult(result, computeSeoScore(result)); _updateAutoSaveBanner();
 }

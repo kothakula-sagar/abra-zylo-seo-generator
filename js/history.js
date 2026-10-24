@@ -8,10 +8,12 @@ import { FB } from './firebase.js';
 import { getUser, isAdmin } from './auth.js';
 import { safeStr, formatDate, escapeHtml } from './utils.js';
 import { showToast, openModal, closeModal } from './ui.js';
-import { setProductContext } from './seo-generator.js';
+import { setProductContext, restoreSeoRecord } from './seo-generator.js';
 import { getResponsive, getThumbnail } from './cloudinary.js';
 
 let _products = [];
+let _selectedSeo = null;
+let _selectedProduct = null;
 
 // ── RENDER HISTORY LIST (NOW DRIVEN BY PRODUCTS COLLECTION) ───
 export async function render() {
@@ -72,7 +74,7 @@ export async function render() {
           return `
             <div class="generation-item" onclick="event.stopPropagation();window.History.loadSeoVersion(${i}, '${seo.id}')">
               <div class="generation-item-top">
-                <span class="generation-pill">${escapeHtml(_languageName(seo.language))}</span>
+                <span class="generation-pill">${escapeHtml(_languageName(seo.language))} / ${escapeHtml(seo.workflowStatus || 'legacy - not reviewed')} / v${Number(seo.revision || 0)}</span>
                 <span class="generation-date">${formatDate(seo.generatedAt)}</span>
               </div>
               <div class="generation-title">${escapeHtml(metaTitle)}</div>
@@ -156,6 +158,8 @@ function _getProductHistoryVersions(product) {
     seoChecklist: {
       metaTitle: safeStr(product.meta_title),
       metaDescription: safeStr(product.meta_description),
+      altText: safeStr(product.alt_text),
+      shortDescription: safeStr(product.short_description),
       focusKeywords: Array.isArray(product.focus_keywords) ? product.focus_keywords : [],
       productDescription: safeStr(product.product_description),
       seoSlug: safeStr(product.seo_slug),
@@ -414,6 +418,7 @@ export async function loadSeoVersion(productIdx, seoId) {
 }
 
 function renderSeoChecklist(product, seoData, productIdx) {
+  _selectedSeo = seoData; _selectedProduct = product;
   const checklist = seoData.seoChecklist || {};
   // Read the normalized schema, with compatibility fallbacks for documents
   // written before the field names were standardized.
@@ -431,6 +436,14 @@ function renderSeoChecklist(product, seoData, productIdx) {
     </div>
     ${field('Meta Title', checklist.metaTitle)}
     ${field('Meta Description', checklist.metaDescription)}
+    ${field('Review status', seoData.workflowStatus || 'Legacy record - not reviewed')}
+    ${field('Revision', String(seoData.revision || 0))}
+    ${field('Reviewed by', seoData.reviewerName || seoData.reviewedBy)}
+    ${field('Reviewed at', seoData.reviewedAt ? formatDate(seoData.reviewedAt) : '')}
+    ${field('Change note', seoData.changeNote)}
+    ${field('Image Alt Text', checklist.altText || checklist.alt_text)}
+    ${field('Short Description', checklist.shortDescription || checklist.short_description)}
+    ${field('Verified specifications', JSON.stringify(seoData.verifiedFacts || {}, null, 2))}
     ${field('Focus Keywords', checklist.focusKeywords)}
     ${field('Product Description', checklist.productDescription)}
     ${field('SEO URL', checklist.seoSlug || checklist.seoUrlSlug)}
@@ -439,7 +452,8 @@ function renderSeoChecklist(product, seoData, productIdx) {
     ${field('Facebook Caption', social.facebook)}
     ${field('X (Twitter) Caption', social.twitter || social.xTwitter)}
     ${field('YouTube Description', social.youtube)}
-    <div style="margin-top:1.25rem;display:flex;gap:.5rem">
+    <div style="margin-top:1.25rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="window.History.restoreSelected()">Restore as new draft</button>
       <button class="btn btn-outline btn-sm" onclick="window.History.open(${productIdx})">Back to SEO History</button>
       <button class="btn btn-outline btn-sm" onclick="window.UI.closeModal('hist-modal')">Close</button>
     </div>`;
@@ -679,4 +693,15 @@ export async function clearAll() {
     console.error('Error clearing all:', error);
     showToast('Error: ' + error.message);
   }
+}
+
+export async function restoreSelected() {
+  if (!_selectedSeo || !_selectedProduct) return;
+  if (!confirm('Restore this content as a new draft? The current saved revision will be preserved. Any previous approval must be reviewed again. Unsaved generator edits will be replaced.')) return;
+  try {
+    const record = _selectedSeo, product = _selectedProduct;
+    closeModal('hist-modal');
+    window.App.go('generate');
+    await restoreSeoRecord(record, product);
+  } catch (error) { showToast('Restore failed: ' + error.message); }
 }
