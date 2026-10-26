@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173e35"><meta name="robots" content="noindex, nofollow">
+  <title>Abra Zylo — The Everyday Edit | Interactive Demo</title>
+  <meta name="description" content="Explore the Abra Zylo shopping demo: considered style, everyday care and beautiful essentials.">
+  <meta property="og:title" content="Abra Zylo — The Everyday Edit"><meta property="og:description" content="Explore our interactive storefront demo. No real orders or payments.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="demo-ribbon">INTERACTIVE DEMO <span>Sample products · No real payments or deliveries</span><a href="#/about">About this demo ↗</a></div>
+  <div class="announcement" id="announcement">A little something for every day. <a href="#/shop">Explore the edit →</a></div>
+  <header class="header">
+    <a class="wordmark" href="#/" aria-label="Abra Zylo home">ABRA<span>ZYLO</span><small>EVERYDAY, CONSIDERED.</small></a>
+    <form id="search-form" class="search" role="search"><label class="sr-only" for="search">Search products</label><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 5 5"/></svg><input id="search" type="search" placeholder="Search your next favourite" autocomplete="off"><button aria-label="Search">→</button><div class="suggestions" id="suggestions" hidden></div></form>
+    <div class="header-actions"><label class="sr-only" for="language">Language</label><select id="language" aria-label="Language"><option value="en">EN</option><option value="hi">हिंदी</option><option value="kn">ಕನ್ನಡ</option></select><a href="#/account" aria-label="My account" class="icon-link"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><span data-i18n="account">Account</span></a><a href="#/wishlist" aria-label="Wishlist" class="icon-link"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg><span id="wish-count">0</span></a><a href="#/cart" aria-label="Shopping bag" class="icon-link bag"><svg viewBox="0 0 24 24"><path d="M4 7h16l1 15H3L4 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg><span data-i18n="bag">Bag</span><b id="cart-count">0</b></a></div>
+  </header>
+  <nav class="nav" aria-label="Main navigation"><button class="menu-button" id="menu-button" aria-expanded="false" aria-controls="nav-links">☰ <span data-i18n="menu">Menu</span></button><div id="nav-links"><a href="#/shop" data-i18n="shop">Shop all</a><a href="#/shop?category=Fashion" data-i18n="fashion">Fashion</a><a href="#/shop?category=Beauty" data-i18n="beauty">Beauty & care</a><a href="#/shop?category=Accessories" data-i18n="accessories">Bags & accessories</a><a href="#/stories">The style journal</a><a href="#/rewards">Zylo Circle <span class="mini-pill">REWARDS</span></a></div><a class="nav-end" href="#/tracking" data-i18n="track">Track an order ↗</a></nav>
+  <main id="main" tabindex="-1"></main>
+  <footer><div class="footer-top"><div><a class="wordmark light" href="#/">ABRA<span>ZYLO</span></a><p>Considered finds.<br>Everyday favourites.</p></div><div><h3>Explore</h3><a href="#/shop">Shop the collection</a><a href="#/stories">Style journal</a><a href="#/rewards">Zylo Circle</a><button id="install-button">Install demo app ↗</button></div><div><h3>Here to help</h3><a href="#/help">Help & returns</a><a href="#/tracking">Track your order</a><a href="#/account">Your account</a><a href="#/admin">Demo control room</a></div><div class="footer-note"><h3>A better shopping journey.</h3><p>This public prototype uses sample products and photography. Your demo bag and orders are saved only in this browser.</p><a href="#/about">Read demo details →</a></div></div><div class="footer-bottom"><span>© 2026 Abra Zylo · Storefront concept</span><span>Designed for desktop, tablet & mobile.</span><button data-action="reset">Reset demo data</button></div></footer>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="modal"><button class="close" aria-label="Close dialog">×</button><div id="modal-content"></div></dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
